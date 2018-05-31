@@ -25,6 +25,10 @@ The name of that database includes the serial number of the Dexcom receiver, so 
 
 By default, glucose readings from the last day get displayed, and every 5 minutes a new reading is added to the graph.
 
+In the upper right corner, the latest glucose value, the average glucose value over the last 90 days, and the Hemoglobin A1C value corresponding to that average is displayed. In addition, a Trend arrow indicates whether the glucose value is rising quickly, rising, flat, falling, or falling quickly. In the example below, the Trend is flat.
+
+![image](https://user-images.githubusercontent.com/39347592/40762686-514c6196-6467-11e8-9003-01e19ece6cf7.png)
+
 Use arrow keys <- or -> to scroll the display Date and Time backwards or forwards. You can also hover over a position in the Start Date slider (in blue near the bottom of the screen). The hover position will show the target starting date in parentheses. Click the left mouse button to immediately move to that hover position.
 
 ![image](https://user-images.githubusercontent.com/39347592/40758666-1f45d3ca-6454-11e8-99a9-4824f611c793.png)
