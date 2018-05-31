@@ -71,6 +71,18 @@ Like Events, Notes are draggable, so you can click on the string with your left 
 
 ![image](https://user-images.githubusercontent.com/39347592/40762389-5cc3f954-6466-11e8-81bd-1d7af4715751.png)
 
+By default, the Target range is 75 - 200 mg/dL. If you want to set a different target range, use the left mouse button to click the 'Set New Target Range' button in the bottom right corner of the screen. This will switch the color of that button from yellow to red.
+
+![image](https://user-images.githubusercontent.com/39347592/40806452-1fcbb222-64e7-11e8-8102-e3a5297ab7d3.png)
+
+Next, use the left mouse button to select a new range. Move the mouse into the plotting area and press the mouse button at the start of the desired vertical range. Hold that button down while moving vertically up or down. Release the button at the end of the desired range. In the example below, the new range is set from 97 to 205 mg/dL.
+
+![image](https://user-images.githubusercontent.com/39347592/40806464-26598006-64e7-11e8-93f8-2540b9b26c4c.png)
+
+The Target range (highlighted in gold color) will then move to the new range. Glucose values higher than this range will be colored read and glucose values lower than this range will be colored magenta.
+
+![image](https://user-images.githubusercontent.com/39347592/40806472-2c8f2ec6-64e7-11e8-9fa0-3201445c371f.png)
+
 ---
 
 I have tested this program under Linux and Macintosh OSX with a Dexcom G5.
