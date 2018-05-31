@@ -3,8 +3,6 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 ![image](https://user-images.githubusercontent.com/39347592/40751570-5ec24c90-6431-11e8-8490-58426198fcfc.png)
 
-Many thanks to the dexcom_reader project, https://github.com/openaps/dexcom_reader, which provided code used to read information off of Dexcom G4 or G5 receivers.
-
 This is a python program. I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the **style** which will provide the best looking graph, ***fivethirtyeight***.
 
 You also need to make sure several Python libraries are available. This can be done from a command line with 'pip':
@@ -72,3 +70,18 @@ and hit Return to place the new Note string into the graph.
 Like Events, Notes are draggable, so you can click on the string with your left mouse button, drag it to a better location and then release the mouse button. The updated position will be saved into the database.
 
 ![image](https://user-images.githubusercontent.com/39347592/40762389-5cc3f954-6466-11e8-81bd-1d7af4715751.png)
+
+---
+
+I have tested this program under Linux and Macintosh OSX with a Dexcom G5.
+
+If someone could test it on Windows and let me know how it works, I would appreciate it. If someone with a Dexcom G4 or Dexcom G6 system could test it, I'd like to hear whether it works. If there are problems, please execute in in Debug mode:
+
+***python dexctrack.py -d***
+
+In this mode, extra messages will print out in the terminal where you launched the application from.
+Capture the debug output and send it to me at ***dexctrack@gmail.com***
+
+---
+
+Many thanks to the dexcom_reader project, https://github.com/openaps/dexcom_reader, which provided code used to read information off of Dexcom G4 or G5 receivers.
