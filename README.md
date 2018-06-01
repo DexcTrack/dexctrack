@@ -85,6 +85,12 @@ The Target range (highlighted in gold color) will then move to the new range. Gl
 
 ---
 
+This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
+
+![image](https://user-images.githubusercontent.com/39347592/40817365-a8d5c4a6-6517-11e8-8e99-98dc35346f3b.png)
+
+---
+
 I have tested this program under Linux and Macintosh OSX with a Dexcom G5.
 
 If someone could test it on Windows and let me know how it works, I would appreciate it. If someone with a Dexcom G4 or Dexcom G6 system could test it, I'd like to hear whether it works. If there are problems, please execute in in Debug mode:
