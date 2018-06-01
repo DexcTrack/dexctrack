@@ -102,4 +102,4 @@ Capture the debug output and send it to me at ***dexctrack@gmail.com***
 
 ---
 
-Many thanks to the dexcom_reader project, https://github.com/openaps/dexcom_reader, which provided code used to read information off of Dexcom G4 or G5 receivers.
+Many thanks to the dexcom_reader project, https://github.com/openaps/dexcom_reader, which provided code used to read information off of Dexcom G4 or G5 receivers, and to the developers of the awesome ***matplotlib*** library which is great for drawing graphs.
