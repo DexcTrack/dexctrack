@@ -1,5 +1,5 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with a G5 receiver on Linux and Mac OSX High Sierra, so far.
 
 ![image](https://user-images.githubusercontent.com/39347592/40751570-5ec24c90-6431-11e8-8490-58426198fcfc.png)
 
