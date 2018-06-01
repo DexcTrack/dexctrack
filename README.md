@@ -3,7 +3,7 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 ![image](https://user-images.githubusercontent.com/39347592/40751570-5ec24c90-6431-11e8-8490-58426198fcfc.png)
 
-This is a python program. I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the **style** which will provide the best looking graph, ***fivethirtyeight***.
+I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the ***fivethirtyeight*** **style** which will provide the best looking graph.
 
 You also need to make sure several Python libraries are available. This can be done from a command line with 'pip':
 
