@@ -37,7 +37,7 @@ The Scale slider (in green at the bottom of the screen) can be used to zoom the 
 
 When you scale out to a large time period, the graph could get cluttered with a large number of Event or Note strings. When the number of such strings gets too large (> 30), they get dropped from the display.
 
-![image](https://user-images.githubusercontent.com/39347592/40879142-1f4deb6e-6661-11e8-8125-14fa5832dd7c.png)
+![image](https://user-images.githubusercontent.com/39347592/40879232-a48f1b9e-6662-11e8-88c2-e1a0a9cf6207.png)
 
 With a smaller time period, user added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
 
