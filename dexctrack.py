@@ -111,7 +111,7 @@ serialNum = None
 sPos = None
 avgText = None
 trendArrow = None
-hga1c = 0.0
+hba1c = 0.0
 lastTestGluc = 0
 xnorm = []
 ynorm = []
@@ -1165,11 +1165,11 @@ def plotInit():
         noteH = 0.04
 
     if gluUnits == 'mmol/L':
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHgA1c = %5.2f'
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHbA1c = %5.2f'
                                  %(0, 0, 0), style='italic', size='x-large', weight='bold')
     else:
-        #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHgA1c = %5.2f'
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHgA1c = %5.2f'
+        #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
                                  %(0, 0, 0), style='italic', size='x-large', weight='bold')
 
     trendArrow = plt.gcf().text(trendX, trendY, "Trend", ha="center", va="center",
@@ -1223,7 +1223,7 @@ def readDataFromSql():
     global eventList
     global noteList
     global avgGlu
-    global hga1c
+    global hba1c
     global lastTrend
     global trendChar
     global cfgDisplayLow
@@ -1327,7 +1327,7 @@ def readDataFromSql():
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # Find HgA1c. This is based on the average of glucose values over the last
+            # Find HbA1c. This is based on the average of glucose values over the last
             # 3 months, so limit the range of values to be averaged.
             selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
             ninetyDaysBack = int(lastTestSysSecs - 60*60*24*30*3)
@@ -1336,11 +1336,11 @@ def readDataFromSql():
             sqlData = curs.fetchone()
             if sqlData[0] is None:
                 avgGlu = 0.0
-                hga1c = 0.0
+                hba1c = 0.0
             else:
                 avgGlu = sqlData[0]
-                hga1c = (sqlData[0] + 46.7) / 28.7
-                #print 'Average glucose =', avgGlu,', HgA1c =',hga1c
+                hba1c = (sqlData[0] + 46.7) / 28.7
+                #print 'Average glucose =', avgGlu,', HbA1c =',hba1c
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2115,11 +2115,11 @@ def plotGraph():
         #tr.print_diff()
 
     if gluUnits == 'mmol/L':
-        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHgA1c = %5.2f'
-                         %(gluMult * lastTestGluc, gluMult * avgGlu, hga1c))
+        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHbA1c = %5.2f'
+                         %(gluMult * lastTestGluc, gluMult * avgGlu, hba1c))
     else:
-        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHgA1c = %5.2f'
-                         %(lastTestGluc, avgGlu, hga1c))
+        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
+                         %(lastTestGluc, avgGlu, hba1c))
 
     if lastTrend == 1:     # doubleUp
         trendRot = 90.0
