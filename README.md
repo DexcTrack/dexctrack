@@ -1,7 +1,7 @@
 # dexctrack
 A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with a G5 receiver on Linux and Mac OSX High Sierra, so far.
 
-![image](https://user-images.githubusercontent.com/39347592/40751570-5ec24c90-6431-11e8-8490-58426198fcfc.png)
+![image](https://user-images.githubusercontent.com/39347592/40879081-760c6e22-6660-11e8-85d9-2973452a3f80.png)
 
 I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the ***fivethirtyeight*** **style** which will provide the best looking graph.
 
@@ -23,9 +23,9 @@ The name of that database includes the serial number of the Dexcom receiver, so 
 
 By default, glucose readings from the last day get displayed, and every 5 minutes a new reading is added to the graph.
 
-In the upper right corner, the latest glucose value, the average glucose value over the last 90 days, and the Hemoglobin A1C value corresponding to that average is displayed. In addition, a Trend arrow indicates whether the glucose value is rising quickly, rising, flat, falling, or falling quickly. In the example below, the Trend is flat.
+In the upper right corner, the latest glucose value, the average glucose value over the last 90 days, and the Hemoglobin A1C value corresponding to that average is displayed. In addition, a Trend arrow indicates whether the glucose value is rising quickly, rising, flat, falling, or falling quickly. In the example below, the Trend is falling.
 
-![image](https://user-images.githubusercontent.com/39347592/40762686-514c6196-6467-11e8-9003-01e19ece6cf7.png)
+![image](https://user-images.githubusercontent.com/39347592/40879084-7e41bc14-6660-11e8-9db8-f75d9b700e10.png)
 
 Use arrow keys <- or -> to scroll the display Date and Time backwards or forwards. You can also hover over a position in the Start Date slider (in blue near the bottom of the screen). The hover position will show the target starting date in parentheses. Click the left mouse button to immediately move to that hover position.
 
@@ -35,9 +35,11 @@ The Scale slider (in green at the bottom of the screen) can be used to zoom the 
 
 ![image](https://user-images.githubusercontent.com/39347592/40758670-21c15570-6454-11e8-8cf0-9f14a53fa882.png)
 
-![image](https://user-images.githubusercontent.com/39347592/40759167-7127ea6e-6456-11e8-8cdb-7868768b9d81.png)
+When you scale out to a large time period, the graph could get cluttered with a large number of Event or Note strings. When the number of such strings gets too large (> 30), they get dropped from the display.
 
-User added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
+![image](https://user-images.githubusercontent.com/39347592/40879142-1f4deb6e-6661-11e8-8125-14fa5832dd7c.png)
+
+With a smaller time period, user added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
 
 ![image](https://user-images.githubusercontent.com/39347592/40756240-f3256c3a-6447-11e8-8a65-6aee013b2d5f.png)
 
@@ -87,7 +89,7 @@ The Target range (highlighted in gold color) will then move to the new range. Gl
 
 This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
 
-![image](https://user-images.githubusercontent.com/39347592/40817365-a8d5c4a6-6517-11e8-8e99-98dc35346f3b.png)
+![image](https://user-images.githubusercontent.com/39347592/40879086-84f54bf2-6660-11e8-8e2f-bf1da7bfb986.png)
 
 ---
 
