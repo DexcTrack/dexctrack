@@ -28,6 +28,7 @@ import sqlite3
 import datetime
 import threading
 import argparse
+import math
 import tzlocal
 import pytz
 import matplotlib as mpl
@@ -44,11 +45,17 @@ import readReceiver
 import constants
 import screensize
 
+dexctrackVersion = 1.1
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="enable debug mode", action="store_true")
+parser.add_argument("-v", "--version", help="show version", action="store_true")
 args = parser.parse_args()
+
+if args.version:
+    print 'Version =', dexctrackVersion
+    sys.exit(0)
 
 if args.debug:
     from pympler import muppy
@@ -97,10 +104,14 @@ legDefaultPosY = 1.00           # default Legend vertical location
 #####################################################################################################################
 sliderSpace = 0.26              # reserve this much space below the graph to hold our 2 sliders
 
+UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
 ax = None
 tr = None
 firstTestSysSecs = 0
 lastTestSysSecs = 0
+lastTestDateTime = UTC_BASE_TIME
+lastMeanTestDateTime = UTC_BASE_TIME
+nextMeanNn = 0
 displayStartSecs = 0
 cfgDisplayLow = 0.0
 cfgDisplayHigh = 0.0
@@ -112,9 +123,12 @@ sPos = None
 avgText = None
 trendArrow = None
 hba1c = 0.0
+egvStdDev = 0.0
 lastTestGluc = 0
 xnorm = []
 ynorm = []
+runningMean = []
+meanPlot = None
 eventList = []
 noteList = []
 calibList = []
@@ -225,7 +239,6 @@ elif 'WX' in backend:
     figManager.frame.Maximize(True)
 
 #---------------------------------------------------------
-UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
 
 # The function below is a duplicate of the dexcom_reader util.py
 # function ReceiverTimeToTime() except it uses UTC_BASE_TIME,
@@ -417,6 +430,7 @@ class deviceReadThread(threading.Thread):
             print 'deviceReadThread launched, threadID =', threadID
 
     def stop(self):
+        self.restart = False
         self.evobj.set()
         if args.debug:
             print 'Turning off device read thread'
@@ -433,7 +447,7 @@ class deviceReadThread(threading.Thread):
 
     def run(self):
         while True:
-            if self.restart:
+            if self.restart is True:
                 self.restart = False
             else:
                 #-------------------------------------------------------------------------
@@ -457,14 +471,16 @@ class deviceReadThread(threading.Thread):
 
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
-                waitStatus = self.evobj.wait(timeout=mydelay)   # wait up to firstDelayPeriod seconds
+                if args.debug:
+                    print 'Setting timeout delay to', mydelay
                 self.firstDelayPeriod = 0
+                waitStatus = self.evobj.wait(timeout=mydelay)   # wait up to firstDelayPeriod seconds
             else:
                 waitStatus = self.evobj.wait(timeout=meterSamplingPeriod)
 
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
-                if self.restart:
+                if self.restart is True:
                     if args.debug:
                         print 'deviceReadThread restart requested'
                     self.evobj.clear()
@@ -608,7 +624,7 @@ def updateScale(val):
 
     # If user zooms the Scale way out, reduce the number of Hour ticks displayed
     if displayRange >= 60*60*24*24:
-        minorTickSequence = (0)
+        minorTickSequence = (0, )
     elif displayRange >= 60*60*24*12:
         minorTickSequence = (0, 12)
     elif displayRange >= 60*60*24*8:
@@ -1084,8 +1100,8 @@ def plotInit():
     global bread
     global legDefaultPosX
     global legDefaultPosY
-    global axtest
-    global testRead
+    #global axtest
+    #global testRead
 
     if args.debug:
         print 'rcParams[timezone] =', mpl.rcParams['timezone']
@@ -1120,7 +1136,7 @@ def plotInit():
     ########################################################
     if 1.0 < dispRatio <= 1.4:   # = 1.25 for 1280 x 1024 ratio
         avgTextX = 0.68
-        avgTextY = 0.90
+        avgTextY = 0.87
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
@@ -1135,7 +1151,7 @@ def plotInit():
         noteH = 0.04
     elif 1.4 < dispRatio <= 1.7:  # = 1.6 for 1440 x 900 ratio
         avgTextX = 0.70
-        avgTextY = 0.88
+        avgTextY = 0.85
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
@@ -1150,7 +1166,7 @@ def plotInit():
         noteH = 0.04
     else:  # 1.7 < dispRatio <= 2.0:  # 1.8 for 1920 x 1080 ratio
         avgTextX = 0.76
-        avgTextY = 0.90
+        avgTextY = 0.88
         rangeX = 0.905
         rangeY = 0.010
         rangeW = 0.085
@@ -1165,12 +1181,12 @@ def plotInit():
         noteH = 0.04
 
     if gluUnits == 'mmol/L':
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHbA1c = %5.2f'
-                                 %(0, 0, 0), style='italic', size='x-large', weight='bold')
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                 %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
     else:
         #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
-                                 %(0, 0, 0), style='italic', size='x-large', weight='bold')
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                 %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
 
     trendArrow = plt.gcf().text(trendX, trendY, "Trend", ha="center", va="center",
                                 rotation=0, size=15,
@@ -1216,6 +1232,7 @@ def plotInit():
 def readDataFromSql():
     global firstTestSysSecs
     global lastTestSysSecs
+    global lastTestDateTime
     global firstTestGluc
     global lastTestGluc
     global egvList
@@ -1224,6 +1241,7 @@ def readDataFromSql():
     global noteList
     global avgGlu
     global hba1c
+    global egvStdDev
     global lastTrend
     global trendChar
     global cfgDisplayLow
@@ -1258,6 +1276,7 @@ def readDataFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
+
             # get the first test info
             curs.execute('SELECT sysSeconds,glucose,testNum FROM EgvRecord ORDER BY sysSeconds ASC LIMIT 1')
             sqlData = curs.fetchall()
@@ -1270,6 +1289,7 @@ def readDataFromSql():
             sqlData = curs.fetchall()
             for row in sqlData:
                 lastTestSysSecs = row[0]
+                lastTestDateTime = ReceiverTimeToUtcTime(lastTestSysSecs)
                 #print 'Last testNum =',row[3]
 
             # get the last real glucose reading
@@ -1342,6 +1362,33 @@ def readDataFromSql():
                 hba1c = (sqlData[0] + 46.7) / 28.7
                 #print 'Average glucose =', avgGlu,', HbA1c =',hba1c
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Calculate the SampleVariance over the last 3 months
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            #selectSql = 'SELECT AVG((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
+            selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
+            curs.execute(selectSql, (ninetyDaysBack,))
+            sqlData = curs.fetchall()
+            egvCount = len(sqlData)
+
+            if egvCount > 1:
+                selectSql = 'SELECT TOTAL((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
+                curs.execute(selectSql, (avgGlu, avgGlu, ninetyDaysBack,))
+                sqlData = curs.fetchone()
+                if sqlData[0] is None:
+                    egvSampleVariance = 0.0
+                else:
+                    # For a Sample Variance, divide by N - 1
+                    egvSampleVariance = sqlData[0] / (egvCount - 1)
+            else:
+                egvSampleVariance = 0.0
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # The Standard Deviation is the square root of the SampleVariance
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            egvStdDev = math.sqrt(egvSampleVariance)
+            #if args.debug:
+                #print 'egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev
+
+
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserEvent'"
@@ -1582,7 +1629,7 @@ def ShowOrHideEventsNotes():
         if (exoffset == 0.0) and (eyoffset == 0.0):
             exoffset = multX * 70.0
             eyoffset = multY * (75+longTextBump)
-        
+
         #################################################################################
         #   There's a bug in handling draggable annotations in matplotlib which causes
         # it to sometimes store the offset (in pixels) and sometimes the raw location
@@ -1744,6 +1791,7 @@ def plotGraph():
     global ax
     global xnorm
     global ynorm
+    global runningMean
     global calibScatter
     global egvScatter
     global desirableRange
@@ -1773,6 +1821,9 @@ def plotGraph():
     global gluUnits
     global gluMult
     global displayStartDate
+    global meanPlot
+    global lastMeanTestDateTime
+    global nextMeanNn
 
     #print 'plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++'
     if firstPlotGraph == 1:
@@ -1841,6 +1892,10 @@ def plotGraph():
         for noteP in notePlotList:
             noteP.remove()
         notePlotList = []
+        del runningMean[:]
+        runningMean = []
+        lastMeanTestDateTime = UTC_BASE_TIME
+        nextMeanNn = 0
         restart = False
 
     #if args.debug:
@@ -1905,7 +1960,7 @@ def plotGraph():
         data = np.array(egvList)
         xx = []
         yy = []
-        xx = data[:, 0] # sysSeconds
+        xx = data[:, 0] # ReceiverTimeToUtcTime(sysSeconds)
         yy = data[:, 1] # glucose
         #print 'sizeof(data) =',len(data),'sizeof(xx) =',len(xx),'sizeof(yy) =',len(yy)
 
@@ -1992,15 +2047,22 @@ def plotGraph():
                 # restart the device reading sequence, with an initial delay of 80 seconds.
                 if timeLeftSeconds < meterSamplingPeriod:
                     if rthread is not None:
-                        #print 'calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds
+                        if args.debug:
+                            print 'calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds
                         rthread.restartDelay(firstDelaySecs=timeLeftSeconds)
+                    else:
+                        if args.debug:
+                            print 'rthread is None'
             elif sensorWarmupCountDown:
+                if args.debug:
+                    print 'Writing Ready for calibrations message'
                 sensorWarmupCountDown.set_text('Ready for calibrations')
             calibZoneList.append([startOfZone, lastx])
             tempRangeEnd = lastx
         else:
             if sensorWarmupCountDown:
-                #print 'done with sensorWarmupCountDown'
+                if args.debug:
+                    print 'done with sensorWarmupCountDown'
                 sensorWarmupCountDown.remove()
                 sensorWarmupCountDown = None
 
@@ -2061,6 +2123,27 @@ def plotGraph():
         #if args.debug:
             #print 'After linePlot count =', len(muppy.get_objects())
 
+        #========================================================================================
+        # Plot a running mean as a dashed line
+
+        # We only want to add data which has been added since the last time we ran through this code
+        newYnorm = ynorm[xnorm > lastMeanTestDateTime]
+        #print 'len(ynorm) =', len(ynorm), ', len(newYnorm) =', len(newYnorm),', nextMeanNn =',nextMeanNn
+        nn = 0
+        for nn, gluc in enumerate(newYnorm):
+            if nextMeanNn == 0 and nn == 0:
+                # There is no previous entry. The average, so far, is just this value.
+                runningMean.append(float(ynorm[0]))
+            else:
+                runningMean.append(float((nextMeanNn + nn) * runningMean[nextMeanNn + nn - 1] + newYnorm[nn]) / (nextMeanNn + nn + 1))
+        if meanPlot:
+            meanPlot.pop(0).remove()
+        meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=1, alpha=0.6)
+        lastMeanTestDateTime = lastTestDateTime
+        if len(newYnorm) > 0:
+            nextMeanNn = nextMeanNn + nn + 1
+        #========================================================================================
+
         #if args.debug:
             #print 'plotGraph() :  After plots count =', len(muppy.get_objects())
             #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
@@ -2091,17 +2174,17 @@ def plotGraph():
         #         +----------------+
         # (legPosX,legPosY)
 
-        if legPosX < 0 or legPosX > (1.0 - 0.14) or legPosY < 0 or legPosY > (1.0 - 0.12):
+        if legPosX < 0 or legPosX > (1.0 - 0.14) or legPosY < 0.1 or legPosY > (1.0 - 0.12):
             if args.debug:
                 print 'Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY)
             legPosX = legDefaultPosX
             legPosY = legDefaultPosY
 
-        if desirableRange and red_patch and calibScatter and egvScatter:
+        if desirableRange and red_patch and calibScatter and egvScatter and meanPlot:
             # Add a legend. fontsize = [xx-small, x-small, small, medium, large, x-large, xx-large]
-            leg = fig.legend((egvScatter, calibScatter, red_patch, desirableRange),
-                            ("Glucose values", "User Calibrations", "Sensor Uncalibrated", "Target Range"),
-                            scatterpoints=1, loc=(legPosX, legPosY), fontsize='medium')
+            leg = fig.legend((egvScatter, calibScatter, red_patch, desirableRange, meanPlot[0]),
+                             ("Glucose values", "User Calibrations", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
+                             scatterpoints=1, loc=(legPosX, legPosY), fontsize='small')
             if leg:
                 # set the legend as a draggable entity
                 leg.draggable(True)
@@ -2115,11 +2198,11 @@ def plotGraph():
         #tr.print_diff()
 
     if gluUnits == 'mmol/L':
-        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nHbA1c = %5.2f'
-                         %(gluMult * lastTestGluc, gluMult * avgGlu, hba1c))
+        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                         %(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
     else:
-        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
-                         %(lastTestGluc, avgGlu, hba1c))
+        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                         %(lastTestGluc, avgGlu, egvStdDev, hba1c))
 
     if lastTrend == 1:     # doubleUp
         trendRot = 90.0
@@ -2160,8 +2243,7 @@ def plotGraph():
             #   Legend (X,Y) = [0. 0.] , (W,H) = [0.00068966 0.00117647]
             # so filter such entries out.
             if legxy[0] > 0.01 or legxy[1] > 0.01:
-                print 'Legend (X,Y) =',legxy,', (W,H) =',legwh
-                # On 1920 x 1080: W = 0.13989028, H = 0.12145093
+                print 'Legend (X,Y) =', legxy, ', (W,H) =', legwh
 
     if args.debug:
         print 'plotGraph() :  After displayCurrentRange() count =', len(muppy.get_objects())
