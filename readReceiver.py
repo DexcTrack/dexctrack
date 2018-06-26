@@ -21,9 +21,6 @@ import datetime
 import sys
 import time
 import sqlite3
-import grp
-import pwd
-import os
 import threading
 import serial
 #------------------------------

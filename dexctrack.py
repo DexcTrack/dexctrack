@@ -45,7 +45,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.1
+dexctrackVersion = 1.2
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -84,7 +84,7 @@ except Exception as e:
 #####################################################################################################################
 meterSamplingPeriod = 60.0*5    # Dexcom will take a reading every 5 minutes, so we'll read from
                                 # the receiver at this same rate.
-minDisplayLow = 12              # the minimum glucose value Dexcom can detect
+minDisplayLow = 40              # the minimum glucose value Dexcom can detect
 maxDisplayHigh = 400            # the maximum glucose value Dexcom can detect
 sensorWarmupPeriod = 60*60*2    # 2 hours, in seconds
 
@@ -101,9 +101,12 @@ displayHigh = 200.0             # default high end of Target Range
 position = 100.0                # start with display of the latest values
 legDefaultPosX = 0.01           # default Legend horizontal location
 legDefaultPosY = 1.00           # default Legend vertical location
+graphTop = 0.87                 # top of y axis in figure coordinates
+graphBottom = 0.24              # bottom of y axis position in figure coordinates
 #####################################################################################################################
 sliderSpace = 0.26              # reserve this much space below the graph to hold our 2 sliders
 
+graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
 ax = None
 tr = None
@@ -146,8 +149,13 @@ majorFormatter = None
 minorFormatter = None
 red_patch = None
 temp_red_patch = None
+inRange_patch = None
+temp_inRange_patch = None
 redStartSet = set()
+inRangeStartSet = set()
 redRegionList = []
+inRangeRegionList = []
+inRangeRegionAnnotList = []
 evtPlotList = []
 notePlotList = []
 etimeSet = set()
@@ -185,6 +193,12 @@ annRotation = 1.0
 annCloseCount = 0
 axtest = None
 testRead = None
+highPercent = 0.0
+midPercent = 0.0
+lowPercent = 0.0
+highPercentText = None
+midPercentText = None
+lowPercentText = None
 
 
 # Disable default keyboard shortcuts so that a user
@@ -212,6 +226,9 @@ displayStartDate = datetime.datetime.now(mytz)
 
 # We want to display dates in the local timezone
 plt.rcParams['timezone'] = mytz
+
+
+plt.rcParams['axes.axisbelow'] = False
 
 #print 'interactive backends =',mpl.rcsetup.interactive_bk
 #print 'non_interactive backends =',mpl.rcsetup.non_interactive_bk
@@ -896,8 +913,7 @@ def onclose(event):
                 curs.execute('DELETE FROM UserNote')
             insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
             for note in noteSet:
-                #tod = note.xy[0]
-                #print 'time =',tod,'=',mdates.num2date(note.xy[0],tz=mytz)
+                #print 'time =',note.xy[0],'=',mdates.num2date(note.xy[0],tz=mytz)
                 #print 'INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(note.xy[0],tz=mytz)),'%s'%note.get_text(),note.xyann[0],note.xyann[1])
                 curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(note.xy[0], tz=mytz)), '%s'%note.get_text(), note.xyann[0], note.xyann[1]))
 
@@ -912,8 +928,8 @@ def onclose(event):
                 if sqlData is not None:
                     if (evt_inst.xyann[0] != sqlData[6]) or (evt_inst.xyann[1] != sqlData[7]):
                         if False:
-                            #print 'Match Event: ',ReceiverTimeToUtcTime(sqlData[0]),'sysSeconds =',sqlData[0],'dispSeconds =',sqlData[1],'meterSeconds =',sqlData[2],'type =',sqlData[3],'subtype =',sqlData[4],'value =',sqlData[5],'xoffset =',evt_inst.xyann[0],'yoffset =',evt_inst.xy[1] - evt_inst.xyann[1]
-                            #print 'evt_inst.xy =',evt_inst.xy, 'evt_inst.xyann =',evt_inst.xyann
+                            print '\nMatch Event: ', ReceiverTimeToUtcTime(sqlData[0]), 'sysSeconds =', sqlData[0], 'dispSeconds =', sqlData[1], 'meterSeconds =', sqlData[2], 'type =', sqlData[3], 'subtype =', sqlData[4], 'value =', sqlData[5], 'xoffset =', evt_inst.xyann[0], 'yoffset =', evt_inst.xy[1] - evt_inst.xyann[1]
+                            print 'evt_inst.xy =', evt_inst.xy, 'evt_inst.xyann =', evt_inst.xyann, ', Evt =', evt_inst.get_text()
                             print 'INSERT OR REPLACE INTO UserEvent( sysSeconds=%u, dispSeconds=%u, meterSeconds=%u, type=%u, subtype=%u, value=%f, xoffset=%f, yoffset=%f);'%(sqlData[0], sqlData[1], sqlData[2], sqlData[3], sqlData[4], sqlData[5], evt_inst.xyann[0], evt_inst.xyann[1])
                         curs.execute(insert_evt_sql, (sqlData[0], sqlData[1], sqlData[2],
                                                       sqlData[3], sqlData[4], sqlData[5],
@@ -1055,11 +1071,20 @@ def ClearGraph(event):
     global egvScatter
     global calibScatter
     global linePlot
+    global inRangeRegionList
+    global inRangeRegionAnnotList
+
     # erase all previously plotted red calibration regions
     for redmark in redRegionList:
         redmark.remove()
     redRegionList = []
     redStartSet.clear()
+    inRangeRegionList = []
+    while len(inRangeRegionAnnotList) > 0:
+        inRangeItem = inRangeRegionAnnotList.pop(0)
+        inRangeItem.remove()
+    inRangeRegionAnnotList = []
+    inRangeStartSet.clear()
 
     # erase all previously plotted events
     for evtP in evtPlotList:
@@ -1100,6 +1125,9 @@ def plotInit():
     global bread
     global legDefaultPosX
     global legDefaultPosY
+    global highPercentText
+    global midPercentText
+    global lowPercentText
     #global axtest
     #global testRead
 
@@ -1181,16 +1209,29 @@ def plotInit():
         noteH = 0.04
 
     if gluUnits == 'mmol/L':
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                  %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
     else:
-        #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nHbA1c = %5.2f'
-        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+        #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nHbA1c = %5.2f'
+        avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                  %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
 
     trendArrow = plt.gcf().text(trendX, trendY, "Trend", ha="center", va="center",
                                 rotation=0, size=15,
                                 bbox=dict(boxstyle="rarrow,pad=0.3", facecolor="cyan", edgecolor="b", lw=2))
+
+    # Plot percentages high, middle, and low
+    highPercentText = plt.figtext(0.95, ((maxDisplayHigh - displayHigh) / 2.0 + displayHigh) / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                  '%4.1f' %highPercent, style='italic', size='large', weight='bold', color='red')
+    midPercentText = plt.figtext(0.95, ((displayHigh - displayLow) / 2.0 + displayLow) / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                 '%4.1f' %midPercent, style='italic', size='large', weight='bold', color='cornflowerblue')
+    lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                 '%4.1f' %lowPercent, style='italic', size='large', weight='bold', color='magenta')
+
+
+    # To show every 0.05 step of figure height
+    #for bb in range(0, 20, 1):
+        #plt.figtext(0.95, 1.0*bb/20.0, '%2.2f' %(1.0*bb/20.0), size='small')
 
     sPos.on_changed(updatePos)
     sScale.on_changed(updateScale)
@@ -1202,7 +1243,7 @@ def plotInit():
     minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
-    plt.gca().set_ylim([minDisplayLow, gluMult * maxDisplayHigh])
+    plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
 
     fig.canvas.mpl_connect('key_press_event', press)
     fig.canvas.mpl_connect("motion_notify_event", hover)
@@ -1250,6 +1291,9 @@ def readDataFromSql():
     global legPosX
     global legPosY
     global dbGluUnits
+    global highPercent
+    global midPercent
+    global lowPercent
 
     egvList = []
     calibList = []
@@ -1361,6 +1405,38 @@ def readDataFromSql():
                 avgGlu = sqlData[0]
                 hba1c = (sqlData[0] + 46.7) / 28.7
                 #print 'Average glucose =', avgGlu,', HbA1c =',hba1c
+
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > 12 AND glucose < ? AND sysSeconds >= ?'
+            curs.execute(selectSql, (displayLow, ninetyDaysBack))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                lowCount = 0
+            else:
+                lowCount = sqlData[0]
+
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose >= ? AND glucose <= ? AND sysSeconds >= ?'
+            curs.execute(selectSql, (displayLow, displayHigh, ninetyDaysBack))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                midCount = 0
+            else:
+                midCount = sqlData[0]
+
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > ? AND sysSeconds >= ?'
+            curs.execute(selectSql, (displayHigh, ninetyDaysBack))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                highCount = 0
+            else:
+                highCount = sqlData[0]
+
+            lmhTotal = lowCount + midCount + highCount
+            highPercent = 100.0 * highCount / lmhTotal
+            midPercent = 100.0 * midCount / lmhTotal
+            lowPercent = 100.0 * lowCount / lmhTotal
+            #print 'highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent
+
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # Calculate the SampleVariance over the last 3 months
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1658,14 +1734,14 @@ def ShowOrHideEventsNotes():
 
         # If the Y offset is more than half the height of the screen, we'll override
         # it with a small offset.
-        if eyoffset < -ax_height / 2:
+        if eyoffset < -ax_height * gluMult / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2)
+                print 'Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height * gluMult / 2)
             eyoffset = -60.0
             repositioned = True
-        elif eyoffset > ax_height / 2:
+        elif eyoffset > ax_height * gluMult / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2)
+                print 'Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height * gluMult / 2)
             eyoffset = 60.0
             repositioned = True
 
@@ -1785,6 +1861,9 @@ def ShowOrHideEventsNotes():
         noteTimeSet.add(estime)
         noteSet.add(noteAnn)
 
+#---------------------------------------------------------
+def glucInRange(glucose):
+    return gluMult * displayLow <= glucose <= gluMult * displayHigh
 
 #---------------------------------------------------------
 def plotGraph():
@@ -1803,7 +1882,11 @@ def plotGraph():
     global linePlot
     global red_patch
     global temp_red_patch
+    global inRange_patch
+    global temp_inRange_patch
     global redRegionList
+    global inRangeRegionList
+    global inRangeRegionAnnotList
     global evtPlotList
     global notePlotList
     global leg
@@ -1824,6 +1907,9 @@ def plotGraph():
     global meanPlot
     global lastMeanTestDateTime
     global nextMeanNn
+    global highPercentText
+    global midPercentText
+    global lowPercentText
 
     #print 'plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++'
     if firstPlotGraph == 1:
@@ -1881,6 +1967,17 @@ def plotGraph():
             redmark.remove()
         redRegionList = []
         redStartSet.clear()
+        while len(inRangeRegionAnnotList) > 0:
+            inRangeItem = inRangeRegionAnnotList.pop(0)
+            inRangeItem.remove()
+        inRangeRegionAnnotList = []
+        while len(inRangeRegionList) > 0:
+            inRangeRegionList.pop(0).remove()
+            #inRangeItem = inRangeRegionList.pop(0)
+            #poly = inRangeItem
+            #poly.remove()
+        inRangeRegionList = []
+        inRangeStartSet.clear()
 
         # erase all previously plotted event annotations
         for evtP in evtPlotList:
@@ -1922,7 +2019,7 @@ def plotGraph():
             noteP.remove()
         notePlotList = []
 
-    # mark the desirable glocose region
+    # mark the desirable glucose region
     if desirableRange:
         # Only redraw desirable range if it has changed since the last drawing
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or (dbGluUnits != gluUnits):
@@ -1930,14 +2027,29 @@ def plotGraph():
             cfgDisplayLow = displayLow
             cfgDisplayHigh = displayHigh
             desirableRange.remove()
-            desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='gold', alpha=0.4)
+            desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
+
+            # Re-plot percentages high, middle, and low
+            highPercentText.remove()
+            midPercentText.remove()
+            lowPercentText.remove()
+            highPercentText = plt.figtext(0.95, ((maxDisplayHigh - displayHigh) / 2.0 + displayHigh) / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                          '%4.1f' %highPercent, style='italic', size='large', weight='bold', color='red')
+            midPercentText = plt.figtext(0.95, ((displayHigh - displayLow) / 2.0 + displayLow) / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                         '%4.1f' %midPercent, style='italic', size='large', weight='bold', color='cornflowerblue')
+            lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
+                                         '%4.1f' %lowPercent, style='italic', size='large', weight='bold', color='magenta')
     else:
         #print 'Setting initial High/Low values'
         displayLow = cfgDisplayLow
         displayHigh = cfgDisplayHigh
-        desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='gold', alpha=0.4)
+        desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
 
     gluUnits = dbGluUnits
+
+    highPercentText.set_text('%4.1f%%' %highPercent)
+    midPercentText.set_text('%4.1f%%' %midPercent)
+    lowPercentText.set_text('%4.1f%%' %lowPercent)
 
     #if args.debug:
         #print 'plotGraph() :  After desirableRange() count =', len(muppy.get_objects())
@@ -2015,7 +2127,7 @@ def plotGraph():
                 # we've transitioned out of a calib zone
                 #print 'calibZoneList[] adding ',startOfZone,'to',pointx
                 calibZoneList.append([startOfZone, pointx])
-            if (lasty > 12) and (pointy <= 12):
+            elif (lasty > 12) and (pointy <= 12):
                 # we've transitioned into a calib zone
                 startOfZone = pointx
             lastx = pointx
@@ -2087,6 +2199,81 @@ def plotGraph():
                 redStartSet.add(mdates.date2num(specRange[0]))
                 redRegionList.append(red_patch)
                 temp_red_patch = None
+
+
+        #-----------------------------------------------------------
+        # Find where we're in desirable range for 24 hours or more.
+        # This implementation only adds new in range regions.
+        # The only one we might need to erase and redraw is a
+        # partial region which is increasing in size.
+        #-----------------------------------------------------------
+        inRangeList = []
+        lastx = ReceiverTimeToUtcTime(firstTestSysSecs)
+        lasty = firstTestGluc
+        startOfZone = lastx
+        for pointx, pointy in zip(xnorm, ynorm):
+            if (glucInRange(lasty) is True) and (glucInRange(pointy) is False):
+                # we've transitioned out desirable range
+                if pointx - startOfZone >= datetime.timedelta(hours=24):
+                    #print 'inRangeList[] adding ',startOfZone,'to',pointx
+                    inRangeList.append([startOfZone, pointx])
+            elif (glucInRange(lasty) is False) and (glucInRange(pointy) is True):
+                # we've transitioned into desirable range
+                startOfZone = pointx
+            lastx = pointx
+            lasty = pointy
+
+        if glucInRange(lasty) is True:
+            # We reached the end of the data points while still in
+            # range, so add this final range.
+            if lastx - startOfZone >= datetime.timedelta(hours=24):
+                #print 'inRangeList[] adding ',startOfZone,'to',lastx
+                inRangeList.append([startOfZone, lastx])
+
+        # Highlight any in region ranges >= 24 hours
+        inRangegen = (sr for sr in inRangeList if mdates.date2num(sr[0]) not in inRangeStartSet)
+        for specRange in inRangegen:
+            if temp_inRange_patch:
+                #print 'deleting temp_inRange_patch ending at', tempRangeEnd
+                temp_inRange_patch.remove()
+                temp_inRange_patch = None
+            #print 'Highlighting 24 hour or greater range',specRange[0],' to',specRange[1]
+            inRange_patch = ax.axvspan(mdates.date2num(specRange[0]),
+                                       mdates.date2num(specRange[1]),
+                                       0.0, 1.0, color='lightsteelblue',
+                                       alpha=1.0, zorder=0)
+
+            inRangeArrow1 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * 325),
+                                        xytext=(mdates.date2num(specRange[1]), gluMult * 325),
+                                        xycoords='data', textcoords='data',
+                                        arrowprops=dict(arrowstyle='|-|', color='red', linewidth=4),
+                                        annotation_clip=False)
+            inRangeArrow2 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * 325),
+                                        xytext=(mdates.date2num(specRange[1]), gluMult * 325),
+                                        xycoords='data', textcoords='data',
+                                        arrowprops=dict(arrowstyle='<->', color='red', linewidth=4),
+                                        annotation_clip=False)
+
+            xcenter = mdates.date2num(specRange[0]) + (mdates.date2num(specRange[1])-mdates.date2num(specRange[0]))/2
+            inRangeDelta = specRange[1] - specRange[0]
+            inRangeHours = inRangeDelta.days * 24 + inRangeDelta.seconds // 3600
+            inRangeArrow3 = ax.annotate('%u hours in Target Range!' % inRangeHours,
+                                        xy=(xcenter, gluMult * 340), ha='center',
+                                        va='center', fontsize=22, annotation_clip=False)
+
+            if tempRangeEnd == lastx:
+                # remember this range so we can delete it later,
+                # if it extends in size
+                temp_inRange_patch = inRange_patch
+            else:
+                # add this to the list of ranges which have already been colored
+                inRangeStartSet.add(mdates.date2num(specRange[0]))
+                inRangeRegionList.append(inRange_patch)
+                inRangeRegionAnnotList.append(inRangeArrow1)
+                inRangeRegionAnnotList.append(inRangeArrow2)
+                inRangeRegionAnnotList.append(inRangeArrow3)
+                temp_inRange_patch = None
+
 
         #-----------------------------------------------------
         # Set point color to Magenta (Low), Cyan (Normal), or Red (High)
@@ -2198,10 +2385,10 @@ def plotGraph():
         #tr.print_diff()
 
     if gluUnits == 'mmol/L':
-        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.1f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                          %(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
     else:
-        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.1f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
                          %(lastTestGluc, avgGlu, egvStdDev, hba1c))
 
     if lastTrend == 1:     # doubleUp
