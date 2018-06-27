@@ -116,8 +116,8 @@ lastTestDateTime = UTC_BASE_TIME
 lastMeanTestDateTime = UTC_BASE_TIME
 nextMeanNn = 0
 displayStartSecs = 0
-cfgDisplayLow = 0.0
-cfgDisplayHigh = 0.0
+cfgDisplayLow = None
+cfgDisplayHigh = None
 rthread = None
 sthread = None
 stat_text = None
@@ -151,6 +151,9 @@ red_patch = None
 temp_red_patch = None
 inRange_patch = None
 temp_inRange_patch = None
+temp_inRange_Arrow1 = None
+temp_inRange_Arrow2 = None
+temp_inRange_Arrow3 = None
 redStartSet = set()
 inRangeStartSet = set()
 redRegionList = []
@@ -1034,7 +1037,7 @@ def onselect(ymin, ymax):
     displayLow = round(ymin / gluMult, 0)
     displayHigh = round(ymax / gluMult, 0)
     dspan.active = False
-    #print 'onselect: displayLow =', gluMult * displayLow, ', displayHigh =', gluMult * displayHigh, ', cfgDisplayLow =', gluMult * cfgDisplayLow, ', cfgDisplayHigh =', gluMult * cfgDisplayHigh
+    #print 'onselect: displayLow =', gluMult * displayLow, ', displayHigh =', gluMult * displayHigh
     if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
         if rthread is not None:
             rthread.restartDelay()
@@ -1501,33 +1504,27 @@ def readDataFromSql():
                 latestSensorInsertTime = row[0]
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        selectSql = "SELECT count(*) from sqlite_master where type='table' and name='Config'"
-        curs.execute(selectSql)
-        sqlData = curs.fetchone()
-        if sqlData[0] > 0:
-            selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits FROM Config"
+        if (cfgDisplayLow is None) and (cfgDisplayHigh is None):
+            selectSql = "SELECT count(*) from sqlite_master where type='table' and name='Config'"
             curs.execute(selectSql)
             sqlData = curs.fetchone()
-            if sqlData is not None:
-                cfgDisplayLow = sqlData[0]
-                cfgDisplayHigh = sqlData[1]
-                legPosX = sqlData[2]
-                legPosY = sqlData[3]
-                dbGluUnits = sqlData[4]
-        else:
-            cfgDisplayLow = displayLow
-            cfgDisplayHigh = displayHigh
+            if sqlData[0] > 0:
+                selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits FROM Config"
+                curs.execute(selectSql)
+                sqlData = curs.fetchone()
+                if sqlData is not None:
+                    cfgDisplayLow = sqlData[0]
+                    cfgDisplayHigh = sqlData[1]
+                    legPosX = sqlData[2]
+                    legPosY = sqlData[3]
+                    dbGluUnits = sqlData[4]
+            else:
+                cfgDisplayLow = displayLow
+                cfgDisplayHigh = displayHigh
+                legPosX = legDefaultPosX
+                legPosY = legDefaultPosY
+                dbGluUnits = 'mg/dL'
 
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        #SELECT * FROM EgvRecord WHERE
-              #glucose < COALESCE((SELECT min(EgvRecord.sysSeconds)
-                                  #FROM EgvRecord
-                                  #JOIN (SELECT sysSeconds, glucose FROM EgvRecord
-                                        #ORDER BY glucose
-                                        #LIMIT 1) AS first
-                                  #ON (EgvRecord.glucose < 75 OR EgvRecord.glucose > 200)),
-                                  #'infinite')
-        #SELECT sysSeconds,sysSeconds,glucose FROM EgvRecord WHERE glucose BETWEEN 75 AND 200;
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         del sqlData
@@ -1884,6 +1881,9 @@ def plotGraph():
     global temp_red_patch
     global inRange_patch
     global temp_inRange_patch
+    global temp_inRange_Arrow1
+    global temp_inRange_Arrow2
+    global temp_inRange_Arrow3
     global redRegionList
     global inRangeRegionList
     global inRangeRegionAnnotList
@@ -1993,6 +1993,8 @@ def plotGraph():
         runningMean = []
         lastMeanTestDateTime = UTC_BASE_TIME
         nextMeanNn = 0
+        cfgDisplayLow = None
+        cfgDisplayHigh = None
         restart = False
 
     #if args.debug:
@@ -2189,7 +2191,7 @@ def plotGraph():
             red_patch = ax.axvspan(mdates.date2num(specRange[0]),
                                    mdates.date2num(specRange[1]),
                                    alpha=0.2, color='red',
-                                   label='Uncalibrated', zorder=1)
+                                   label='Uncalibrated', zorder=2)
             if tempRangeEnd == lastx:
                 # remember this range so we can delete it later,
                 # if it extends in size
@@ -2229,14 +2231,17 @@ def plotGraph():
             if lastx - startOfZone >= datetime.timedelta(hours=24):
                 #print 'inRangeList[] adding ',startOfZone,'to',lastx
                 inRangeList.append([startOfZone, lastx])
+            tempRangeEnd = lastx
 
         # Highlight any in region ranges >= 24 hours
         inRangegen = (sr for sr in inRangeList if mdates.date2num(sr[0]) not in inRangeStartSet)
         for specRange in inRangegen:
             if temp_inRange_patch:
-                #print 'deleting temp_inRange_patch ending at', tempRangeEnd
                 temp_inRange_patch.remove()
                 temp_inRange_patch = None
+                temp_inRange_Arrow1.remove()
+                temp_inRange_Arrow2.remove()
+                temp_inRange_Arrow3.remove()
             #print 'Highlighting 24 hour or greater range',specRange[0],' to',specRange[1]
             inRange_patch = ax.axvspan(mdates.date2num(specRange[0]),
                                        mdates.date2num(specRange[1]),
@@ -2265,6 +2270,9 @@ def plotGraph():
                 # remember this range so we can delete it later,
                 # if it extends in size
                 temp_inRange_patch = inRange_patch
+                temp_inRange_Arrow1 = inRangeArrow1
+                temp_inRange_Arrow2 = inRangeArrow2
+                temp_inRange_Arrow3 = inRangeArrow3
             else:
                 # add this to the list of ranges which have already been colored
                 inRangeStartSet.add(mdates.date2num(specRange[0]))
@@ -2273,6 +2281,9 @@ def plotGraph():
                 inRangeRegionAnnotList.append(inRangeArrow2)
                 inRangeRegionAnnotList.append(inRangeArrow3)
                 temp_inRange_patch = None
+                temp_inRange_Arrow1 = None
+                temp_inRange_Arrow2 = None
+                temp_inRange_Arrow3 = None
 
 
         #-----------------------------------------------------
@@ -2293,20 +2304,20 @@ def plotGraph():
         # Setting 'picker' allows us to handle hover events later on.
         if egvScatter:
             egvScatter.remove()
-        egvScatter = ax.scatter([mdates.date2num(jj) for jj in xnorm], ynorm, s=15, c=kcolor, zorder=3, marker='o', picker=True)
+        egvScatter = ax.scatter([mdates.date2num(jj) for jj in xnorm], ynorm, s=15, c=kcolor, zorder=4, marker='o', picker=True)
         #if args.debug:
             #print 'plotGraph() : new size(egvScatter) =', len(muppy.get_objects())
 
         # Plot the calibration settings with a diamond marker
         if calibScatter:
             calibScatter.remove()
-        calibScatter = ax.scatter([mdates.date2num(jj) for jj in cxnorm], cynorm, s=30, c='k', zorder=4, marker='D', picker=True)
+        calibScatter = ax.scatter([mdates.date2num(jj) for jj in cxnorm], cynorm, s=30, c='k', zorder=5, marker='D', picker=True)
         #if args.debug:
             #print 'plotGraph() : new size(calibScatter) =', len(muppy.get_objects())
 
         if linePlot:
             linePlot.pop(0).remove()
-        linePlot = ax.plot(xnorm, ynorm, color='cornflowerblue', zorder=2)
+        linePlot = ax.plot(xnorm, ynorm, color='cornflowerblue', zorder=3)
         #if args.debug:
             #print 'After linePlot count =', len(muppy.get_objects())
 
