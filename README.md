@@ -1,7 +1,7 @@
 # dexctrack
 A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with a G5 receiver on Linux and Mac OSX High Sierra, so far.
 
-![image](https://user-images.githubusercontent.com/39347592/40879081-760c6e22-6660-11e8-85d9-2973452a3f80.png)
+![image](https://user-images.githubusercontent.com/39347592/42004451-8605b49e-7a35-11e8-9158-e3468ca495c3.png)
 
 I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the ***fivethirtyeight*** **style** which will provide the best looking graph.
 
@@ -23,9 +23,9 @@ The name of that database includes the serial number of the Dexcom receiver, so 
 
 By default, glucose readings from the last day get displayed, and every 5 minutes a new reading is added to the graph.
 
-In the upper right corner, the latest glucose value, the average glucose value over the last 90 days, and the Hemoglobin A1C value corresponding to that average is displayed. In addition, a Trend arrow indicates whether the glucose value is rising quickly, rising, flat, falling, or falling quickly. In the example below, the Trend is falling.
+In the upper right corner, the latest glucose value, the Average and Standard Deviation of glucose values over the last 90 days, and the Hemoglobin A1C value corresponding to the average is displayed. In addition, a Trend arrow indicates whether the glucose value is rising quickly, rising, flat, falling, or falling quickly. In the example below, the Trend is falling.
 
-![image](https://user-images.githubusercontent.com/39347592/40879084-7e41bc14-6660-11e8-9db8-f75d9b700e10.png)
+![image](https://user-images.githubusercontent.com/39347592/42004919-b5bd8c6e-7a37-11e8-911f-cf5cd82aec0e.png)
 
 Use arrow keys <- or -> to scroll the display Date and Time backwards or forwards. You can also hover over a position in the Start Date slider (in blue near the bottom of the screen). The hover position will show the target starting date in parentheses. Click the left mouse button to immediately move to that hover position.
 
@@ -37,7 +37,7 @@ The Scale slider (in green at the bottom of the screen) can be used to zoom the 
 
 When you scale out to a large time period, the graph could get cluttered with a large number of Event or Note strings. When the number of such strings gets too large (> 30), they get dropped from the display.
 
-![image](https://user-images.githubusercontent.com/39347592/40879232-a48f1b9e-6662-11e8-88c2-e1a0a9cf6207.png)
+![image](https://user-images.githubusercontent.com/39347592/42005343-818b5596-7a39-11e8-9871-36f07a6b4621.png)
 
 With a smaller time period, user added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
 
@@ -87,9 +87,17 @@ The Target range (highlighted in gold color) will then move to the new range. Gl
 
 ---
 
+To the right of the graph there are 3 percentages displayed.
+
+![image](https://user-images.githubusercontent.com/39347592/42005454-289a373a-7a3a-11e8-8762-c1e6007a5501.png)
+
+The upper one, colored red shows the percentage of glucose values (in the last 90 days) which are above the Target range. The middle one, colored light blue, shows the percentage of values within the Target range. The lower one, colored magenta, shows the percentage of values below the Target range.
+
+---
+
 This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
 
-![image](https://user-images.githubusercontent.com/39347592/40879086-84f54bf2-6660-11e8-8e2f-bf1da7bfb986.png)
+![image](https://user-images.githubusercontent.com/39347592/42004458-8781a38c-7a35-11e8-8adf-f3363759d903.png)
 
 ---
 
