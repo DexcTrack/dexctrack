@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 ###############################################################################
 #    Copyright 2018 Steve Erlenborn
 ###############################################################################
@@ -45,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.2
+dexctrackVersion = 1.3
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -238,8 +236,7 @@ plt.rcParams['axes.axisbelow'] = False
 
 # Start with a figure size which will fit on a 15 inch MacBook.
 # Note that this will be overridden below, for most backends, by
-# instructions to maximize the window size on a monitor. I haven't
-# found a good way to do this under the MacOSX backend, yet.
+# instructions to maximize the window size on a monitor.
 fig = plt.figure(figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
 #fig = plt.figure(figsize=(19.2, 10.8))   # size, in inches for 1920 x 1080
 #fig = plt.figure(figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
@@ -1253,7 +1250,7 @@ def plotInit():
 
     plt.gcf().autofmt_xdate()
 
-    axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=2)
+    axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=6)
     #noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='burlywood')
     noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='coral')
     submit_id = noteBox.on_submit(submitNote)
@@ -1770,7 +1767,7 @@ def ShowOrHideEventsNotes():
                                 xytext=(exoffset, eyoffset), textcoords='offset pixels',
                                 fontsize=16, color=evt_color,
                                 arrowprops=dict(connectionstyle="arc3,rad=.3", facecolor=evt_color,
-                                                shrink=0.10, width=2, headwidth=6.5))
+                                                shrink=0.10, width=2, headwidth=6.5), zorder=7)
 
         #if args.debug:
             #print 'After event annotation, count =',len(muppy.get_objects())
@@ -1849,7 +1846,7 @@ def ShowOrHideEventsNotes():
                               xytext=(nxoffset, nyoffset), textcoords='offset pixels',
                               color='black', fontsize=16,
                               arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
-                                              shrink=0.10, width=2, headwidth=6.5))
+                                              shrink=0.10, width=2, headwidth=6.5), zorder=7)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
         #print 'plotGraph note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
