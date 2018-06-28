@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 # This file provides a function to retrieve the screen size, with
 # different implementations for different backends.
 #
