@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.3
+dexctrackVersion = 1.4
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -548,6 +548,7 @@ class deviceSeekThread(threading.Thread):
                     if rthread != None:
                         # stop trying to read the missing device
                         rthread.stop()
+                        rthread.join()
                         rthread = None
                     if stat_text:
                         stat_text.set_text('Receiver\nDevice\nAbsent')
@@ -558,6 +559,7 @@ class deviceSeekThread(threading.Thread):
                     # A different device has been connected
                     if rthread != None:
                         rthread.stop()
+                        rthread.join()
                         rthread = None
                     # set flag so that any plots from previous device get deleted
                     restart = True
@@ -601,10 +603,12 @@ def PeriodicReadData():
         print 'PeriodicReadData() : Unrecognized firmware version', devType
         if rthread != None:
             rthread.stop()
+            rthread.join()
         return
 
     if rthread != None:
         rthread.stop()
+        rthread.join()
     rthread = deviceReadThread(1, "Periodic read thread", readIntoDbFunc)
     # If the user closes the window, we want this thread to also terminate
     rthread.daemon = True
@@ -893,11 +897,13 @@ def onclose(event):
     # Shutdown PeriodicReadData thread
     if rthread is not None:
         rthread.stop()
+        rthread.join()
         rthread = None
 
     # Shutdown PerodicDeviceSeek thread
     if sthread is not None:
         sthread.stop()
+        sthread.join()
         sthread = None
 
     if sqlite_file:
@@ -1265,8 +1271,10 @@ def plotInit():
     #testRead = Button(axtest, 'Jump', color='pink')
     #testRead.on_clicked(TestButtonCallback)
 
-    axLogo = plt.gcf().text(0.037, 0.945, 'Dexc\nTrack', style='italic', size=25, weight='bold',
-                            color='orange', backgroundcolor='teal', ha='center', va='center')
+    figLogo = plt.gcf().text(0.037, 0.945, 'Dexc\nTrack', style='italic', size=25, weight='bold',
+                             color='orange', backgroundcolor='teal', ha='center', va='center')
+
+    figVersion = plt.gcf().text(0.022, 0.880, 'v%s' %dexctrackVersion, size=12, weight='bold')
 
 
 #---------------------------------------------------------
