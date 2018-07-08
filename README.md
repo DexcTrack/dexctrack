@@ -5,9 +5,33 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the ***fivethirtyeight*** **style** which will provide the best looking graph.
 
-You also need to make sure several Python libraries are available. This can be done from a command line with 'pip':
+You also need to make sure several Python libraries are available. This can be done from a command line with 'pip'. 'pip' is included with the installation package from www.python.org, but it tends to not be included, by default, on Linux systems.
+
+On Linux systems:
+
+***sudo apt-get install python-pip python-wxtools***
+
+(or the equivalent command for your packaging system) to install 'pip' and the 'wx' tools for python.
+
+Next, use 'pip' to install the python libraries we need.
+
+***pip install --upgrade setuptools***
 
 ***pip install matplotlib serial pytz tzlocal numpy pympler***
+
+If the installation process fails with a message complaining about "Python.h",
+
+    _posixsubprocess.c:16:10: fatal error: Python.h: No such file or directory
+     #include "Python.h"
+              ^~~~~~~~~~
+    compilation terminated.
+    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
+    
+then run
+
+***sudo apt-get install libpython2.7-dev***
+
+and then repeat the 'pip install' command.
 
 To launch the program invoke ***python dexctrack.py***
 
