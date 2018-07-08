@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.4
+dexctrackVersion = 1.5
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -450,7 +450,7 @@ class deviceReadThread(threading.Thread):
         self.restart = False
         self.evobj.set()
         if args.debug:
-            print 'Turning off device read thread'
+            print 'Turning off device read thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # This function will cause termination of the current delay
     # sequence, and start of a new one, optionally beginning with
@@ -467,12 +467,10 @@ class deviceReadThread(threading.Thread):
             if self.restart is True:
                 self.restart = False
             else:
-                #-------------------------------------------------------------------------
                 if stat_text:
                     stat_text.set_text('Reading\nReceiver\nDevice')
                     stat_text.set_backgroundcolor('yellow')
                     stat_text.draw(fig.canvas.get_renderer())
-                #-------------------------------------------------------------------------
 
                 if args.debug:
                     print 'Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -503,7 +501,7 @@ class deviceReadThread(threading.Thread):
                     self.evobj.clear()
                 else:
                     if args.debug:
-                        print 'deviceReadThread termination requested'
+                        print 'deviceReadThread terminated'
                     return  # terminate the thread
         return
 
@@ -521,7 +519,7 @@ class deviceSeekThread(threading.Thread):
     def stop(self):
         self.evobj.set()
         if args.debug:
-            print 'Turning off device seek thread'
+            print 'Turning off device seek thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def run(self):
         while True:
@@ -569,7 +567,7 @@ class deviceSeekThread(threading.Thread):
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
                 if args.debug:
-                    print 'deviceSeekThread termination requested'
+                    print 'deviceSeekThread terminated'
                 return  # terminate the thread
         return
 
@@ -897,12 +895,14 @@ def onclose(event):
     # Shutdown PeriodicReadData thread
     if rthread is not None:
         rthread.stop()
+        #print 'Waiting on rthread.join()'
         rthread.join()
         rthread = None
 
     # Shutdown PerodicDeviceSeek thread
     if sthread is not None:
         sthread.stop()
+        #print 'Waiting on sthread.join()'
         sthread.join()
         sthread = None
 
@@ -1170,34 +1170,38 @@ def plotInit():
     ########################################################
     if 1.0 < dispRatio <= 1.4:   # = 1.25 for 1280 x 1024 ratio
         avgTextX = 0.68
-        avgTextY = 0.87
+        avgTextY = 0.84
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
         rangeH = 0.099
         legDefaultPosX = 0.095
-        legDefaultPosY = 0.877
+        legDefaultPosY = 0.857
         trendX = 0.965
         trendY = 0.930
         noteX = 0.34
         noteY = 0.92
         noteW = 0.32
         noteH = 0.04
+        verX = 0.010
+        verY = 0.870
     elif 1.4 < dispRatio <= 1.7:  # = 1.6 for 1440 x 900 ratio
         avgTextX = 0.70
-        avgTextY = 0.85
+        avgTextY = 0.87
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
         rangeH = 0.099
         legDefaultPosX = 0.095
-        legDefaultPosY = 0.854
+        legDefaultPosY = 0.875
         trendX = 0.965
         trendY = 0.930
         noteX = 0.33
         noteY = 0.92
         noteW = 0.36
         noteH = 0.04
+        verX = 0.003
+        verY = 0.877
     else:  # 1.7 < dispRatio <= 2.0:  # 1.8 for 1920 x 1080 ratio
         avgTextX = 0.76
         avgTextY = 0.88
@@ -1213,6 +1217,8 @@ def plotInit():
         noteY = 0.92
         noteW = 0.40
         noteH = 0.04
+        verX = 0.022
+        verY = 0.880
 
     if gluUnits == 'mmol/L':
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
@@ -1274,7 +1280,7 @@ def plotInit():
     figLogo = plt.gcf().text(0.037, 0.945, 'Dexc\nTrack', style='italic', size=25, weight='bold',
                              color='orange', backgroundcolor='teal', ha='center', va='center')
 
-    figVersion = plt.gcf().text(0.022, 0.880, 'v%s' %dexctrackVersion, size=12, weight='bold')
+    figVersion = plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
 
 
 #---------------------------------------------------------
@@ -2048,8 +2054,10 @@ def plotGraph():
                                          '%4.1f' %lowPercent, style='italic', size='large', weight='bold', color='magenta')
     else:
         #print 'Setting initial High/Low values'
-        displayLow = cfgDisplayLow
-        displayHigh = cfgDisplayHigh
+        if cfgDisplayLow is not None:
+            displayLow = cfgDisplayLow
+        if cfgDisplayHigh is not None:
+            displayHigh = cfgDisplayHigh
         desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
 
     gluUnits = dbGluUnits
@@ -2064,16 +2072,21 @@ def plotGraph():
         #tr.print_diff()
 
     # Under some window managers, e.g. MATE, a minimized application
-    # will still edisplay the window title, or at least the beginning
+    # will still display the window title, or at least the beginning
     # portion of the window title. We want to include critical
     # information at the beginning of that title, so the user can see
     # the the current glucose level and trend.
     # For example, if the current glucose level is 93 and falling, the
     # window title will begin with '93 \'.
-    if gluUnits == 'mmol/L':
-        fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
-    else:
-        fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+    try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+        if gluUnits == 'mmol/L':
+            fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
+        else:
+            fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+    except Exception as e:
+        if args.debug:
+            print 'fig.canvas.set_window_title: Exception =', e
+        return
 
     if len(egvList) > 0:
         data = np.array(egvList)
