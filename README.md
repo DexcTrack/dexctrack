@@ -7,11 +7,15 @@ I recommend installing the latest 2.7.* version from https://www.python.org/down
 
 You also need to make sure several Python libraries are available. This can be done from a command line with 'pip'. 'pip' is included with the installation package from www.python.org, but it tends to not be included, by default, on Linux systems.
 
-On Linux systems:
+On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
-***sudo apt-get install python-pip python-wxtools***
+***sudo apt-get install python-pip python-wxtools libpython2.7-dev***
 
-(or the equivalent command for your packaging system) to install 'pip' and the 'wx' tools for python.
+On rpm-based Linux systems (e.g. Fedora or Red Hat):
+
+***sudo dnf install redhat-rpm-config python2-devel tkinter wxPython***
+
+(or the equivalent command for your packaging system) to install the 'pip' tool and the 'wx' services for python.
 
 Next, use 'pip' to install the python libraries we need.
 
@@ -19,19 +23,6 @@ Next, use 'pip' to install the python libraries we need.
 
 ***pip install matplotlib serial pytz tzlocal numpy pympler***
 
-If the installation process fails with a message complaining about "Python.h",
-
-    _posixsubprocess.c:16:10: fatal error: Python.h: No such file or directory
-     #include "Python.h"
-              ^~~~~~~~~~
-    compilation terminated.
-    error: command 'x86_64-linux-gnu-gcc' failed with exit status 1
-    
-then run
-
-***sudo apt-get install libpython2.7-dev***
-
-and then repeat the 'pip install' command.
 
 To launch the program invoke ***python dexctrack.py***
 
