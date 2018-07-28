@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.5
+dexctrackVersion = 1.6
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -2036,6 +2036,20 @@ def plotGraph():
     if desirableRange:
         # Only redraw desirable range if it has changed since the last drawing
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or (dbGluUnits != gluUnits):
+
+            # Need to clear in target annotations, since the target size has changed
+            while len(inRangeRegionAnnotList) > 0:
+                inRangeItem = inRangeRegionAnnotList.pop(0)
+                inRangeItem.remove()
+            inRangeRegionAnnotList = []
+            while len(inRangeRegionList) > 0:
+                inRangeRegionList.pop(0).remove()
+                #inRangeItem = inRangeRegionList.pop(0)
+                #poly = inRangeItem
+                #poly.remove()
+            inRangeRegionList = []
+            inRangeStartSet.clear()
+
             #print 'High/Low value(s) changed'
             cfgDisplayLow = displayLow
             cfgDisplayHigh = displayHigh
@@ -2231,6 +2245,7 @@ def plotGraph():
         lastx = ReceiverTimeToUtcTime(firstTestSysSecs)
         lasty = firstTestGluc
         startOfZone = lastx
+        tempRangeEnd = startOfZone
         for pointx, pointy in zip(xnorm, ynorm):
             if (glucInRange(lasty) is True) and (glucInRange(pointy) is False):
                 # we've transitioned out desirable range
@@ -2260,7 +2275,7 @@ def plotGraph():
                 temp_inRange_Arrow1.remove()
                 temp_inRange_Arrow2.remove()
                 temp_inRange_Arrow3.remove()
-            #print 'Highlighting 24 hour or greater range',specRange[0],' to',specRange[1]
+            #print 'Highlighting 24 hour or greater range', specRange[0], ' to', specRange[1]
             inRange_patch = ax.axvspan(mdates.date2num(specRange[0]),
                                        mdates.date2num(specRange[1]),
                                        0.0, 1.0, color='lightsteelblue',
@@ -2284,9 +2299,10 @@ def plotGraph():
                                         xy=(xcenter, gluMult * 340), ha='center',
                                         va='center', fontsize=22, annotation_clip=False)
 
-            if tempRangeEnd == lastx:
-                # remember this range so we can delete it later,
-                # if it extends in size
+            if tempRangeEnd == lastx == specRange[1]:
+                # This range is not necessarily completed yet.
+                # Remember it so we can delete it later, if it
+                # is to be replaced by a larger range.
                 temp_inRange_patch = inRange_patch
                 temp_inRange_Arrow1 = inRangeArrow1
                 temp_inRange_Arrow2 = inRangeArrow2
