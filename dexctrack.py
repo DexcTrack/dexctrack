@@ -1170,7 +1170,7 @@ def plotInit():
     ########################################################
     if 1.0 < dispRatio <= 1.4:   # = 1.25 for 1280 x 1024 ratio
         avgTextX = 0.68
-        avgTextY = 0.84
+        avgTextY = 0.88
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
@@ -1183,11 +1183,13 @@ def plotInit():
         noteY = 0.92
         noteW = 0.32
         noteH = 0.04
+        logoX = 0.043
+        logoY = 0.952
         verX = 0.010
-        verY = 0.870
+        verY = 0.886
     elif 1.4 < dispRatio <= 1.7:  # = 1.6 for 1440 x 900 ratio
         avgTextX = 0.70
-        avgTextY = 0.87
+        avgTextY = 0.85
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
@@ -1200,8 +1202,10 @@ def plotInit():
         noteY = 0.92
         noteW = 0.36
         noteH = 0.04
+        logoX = 0.037
+        logoY = 0.945
         verX = 0.003
-        verY = 0.877
+        verY = 0.870
     else:  # 1.7 < dispRatio <= 2.0:  # 1.8 for 1920 x 1080 ratio
         avgTextX = 0.76
         avgTextY = 0.88
@@ -1217,6 +1221,8 @@ def plotInit():
         noteY = 0.92
         noteW = 0.40
         noteH = 0.04
+        logoX = 0.037
+        logoY = 0.945
         verX = 0.022
         verY = 0.880
 
@@ -1277,7 +1283,7 @@ def plotInit():
     #testRead = Button(axtest, 'Jump', color='pink')
     #testRead.on_clicked(TestButtonCallback)
 
-    figLogo = plt.gcf().text(0.037, 0.945, 'Dexc\nTrack', style='italic', size=25, weight='bold',
+    figLogo = plt.gcf().text(logoX, logoY, 'Dexc\nTrack', style='italic', size=25, weight='bold',
                              color='orange', backgroundcolor='teal', ha='center', va='center')
 
     figVersion = plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
@@ -2224,9 +2230,10 @@ def plotGraph():
                                    mdates.date2num(specRange[1]),
                                    alpha=0.2, color='red',
                                    label='Uncalibrated', zorder=2)
-            if tempRangeEnd == lastx:
-                # remember this range so we can delete it later,
-                # if it extends in size
+            if tempRangeEnd == lastx == specRange[1]:
+                # This range is not necessarily completed yet.
+                # Remember it so we can delete it later, if it
+                # is to be replaced by a larger range.
                 temp_red_patch = red_patch
             else:
                 # add this to the list of ranges which have already been colored
