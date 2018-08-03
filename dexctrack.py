@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.6
+dexctrackVersion = 1.7
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -242,11 +242,9 @@ fig = plt.figure(figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
 #fig = plt.figure(figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
 figManager = plt.get_current_fig_manager()
 
-#dpi = fig.get_dpi()
-#print 'dpi =', dpi
-
 backend = plt.get_backend()
 if args.debug:
+    print 'sys.platform =', sys.platform
     print 'backend =', backend
 if 'Tk' in backend:
     figManager.resize(*figManager.window.maxsize())
@@ -984,15 +982,15 @@ def update_egc_annot(ind):
         dis_annot.xy = pos
         tod, gluc = (mdates.num2date(pos[0], tz=mytz), pos[1])
         if gluUnits == 'mmol/L':
-            if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
+            if sys.platform == "win32":
+                text = "%s,\n%5.2f" % (tod.strftime("%#I:%M%p"), gluc)
+            else:
                 text = "%s,\n%5.2f" % (tod.strftime("%-I:%M%p"), gluc)
-            else:
-                text = "%s,\n%5.2f" % (tod.strftime("%I:%M%p"), gluc)
         else:
-            if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
-                text = "%s,\n%u" % (tod.strftime("%-I:%M%p"), gluc)
+            if sys.platform == "win32":
+                text = "%s,\n%u" % (tod.strftime("%#I:%M%p"), gluc)
             else:
-                text = "%s,\n%u" % (tod.strftime("%I:%M%p"), gluc)
+                text = "%s,\n%u" % (tod.strftime("%-I:%M%p"), gluc)
         dis_annot.set_text(text)
         dis_annot.get_bbox_patch().set_facecolor('k')
         dis_annot.get_bbox_patch().set_alpha(0.3)
@@ -1255,10 +1253,13 @@ def plotInit():
     sScale.on_changed(updateScale)
 
     # year-month-day without prepended 0's. E.g. 2018-3-31
-    majorFormatter = mpl.dates.DateFormatter('%Y-%-m-%-d\n%A')
     # Locale appropriate date representation. E.g. 03/31/18
-    #majorFormatter = mpl.dates.DateFormatter('%x\n%A')
-    minorFormatter = mpl.dates.DateFormatter('%-H')
+    if sys.platform == "win32":
+        majorFormatter = mpl.dates.DateFormatter('%Y-%#m-%#d\n%A')
+        minorFormatter = mpl.dates.DateFormatter('%#H')
+    else:
+        majorFormatter = mpl.dates.DateFormatter('%Y-%-m-%-d\n%A')
+        minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
     plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
@@ -1379,7 +1380,9 @@ def readDataFromSql():
                     trendChar = 'V'
                 else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
                     trendChar = '-'
-                #print 'Last testNum =',lastTestGluc
+
+            if args.debug:
+                print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastTestGluc
 
             sqlMinTime = firstTestSysSecs
             sqlMaxTime = lastTestSysSecs
@@ -1514,7 +1517,7 @@ def readDataFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
-            # get the lastest sensor insertion Start (state == 7) time
+            # get the latest sensor insertion Start (state == 7) time
             curs.execute('SELECT insertSeconds FROM SensorInsert WHERE state = 7 ORDER BY sysSeconds DESC LIMIT 1')
             sqlData = curs.fetchall()
             for row in sqlData:
