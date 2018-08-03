@@ -34,6 +34,11 @@ import platform
 import plistlib
 import re
 import subprocess
+import sys
+
+if sys.platform == 'win32':
+    import serial.tools.list_ports
+    from _winreg import *
 
 
 def ReceiverTimeToTime(rtime):
@@ -91,6 +96,54 @@ def osx_find_usbserial(vendor, product):
   return recur(plist)
 
 
+def thisIsWine():
+    if sys.platform == 'win32':
+        try:
+            registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
+            if registry is not None:
+                try:
+                    winekey = OpenKey(registry, 'Software\Wine')
+                    if winekey is not None:
+                        return True
+                    else:
+                        return False
+                except Exception as e:
+                    #print 'OpenKey failed. Exception =', e
+                    return False
+            else:
+                return False
+
+        except Exception as f:
+            #print 'ConnectRegistry failed. Exception =', f
+            return False
+    else:
+        return False
+
+
+def win_find_usbserial(vendor, product):
+    if thisIsWine():
+        # When running under WINE, we have no access to real USB information, such
+        # as the Vendor & Product ID values. Also, serial.tools.list_ports.comports()
+        # returns nothing. The real port under Linux (or OSX?) is mapped to a windows
+        # serial port at \dosdevices\COMxx, but we don't know which one. Normally,
+        # COM1 - COM32 are automatically mapped to /dev/ttyS0 - /dev/ttyS31.
+        # If the Dexcom device is plugged in, it will be mapped to COM33 or greater.
+        # We have no way of identifying which port >= COM33 is the right one, so
+        # we'll just guess the first available one.
+        return "\\\\.\\com33"
+    else:
+        # convert string arguments to integer values
+        vendor_int = int(vendor, 16)
+        product_int = int(product, 16)
+        for cport in serial.tools.list_ports.comports():
+            if (cport.vid == vendor_int) and (cport.pid == product_int):
+                # found a port which matches vendor and product IDs
+                if cport.device is not None:
+                    return cport.device
+        return None
+
+
+
 def find_usbserial(vendor, product):
   """Find the tty device for a given usbserial devices identifiers.
 
@@ -106,6 +159,8 @@ def find_usbserial(vendor, product):
     return linux_find_usbserial(vendor, product)
   elif platform.system() == 'Darwin':
     return osx_find_usbserial(vendor, product)
+  elif platform.system() == 'Windows':
+    return win_find_usbserial(vendor, product)
   else:
     raise NotImplementedError('Cannot find serial ports on %s'
                               % platform.system())
