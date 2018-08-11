@@ -106,6 +106,8 @@ sliderSpace = 0.26              # reserve this much space below the graph to hol
 
 graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
+readSerialNumInstance = None
+readDataInstance = None
 ax = None
 tr = None
 firstTestSysSecs = 0
@@ -461,6 +463,7 @@ class deviceReadThread(threading.Thread):
             print 'Restarting device read delay. First delay =', firstDelaySecs
 
     def run(self):
+        global readDataInstance
         while True:
             if self.restart is True:
                 self.restart = False
@@ -500,6 +503,8 @@ class deviceReadThread(threading.Thread):
                 else:
                     if args.debug:
                         print 'deviceReadThread terminated'
+                    del readDataInstance
+                    readDataInstance = None
                     return  # terminate the thread
         return
 
@@ -524,16 +529,28 @@ class deviceSeekThread(threading.Thread):
             global sqlite_file
             global rthread
             global restart
+            global readSerialNumInstance
 
             prior_sqlite_file = sqlite_file
             prior_connected_state = self.connected_state
-            sNum = readReceiver.readReceiver.GetSerialNumber()
-            if not sNum:
+            sNum = None
+            if readSerialNumInstance is None:
+                dport = readReceiver.readReceiverBase.FindDevice()
+                if dport is not None:
+                    readSerialNumInstance = readReceiver.readReceiver(dport)
                 self.connected_state = False
-            else:
-                self.connected_state = True
 
-            sqlite_file = getSqlFileName(sNum)
+            if readSerialNumInstance is not None:
+                sNum = readSerialNumInstance.GetSerialNumber()
+                if not sNum:
+                    self.connected_state = False
+                    del readSerialNumInstance
+                    readSerialNumInstance = None
+                else:
+                    self.connected_state = True
+
+                sqlite_file = getSqlFileName(sNum)
+
             #if args.debug:
                 #print 'deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -566,6 +583,8 @@ class deviceSeekThread(threading.Thread):
             if waitStatus is True:
                 if args.debug:
                     print 'deviceSeekThread terminated'
+                del readSerialNumInstance
+                readSerialNumInstance = None
                 return  # terminate the thread
         return
 
@@ -573,7 +592,7 @@ class deviceSeekThread(threading.Thread):
 #---------------------------------------------------------
 def PerodicDeviceSeek():
     global sthread
-    sthread = deviceSeekThread(2, "Wait for device thread")
+    sthread = deviceSeekThread(2, "Device seek thread")
     # If the user closes the window, we want this thread to also terminate
     sthread.daemon = True
     sthread.start()
@@ -582,19 +601,42 @@ def PerodicDeviceSeek():
 #---------------------------------------------------------
 def PeriodicReadData():
     global rthread
+    global readDataInstance
 
     # read data from the reciever
-    devType = readReceiver.readReceiver.GetDeviceType()
+    if readSerialNumInstance is not None:
+        devType = readSerialNumInstance.GetDeviceType()
+    else:
+        devType = None
+
     if devType is None:
         return
     elif devType == 'g4':
-        readIntoDbFunc = readReceiver.readReceiver.DownloadToDb
+        if readDataInstance is None:
+            dport = readReceiver.readReceiverBase.FindDevice()
+            if dport is None:
+                readDataInstance = None
+                return
+            else:
+                readDataInstance = readReceiver.readReceiver(dport)
     elif devType == 'g5':
-        readIntoDbFunc = readReceiver.readReceiverG5.DownloadToDb
+        if readDataInstance is None:
+            dport = readReceiver.readReceiverBase.FindDevice()
+            if dport is None:
+                readDataInstance = None
+                return
+            else:
+                readDataInstance = readReceiver.readReceiverG5(dport)
     elif devType == 'g6':
         # We might need a different routine for G6. I won't know until
         # I get access to a G6. For now call the same one as for G5.
-        readIntoDbFunc = readReceiver.readReceiverG5.DownloadToDb
+        if readDataInstance is None:
+            dport = readReceiver.readReceiverBase.FindDevice()
+            if dport is None:
+                readDataInstance = None
+                return
+            else:
+                readDataInstance = readReceiver.readReceiverG6(dport)
     else:
         print 'PeriodicReadData() : Unrecognized firmware version', devType
         if rthread != None:
@@ -605,7 +647,7 @@ def PeriodicReadData():
     if rthread != None:
         rthread.stop()
         rthread.join()
-    rthread = deviceReadThread(1, "Periodic read thread", readIntoDbFunc)
+    rthread = deviceReadThread(1, "Periodic read thread", readDataInstance.DownloadToDb)
     # If the user closes the window, we want this thread to also terminate
     rthread.daemon = True
     rthread.start()
@@ -1269,14 +1311,14 @@ def plotInit():
 
     plt.gcf().autofmt_xdate()
 
-    axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=6)
+    axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=10)
     #noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='burlywood')
     noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='coral')
     submit_id = noteBox.on_submit(submitNote)
     noteBoxPos = axNote.get_position()
     #print 'noteBoxPos.x0 =',noteBoxPos.x0,'noteBoxPos.y0 =',noteBoxPos.y0,'noteBoxPos =',noteBoxPos
 
-    setRangeButton = plt.axes([rangeX, rangeY, rangeW, rangeH], zorder=9)   # X, Y, X-width, Y-height
+    setRangeButton = plt.axes([rangeX, rangeY, rangeW, rangeH], zorder=13)   # X, Y, X-width, Y-height
     bread = Button(setRangeButton, 'Set\nNew Target\nRange', color='gold', hovercolor='red')
     bread.on_clicked(ReadButtonCallback)
 
@@ -1455,9 +1497,14 @@ def readDataFromSql():
                 highCount = sqlData[0]
 
             lmhTotal = lowCount + midCount + highCount
-            highPercent = 100.0 * highCount / lmhTotal
-            midPercent = 100.0 * midCount / lmhTotal
-            lowPercent = 100.0 * lowCount / lmhTotal
+            if lmhTotal > 0:
+                highPercent = 100.0 * highCount / lmhTotal
+                midPercent = 100.0 * midCount / lmhTotal
+                lowPercent = 100.0 * lowCount / lmhTotal
+            else:
+                highPercent = 0.0
+                midPercent = 0.0
+                lowPercent = 0.0
             #print 'highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1790,7 +1837,7 @@ def ShowOrHideEventsNotes():
                                 xytext=(exoffset, eyoffset), textcoords='offset pixels',
                                 fontsize=16, color=evt_color,
                                 arrowprops=dict(connectionstyle="arc3,rad=.3", facecolor=evt_color,
-                                                shrink=0.10, width=2, headwidth=6.5), zorder=7)
+                                                shrink=0.10, width=2, headwidth=6.5), zorder=11)
 
         #if args.debug:
             #print 'After event annotation, count =',len(muppy.get_objects())
@@ -1869,7 +1916,7 @@ def ShowOrHideEventsNotes():
                               xytext=(nxoffset, nyoffset), textcoords='offset pixels',
                               color='black', fontsize=16,
                               arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
-                                              shrink=0.10, width=2, headwidth=6.5), zorder=7)
+                                              shrink=0.10, width=2, headwidth=6.5), zorder=11)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
         #print 'plotGraph note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
@@ -2348,20 +2395,20 @@ def plotGraph():
         # Setting 'picker' allows us to handle hover events later on.
         if egvScatter:
             egvScatter.remove()
-        egvScatter = ax.scatter([mdates.date2num(jj) for jj in xnorm], ynorm, s=15, c=kcolor, zorder=4, marker='o', picker=True)
+        egvScatter = ax.scatter([mdates.date2num(jj) for jj in xnorm], ynorm, s=15, c=kcolor, zorder=8, marker='o', picker=True)
         #if args.debug:
             #print 'plotGraph() : new size(egvScatter) =', len(muppy.get_objects())
 
         # Plot the calibration settings with a diamond marker
         if calibScatter:
             calibScatter.remove()
-        calibScatter = ax.scatter([mdates.date2num(jj) for jj in cxnorm], cynorm, s=30, c='k', zorder=5, marker='D', picker=True)
+        calibScatter = ax.scatter([mdates.date2num(jj) for jj in cxnorm], cynorm, s=30, c='k', zorder=9, marker='D', picker=True)
         #if args.debug:
             #print 'plotGraph() : new size(calibScatter) =', len(muppy.get_objects())
 
         if linePlot:
             linePlot.pop(0).remove()
-        linePlot = ax.plot(xnorm, ynorm, color='cornflowerblue', zorder=3)
+        linePlot = ax.plot(xnorm, ynorm, color='cornflowerblue', zorder=7)
         #if args.debug:
             #print 'After linePlot count =', len(muppy.get_objects())
 
@@ -2380,7 +2427,7 @@ def plotGraph():
                 runningMean.append(float((nextMeanNn + nn) * runningMean[nextMeanNn + nn - 1] + newYnorm[nn]) / (nextMeanNn + nn + 1))
         if meanPlot:
             meanPlot.pop(0).remove()
-        meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=1, alpha=0.6)
+        meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=3, alpha=0.6)
         lastMeanTestDateTime = lastTestDateTime
         if len(newYnorm) > 0:
             nextMeanNn = nextMeanNn + nn + 1
@@ -2498,7 +2545,8 @@ fig.canvas.mpl_connect('pick_event', onpick)
 fig.canvas.mpl_connect('close_event', onclose)
 fig.canvas.mpl_connect('axes_leave_event', leave_axes)
 
-sqlite_file = getSqlFileName(readReceiver.readReceiver.GetSerialNumber())
+
+sqlite_file = getSqlFileName(None)
 if args.debug:
     print 'sqlite_file =', sqlite_file
 firstPlotGraph = 1

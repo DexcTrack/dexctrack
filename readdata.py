@@ -77,10 +77,6 @@ class ReadPacket(object):
 
 class Dexcom(object):
 
-  def __init__(self, port):
-    self._port_name = port
-    self._port = None
-
   @staticmethod
   def FindDevice():
     try:
@@ -89,16 +85,14 @@ class Dexcom(object):
     except:
         return None
 
-  @classmethod
-  def GetDeviceType(cls):
+  def GetDeviceType(self):
     try:
-        device = cls.FindDevice()
+        device = self.FindDevice()
         if not device:
           sys.stderr.write('Could not find Dexcom G4|G5|G6 Receiver!\n')
           return None
         else:
-          dex = cls(device)
-          fw_ver = dex.GetFirmwareHeader().get('FirmwareVersion')
+          fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
           if fw_ver.startswith("6."):
               return 'g6'
           elif fw_ver.startswith("5."):
@@ -136,7 +130,7 @@ class Dexcom(object):
       print '- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA')))
       print '- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME')))
       print '- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET')))
-      myDevType = Dexcom.GetDeviceType()
+      myDevType = dex.GetDeviceType()
       if (myDevType == 'g5') or (myDevType == 'g6') :
           print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
 
@@ -153,8 +147,18 @@ class Dexcom(object):
       #mfg_data = dex.ReadAllManufacturingData()
       #print 'char data =', mfg_data
 
+  def __init__(self, port):
+    self._port_name = port
+    self._port = None
+
   def Connect(self):
     try:
+        if sys.platform == "win32": # SJE DEBUG
+            print 'Connect() connecting to port', self._port_name
+            if self._port is not None:
+                print 'Connect() closing self.port', self._port_name
+                self._port.close()
+                self._port = None
         if self._port is None:
             self._port = serial.Serial(port=self._port_name, baudrate=115200)
     except serial.SerialException:
@@ -396,7 +400,6 @@ class Dexcom(object):
       'USER_EVENT_DATA': database_records.EventRecord,
       'METER_DATA': database_records.MeterRecord,
       'CAL_SET': database_records.Calibration,
-      # 'CAL_SET': database_records.Calibration,
       'INSERTION_TIME': database_records.InsertionRecord,
       'EGV_DATA': database_records.EGVRecord,
       'SENSOR_DATA': database_records.SensorRecord,
@@ -452,14 +455,18 @@ class DexcomG5 (Dexcom):
   }
 
 def GetDevice (port):
-  devType = Dexcom.GetDeviceType()  # g4 | g5 | g6
+  workInst = Dexcom(port)
+  devType = workInst.GetDeviceType()  # g4 | g5 | g6
   if devType == 'g6':
     # Don't yet know if we need any differences for G6 verses G5
+    #print 'GetDevice() creating DexcomG6 class'
     return DexcomG5(port)
   elif devType == 'g5':
+    #print 'GetDevice() creating DexcomG5 class'
     return DexcomG5(port)
   elif devType == 'g4':
-    return Dexcom(port)
+    #print 'GetDevice() creating DexcomG4 class'
+    return workInst
   else:
     print 'readdata.GetDevice() : Unrecognized firmware version', devType
     return None
