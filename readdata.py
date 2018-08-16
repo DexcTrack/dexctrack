@@ -147,18 +147,12 @@ class Dexcom(object):
       #mfg_data = dex.ReadAllManufacturingData()
       #print 'char data =', mfg_data
 
-  def __init__(self, port):
-    self._port_name = port
-    self._port = None
+  def __init__(self, port_path, port=None):
+    self._port_name = port_path
+    self._port = port
 
   def Connect(self):
     try:
-        if sys.platform == "win32": # SJE DEBUG
-            print 'Connect() connecting to port', self._port_name
-            if self._port is not None:
-                print 'Connect() closing self.port', self._port_name
-                self._port.close()
-                self._port = None
         if self._port is None:
             self._port = serial.Serial(port=self._port_name, baudrate=115200)
     except serial.SerialException:
