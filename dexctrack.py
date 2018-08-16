@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.7
+dexctrackVersion = 1.8
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -239,9 +239,9 @@ plt.rcParams['axes.axisbelow'] = False
 # Start with a figure size which will fit on a 15 inch MacBook.
 # Note that this will be overridden below, for most backends, by
 # instructions to maximize the window size on a monitor.
-fig = plt.figure(figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
-#fig = plt.figure(figsize=(19.2, 10.8))   # size, in inches for 1920 x 1080
-#fig = plt.figure(figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
+fig = plt.figure("DexcTrack",figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
+#fig = plt.figure("DexcTrack",figsize=(19.2, 10.8))   # size, in inches for 1920 x 1080
+#fig = plt.figure("DexcTrack",figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
 figManager = plt.get_current_fig_manager()
 
 backend = plt.get_backend()
@@ -554,6 +554,7 @@ class deviceSeekThread(threading.Thread):
             #if args.debug:
                 #print 'deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+            #print 'deviceSeekThread.run() connected_state =', self.connected_state, ', prior_connected_state =', prior_connected_state, ', sqlite_file =', sqlite_file, ', prior_sqlite_file =', prior_sqlite_file
             if (self.connected_state != prior_connected_state) or (sqlite_file != prior_sqlite_file):
                 #if args.debug:
                     #print 'Connected state :', prior_connected_state,' -> ',self.connected_state
@@ -618,7 +619,10 @@ def PeriodicReadData():
                 readDataInstance = None
                 return
             else:
-                readDataInstance = readReceiver.readReceiver(dport)
+                if readSerialNumInstance:
+                    readDataInstance = readReceiver.readReceiver(dport, readSerialNumInstance.port)
+                else:
+                    readDataInstance = readReceiver.readReceiver(dport)
     elif devType == 'g5':
         if readDataInstance is None:
             dport = readReceiver.readReceiverBase.FindDevice()
@@ -626,7 +630,10 @@ def PeriodicReadData():
                 readDataInstance = None
                 return
             else:
-                readDataInstance = readReceiver.readReceiverG5(dport)
+                if readSerialNumInstance:
+                    readDataInstance = readReceiver.readReceiverG5(dport, readSerialNumInstance.port)
+                else:
+                    readDataInstance = readReceiver.readReceiverG5(dport)
     elif devType == 'g6':
         # We might need a different routine for G6. I won't know until
         # I get access to a G6. For now call the same one as for G5.
@@ -636,7 +643,10 @@ def PeriodicReadData():
                 readDataInstance = None
                 return
             else:
-                readDataInstance = readReceiver.readReceiverG6(dport)
+                if readSerialNumInstance:
+                    readDataInstance = readReceiver.readReceiverG6(dport, readSerialNumInstance.port)
+                else:
+                    readDataInstance = readReceiver.readReceiverG6(dport)
     else:
         print 'PeriodicReadData() : Unrecognized firmware version', devType
         if rthread != None:
@@ -1919,8 +1929,8 @@ def ShowOrHideEventsNotes():
                                               shrink=0.10, width=2, headwidth=6.5), zorder=11)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
-        #print 'plotGraph note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
-        #print 'plotGraph note : X =', noteAnn.xy[0], 'Y =', noteAnn.xy[1], 'datetime =', estime
+        #print 'ShowOrHideEventsNotes note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
+        #print 'ShowOrHideEventsNotes note : X =', noteAnn.xy[0], 'Y =', noteAnn.xy[1], 'datetime =', estime
         # add this to the list of notes which have already been annotated
         noteTimeSet.add(estime)
         noteSet.add(noteAnn)
@@ -2130,33 +2140,43 @@ def plotGraph():
             displayHigh = cfgDisplayHigh
         desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
 
+    #if args.debug:
+        #print 'plotGraph() :  After desirableRange() count =', len(muppy.get_objects())
+        #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
+        #tr.print_diff()
+
     gluUnits = dbGluUnits
 
     highPercentText.set_text('%4.1f%%' %highPercent)
     midPercentText.set_text('%4.1f%%' %midPercent)
     lowPercentText.set_text('%4.1f%%' %lowPercent)
 
-    #if args.debug:
-        #print 'plotGraph() :  After desirableRange() count =', len(muppy.get_objects())
-        #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
-        #tr.print_diff()
-
-    # Under some window managers, e.g. MATE, a minimized application
-    # will still display the window title, or at least the beginning
-    # portion of the window title. We want to include critical
-    # information at the beginning of that title, so the user can see
-    # the the current glucose level and trend.
-    # For example, if the current glucose level is 93 and falling, the
-    # window title will begin with '93 \'.
-    try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-        if gluUnits == 'mmol/L':
-            fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
-        else:
-            fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
-    except Exception as e:
-        if args.debug:
-            print 'fig.canvas.set_window_title: Exception =', e
-        return
+    if sys.platform == "win32":
+        # fig.canvas.set_window_title() hangs forever under Windows, so don't try to use it
+        pass
+        # The code below writes the string near the top of the window, but not in the window
+        # title bar.
+        #if gluUnits == 'mmol/L':
+            #plt.suptitle('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
+        #else:
+            #plt.suptitle('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+    else:
+        # Under some window managers, e.g. MATE, a minimized application
+        # will still display the window title, or at least the beginning
+        # portion of the window title. We want to include critical
+        # information at the beginning of that title, so the user can see
+        # the the current glucose level and trend.
+        # For example, if the current glucose level is 93 and falling, the
+        # window title will begin with '93 \'.
+        try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+            if gluUnits == 'mmol/L':
+                fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
+            else:
+                fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+        except Exception as e:
+            if args.debug:
+                print 'fig.canvas.set_window_title: Exception =', e
+            return
 
     if len(egvList) > 0:
         data = np.array(egvList)

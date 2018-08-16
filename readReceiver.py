@@ -31,10 +31,13 @@ import database_records
 class readReceiverBase(readdata.Dexcom):
     _lock = threading.Lock()
 
-    def __init__(self, portname):
+    # We don't want to try to re-open a port which has already been opened,
+    # so we include an optional 'port' argument, which can
+    # be used to specify an existing, open port.
+    def __init__(self, portname, port=None):
         self._port_name = portname
-        readdata.Dexcom.__init__(self, portname)
-        #print 'readReceiverBase() __init__ running. _port =', self._port, ', _port_name =', self._port_name
+        readdata.Dexcom.__init__(self, portname, port)
+        #print 'readReceiverBase() __init__ running. _port =', self._port, ', _port_name =', self._port_name, ', port =', port
 
     def GetSerialNumber(self):
         #print 'readReceiverBase() GetSerialNumber running'
@@ -148,9 +151,9 @@ class readReceiver(readReceiverBase):
     # so we declare a class variable 'rr_version'.
     rr_version = 'g4'
 
-    def __init__(self, portname):
+    def __init__(self, portname, port=None):
         #print 'readReceiver() __init__ running'
-        super(readReceiver, self).__init__(portname)
+        super(readReceiver, self).__init__(portname, port)
 
     #def __del__(self):
         #print 'readReceiver() __del__ running'
@@ -170,9 +173,9 @@ class readReceiverG5(readReceiverBase):
         'USER_SETTING_DATA': database_records.UserSettings,
     }
 
-    def __init__(self, portname):
+    def __init__(self, portname, port=None):
         #print 'readReceiverG5() __init__ running'
-        super(readReceiverG5, self).__init__(portname)
+        super(readReceiverG5, self).__init__(portname, port)
 
     #def __del__(self):
         #print 'readReceiverG5() __del__ running'
@@ -193,9 +196,9 @@ class readReceiverG6(readReceiverBase):
         'USER_SETTING_DATA': database_records.UserSettings,
     }
 
-    def __init__(self, portname):
+    def __init__(self, portname, port=None):
         #print 'readReceiverG6() __init__ running'
-        super(readReceiverG6, self).__init__(portname)
+        super(readReceiverG6, self).__init__(portname, port)
 
     #def __del__(self):
         #print 'readReceiverG6() __del__ running'
