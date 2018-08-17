@@ -2010,7 +2010,7 @@ def plotGraph():
 
         dis_annot = ax.annotate("", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
                                 bbox=dict(boxstyle="round", facecolor="w"),
-                                arrowprops=dict(arrowstyle="->"))
+                                arrowprops=dict(arrowstyle="->"), zorder=15)
         dis_annot.set_visible(False)
 
         # Don't move the following to plotInit() or Scale slider will be messed up
