@@ -182,6 +182,25 @@ class Dexcom(object):
 
   def Disconnect(self):
     if self._port is not None:
+      # If the user disconnects the USB cable while in the middle
+      # of a Write/Read operation, we can end up with junk in the
+      # serial port buffers. After reconnecting the cable, this
+      # junk can cause a lock-up on that port. So, clear and
+      # flush the port during this Disconnect operation to prevent
+      # a possible future lock-up. Note: the clear() and flush()
+      # operations can throw exceptions when there is nothing to
+      # be cleaned up, so we use try ... except to ignore those.
+      try:
+          self.clear()
+      except Exception as e:
+          #print 'Disconnect() : Exception =', e
+          pass
+
+      try:
+          self.flush()
+      except Exception as e:
+          #print 'Disconnect() : Exception =', e
+          pass
       self._port.close()
     self._port = None
 
