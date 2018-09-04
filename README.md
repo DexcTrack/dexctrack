@@ -21,7 +21,7 @@ Next, use 'pip' to install the python libraries we need.
 
 ***pip install --upgrade setuptools***
 
-***pip install matplotlib serial pytz tzlocal numpy pympler***
+***pip install matplotlib pyserial pytz tzlocal numpy pympler***
 
 
 To launch the program invoke ***python dexctrack.py***
