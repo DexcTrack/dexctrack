@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.8
+dexctrackVersion = 1.9
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
