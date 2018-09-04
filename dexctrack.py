@@ -49,6 +49,11 @@ dexctrackVersion = 1.8
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="enable debug mode", action="store_true")
 parser.add_argument("-v", "--version", help="show version", action="store_true")
+# Use -x <width> -y <height> to hard code the window size. This is useful for
+# testing different window dimensions. When both are specified, we'll skip the
+# code which maximizes the window.
+parser.add_argument("-x", "--xsize", help="specify width in pixels", type=int)
+parser.add_argument("-y", "--ysize", help="specify height in pixels", type=int)
 args = parser.parse_args()
 
 if args.version:
@@ -62,10 +67,15 @@ if args.debug:
 print 'DexcTrack  Copyright (C) 2018  Steve Erlenborn'
 print 'This program comes with ABSOLUTELY NO WARRANTY.\n'
 
-# HD monitor  = 1920 x 1080 -> 1920/1080 = 1.8
+# HD monitor  = 1920 x 1080 -> 1920/1080 = 1.78
+# small laptop  1366 x  768 -> 1366/ 768 = 1.78
 # macbook pro = 1440 x 900  -> 1440/900  = 1.6
 #               1280 x 1024 -> 1280/1024 = 1.25
-width, height = screensize.get_screen_size()
+if args.xsize and args.ysize:
+    width = args.xsize
+    height = args.ysize
+else:
+    width, height = screensize.get_screen_size()
 dispRatio = round(float(width) / float(height), 1)
 if args.debug:
     print 'get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio
@@ -202,6 +212,11 @@ lowPercent = 0.0
 highPercentText = None
 midPercentText = None
 lowPercentText = None
+largeFontSize = 'large'
+mediumFontSize = 'medium'
+smallFontSize = 'small'
+percentFontSize = largeFontSize
+trendArrowSize = 15
 
 
 # Disable default keyboard shortcuts so that a user
@@ -233,27 +248,41 @@ plt.rcParams['timezone'] = mytz
 
 plt.rcParams['axes.axisbelow'] = False
 
+dotsPerInch = plt.rcParams['figure.dpi']
+if args.xsize and args.ysize:
+    xinches = (float)(args.xsize) / dotsPerInch
+    yinches = (float)(args.ysize) / dotsPerInch
+else:
+    xinches = 14.5
+    yinches = 8.5
+
 #print 'interactive backends =',mpl.rcsetup.interactive_bk
 #print 'non_interactive backends =',mpl.rcsetup.non_interactive_bk
 
-# Start with a figure size which will fit on a 15 inch MacBook.
+# Start with a figure size corresponding to any given screen dimensions,
+# or the default for a 15 inch laptop.
 # Note that this will be overridden below, for most backends, by
 # instructions to maximize the window size on a monitor.
-fig = plt.figure("DexcTrack",figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
+#fig = plt.figure("DexcTrack",figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
 #fig = plt.figure("DexcTrack",figsize=(19.2, 10.8))   # size, in inches for 1920 x 1080
+#fig = plt.figure("DexcTrack",figsize=(14.23, 8))     # size, in inches for 1366 x 768
 #fig = plt.figure("DexcTrack",figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
+fig = plt.figure("DexcTrack", figsize=(xinches, yinches))
 figManager = plt.get_current_fig_manager()
 
 backend = plt.get_backend()
 if args.debug:
     print 'sys.platform =', sys.platform
     print 'backend =', backend
-if 'Tk' in backend:
-    figManager.resize(*figManager.window.maxsize())
-elif ('Qt' in backend) or ('QT' in backend):
-    figManager.window.showMaximized()
-elif 'WX' in backend:
-    figManager.frame.Maximize(True)
+if args.xsize and args.ysize:
+    pass
+else:
+    if 'Tk' in backend:
+        figManager.resize(*figManager.window.maxsize())
+    elif ('Qt' in backend) or ('QT' in backend):
+        figManager.window.showMaximized()
+    elif 'WX' in backend:
+        figManager.frame.Maximize(True)
 
 #---------------------------------------------------------
 
@@ -1184,6 +1213,11 @@ def plotInit():
     global highPercentText
     global midPercentText
     global lowPercentText
+    global largeFontSize
+    global mediumFontSize
+    global smallFontSize
+    global trendArrowSize
+    global percentFontSize
     #global axtest
     #global testRead
 
@@ -1207,27 +1241,21 @@ def plotInit():
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
 
-    stat_text = plt.figtext(.05, .04, 'Search\nReceiver\nDevice', fontsize=14,
-                            backgroundcolor='y', size='large', weight='bold',
-                            horizontalalignment='center')
-
     #print 'pixels per inch =',fig.canvas.winfo_fpixels( '1i' )
 
     ########################################################
-    # hd terminal = 1920 x 1080 -> 1920/1080 = 1.8
+    # hd terminal = 1920 x 1080 -> 1920/1080 = 1.78
+    # laptop        1366 x  768 -> 1366/ 768 = 1.78
     # macbook pro = 1440 x 900  -> 1440/900  = 1.6
     #                              1280/1024 = 1.25
     ########################################################
-    if 1.0 < dispRatio <= 1.4:   # = 1.25 for 1280 x 1024 ratio
-        avgTextX = 0.68
-        avgTextY = 0.88
+    if 1.0 < dispRatio <= 1.4:   # 1.25 ratio for 1280 x 1024
+                                 # 1.30 ratio for 1024 x 768
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
         rangeH = 0.099
-        legDefaultPosX = 0.095
-        legDefaultPosY = 0.857
-        trendX = 0.965
+        trendX = 0.955
         trendY = 0.930
         noteX = 0.34
         noteY = 0.92
@@ -1235,17 +1263,34 @@ def plotInit():
         noteH = 0.04
         logoX = 0.043
         logoY = 0.952
-        verX = 0.010
-        verY = 0.886
-    elif 1.4 < dispRatio <= 1.7:  # = 1.6 for 1440 x 900 ratio
-        avgTextX = 0.70
-        avgTextY = 0.85
+        avgTextX = 0.68
+        avgTextY = 0.89
+        verX = 0.003
+        verY = 0.885
+        if height < 1080:
+            largeFontSize = 'medium'
+            mediumFontSize = 'small'
+            smallFontSize = 'x-small'
+            legDefaultPosX = 0.109
+            legDefaultPosY = 0.865
+            avgFontSz = 'medium'
+            trendArrowSize = 13
+            sPos.label.set_size('small')
+            sScale.label.set_size('small')
+        else:
+            largeFontSize = 'large'
+            mediumFontSize = 'medium'
+            smallFontSize = 'small'
+            legDefaultPosX = 0.099
+            legDefaultPosY = 0.879
+            avgFontSz = 'large'
+            trendArrowSize = 15
+        percentFontSize = mediumFontSize
+    elif 1.4 < dispRatio <= 1.7:  # 1.6 ration for 1440 x 900, 1680 x 1050, 1920 x 1200
         rangeX = 0.901
         rangeY = 0.008
         rangeW = 0.089
         rangeH = 0.099
-        legDefaultPosX = 0.095
-        legDefaultPosY = 0.875
         trendX = 0.965
         trendY = 0.930
         noteX = 0.33
@@ -1254,17 +1299,29 @@ def plotInit():
         noteH = 0.04
         logoX = 0.037
         logoY = 0.945
-        verX = 0.003
-        verY = 0.870
-    else:  # 1.7 < dispRatio <= 2.0:  # 1.8 for 1920 x 1080 ratio
-        avgTextX = 0.76
-        avgTextY = 0.88
+        largeFontSize = 'large'
+        mediumFontSize = 'medium'
+        smallFontSize = 'small'
+        avgTextX = 0.73
+        legDefaultPosX = 0.095
+        avgFontSz = 'large'
+        verX = 0.007
+        verY = 0.875
+        trendArrowSize = 15
+        if height < 1080:
+            avgTextY = 0.885
+            legDefaultPosY = 0.872
+            percentFontSize = mediumFontSize
+        else:
+            avgTextY = 0.900
+            legDefaultPosY = 0.882
+            percentFontSize = largeFontSize
+    else:  # 1.78 ratio for 1920 x 1080, 1366 x 768, 1280 x 720, 1536 x 864,
+           #                1600 x 900, 2560 x 1440, 3840 x 2160, 7680 x 4320
         rangeX = 0.905
         rangeY = 0.010
         rangeW = 0.085
         rangeH = 0.075
-        legDefaultPosX = 0.093
-        legDefaultPosY = 0.878
         trendX = 0.965
         trendY = 0.930
         noteX = 0.28
@@ -1273,28 +1330,58 @@ def plotInit():
         noteH = 0.04
         logoX = 0.037
         logoY = 0.945
-        verX = 0.022
-        verY = 0.880
+        if height < 1080:
+            # For 1366 x 768, 1280 x 720, 1536 x 864, 1600 x 900 ...
+            largeFontSize = 'medium'
+            mediumFontSize = 'small'
+            smallFontSize = 'x-small'
+            avgTextX = 0.710
+            avgTextY = 0.869
+            avgFontSz = 'large'
+            legDefaultPosX = 0.088
+            legDefaultPosY = 0.864
+            verX = 0.010
+            verY = 0.860
+            trendArrowSize = 13
+            percentFontSize = mediumFontSize
+        else:
+            # For 1920 x 1080, 3840 x 2160, 7680 x 4320 ...
+            largeFontSize = 'large'
+            mediumFontSize = 'medium'
+            smallFontSize = 'small'
+            avgTextX = 0.760
+            avgTextY = 0.880
+            legDefaultPosX = 0.093
+            legDefaultPosY = 0.878
+            avgFontSz = 'x-large'
+            verX = 0.022
+            verY = 0.880
+            trendArrowSize = 15
+            percentFontSize = largeFontSize
+
+    stat_text = plt.figtext(.05, .04, 'Search\nReceiver\nDevice',
+                            backgroundcolor='y', size=largeFontSize, weight='bold',
+                            horizontalalignment='center')
 
     if gluUnits == 'mmol/L':
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                                 %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
+                                 %(0, 0, 0, 0), style='italic', size=avgFontSz, weight='bold')
     else:
         #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nHbA1c = %5.2f'
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                                 %(0, 0, 0, 0), style='italic', size='x-large', weight='bold')
+                                 %(0, 0, 0, 0), style='italic', size=avgFontSz, weight='bold')
 
     trendArrow = plt.gcf().text(trendX, trendY, "Trend", ha="center", va="center",
-                                rotation=0, size=15,
+                                rotation=0, size=trendArrowSize,
                                 bbox=dict(boxstyle="rarrow,pad=0.3", facecolor="cyan", edgecolor="b", lw=2))
 
     # Plot percentages high, middle, and low
     highPercentText = plt.figtext(0.95, ((maxDisplayHigh - displayHigh) / 2.0 + displayHigh) / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                  '%4.1f' %highPercent, style='italic', size='large', weight='bold', color='red')
+                                  '%4.1f' %highPercent, style='italic', size=percentFontSize, weight='bold', color='red')
     midPercentText = plt.figtext(0.95, ((displayHigh - displayLow) / 2.0 + displayLow) / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                 '%4.1f' %midPercent, style='italic', size='large', weight='bold', color='cornflowerblue')
+                                 '%4.1f' %midPercent, style='italic', size=percentFontSize, weight='bold', color='cornflowerblue')
     lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                 '%4.1f' %lowPercent, style='italic', size='large', weight='bold', color='magenta')
+                                 '%4.1f' %lowPercent, style='italic', size=percentFontSize, weight='bold', color='magenta')
 
 
     # To show every 0.05 step of figure height
@@ -1330,6 +1417,7 @@ def plotInit():
 
     setRangeButton = plt.axes([rangeX, rangeY, rangeW, rangeH], zorder=13)   # X, Y, X-width, Y-height
     bread = Button(setRangeButton, 'Set\nNew Target\nRange', color='gold', hovercolor='red')
+    bread.label.set_fontsize(mediumFontSize)
     bread.on_clicked(ReadButtonCallback)
 
     #axtest = plt.axes([0, 0.15, 0.1, 0.075])
@@ -1592,8 +1680,10 @@ def readDataFromSql():
                 if sqlData is not None:
                     cfgDisplayLow = sqlData[0]
                     cfgDisplayHigh = sqlData[1]
-                    legPosX = sqlData[2]
-                    legPosY = sqlData[3]
+                    #legPosX = sqlData[2]
+                    #legPosY = sqlData[3]
+                    legPosX = legDefaultPosX
+                    legPosY = legDefaultPosY
                     dbGluUnits = sqlData[4]
             else:
                 cfgDisplayLow = displayLow
@@ -2127,11 +2217,11 @@ def plotGraph():
             midPercentText.remove()
             lowPercentText.remove()
             highPercentText = plt.figtext(0.95, ((maxDisplayHigh - displayHigh) / 2.0 + displayHigh) / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                          '%4.1f' %highPercent, style='italic', size='large', weight='bold', color='red')
+                                          '%4.1f' %highPercent, style='italic', size=percentFontSize, weight='bold', color='red')
             midPercentText = plt.figtext(0.95, ((displayHigh - displayLow) / 2.0 + displayLow) / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                         '%4.1f' %midPercent, style='italic', size='large', weight='bold', color='cornflowerblue')
+                                         '%4.1f' %midPercent, style='italic', size=percentFontSize, weight='bold', color='cornflowerblue')
             lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
-                                         '%4.1f' %lowPercent, style='italic', size='large', weight='bold', color='magenta')
+                                         '%4.1f' %lowPercent, style='italic', size=percentFontSize, weight='bold', color='magenta')
     else:
         #print 'Setting initial High/Low values'
         if cfgDisplayLow is not None:
@@ -2493,10 +2583,10 @@ def plotGraph():
             # Add a legend. fontsize = [xx-small, x-small, small, medium, large, x-large, xx-large]
             leg = fig.legend((egvScatter, calibScatter, red_patch, desirableRange, meanPlot[0]),
                              ("Glucose values", "User Calibrations", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
-                             scatterpoints=1, loc=(legPosX, legPosY), fontsize='small')
-            if leg:
-                # set the legend as a draggable entity
-                leg.draggable(True)
+                             scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
+            #if leg:
+                ## set the legend as a draggable entity
+                #leg.draggable(True)
 
     #if args.debug:
         #print 'After legend count =', len(muppy.get_objects())
@@ -2604,5 +2694,7 @@ plt.show()  # This hangs until the user closes the window
 #
 # slide (0.0 ... 1.0) ===>  dispTestNum
 #		+- sqlMinTime        sqlMaxTime -+
+#
+
 
 sys.exit(0)

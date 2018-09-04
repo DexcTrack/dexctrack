@@ -175,8 +175,16 @@ class Dexcom(object):
                 port_group = grp.getgrgid(port_gid)[0]
                 username = pwd.getpwuid(os.getuid())[0]
                 print '\nFor a persistent solution (recommended), run ...'
-                print '\n   sudo addgroup', username, port_group
-                print '\n   sudo -', username
+                if sys.platform == "darwin":
+                    print '\n   sudo dseditgroup -o edit -a', username, '-t user', port_group
+                else:
+                    # On Mint, Ubuntu, etc.
+                    print '\n   sudo addgroup', username, port_group
+                    print '\n   sudo -', username
+                    print '\n         OR'
+                    # On Fedora, Red Hat, etc.
+                    print '\n   sudo usermod -a -G', port_group, username
+                    print '\n   su -', username
                 print '\nFor a short term solution, run ...'
                 print '\n   sudo chmod 666', self._port_name,'\n'
 
