@@ -1310,7 +1310,7 @@ def plotInit():
         trendArrowSize = 15
         if height < 1080:
             avgTextY = 0.885
-            legDefaultPosY = 0.872
+            legDefaultPosY = 0.862
             percentFontSize = mediumFontSize
         else:
             avgTextY = 0.900
