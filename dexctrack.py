@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 1.9
+dexctrackVersion = 2.0
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -2661,9 +2661,14 @@ if args.debug:
     print 'sqlite_file =', sqlite_file
 firstPlotGraph = 1
 plotInit()
-PerodicDeviceSeek()  # launch thread to check for device presence every few minutes
-time.sleep(2)  # give time for the seek thread to find a device
+# We need to call plotGraph() before launching the device seek thread because
+# that thread could also end up calling plotGraph(). If the seek thread calls
+# it first, matplotlib will generate error or warning messages, such as:
+# Exception 'main thread is not in main loop', or 'Adding an axes using the
+# same arguments as a previous axes currently reuses the earlier instance.
+# In a future version, a new instance will always be created and returned.'
 plotGraph()
+PerodicDeviceSeek()  # launch thread to check for device presence periodically
 
 plt.show()  # This hangs until the user closes the window
 #print 'returned from plt.show()'
