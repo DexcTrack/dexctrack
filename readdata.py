@@ -93,12 +93,12 @@ class Dexcom(object):
           return None
         else:
           fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
-          if fw_ver.startswith("6."):
-              return 'g6'
-          elif fw_ver.startswith("5."):
-              return 'g5'
-          elif fw_ver.startswith("4."):
+          if fw_ver.startswith("4."):   # Not sure about G4 firmware versions
               return 'g4'
+          elif fw_ver.startswith("5.0."): # 5.0.1.043 = G5 Receiver Firmware
+              return 'g5'
+          elif fw_ver.startswith("5."):   # 5.1.1.022 = G6 Receiver Firmware
+              return 'g6'
           else: # unrecognized firmware version
               return fw_ver
     except Exception as e:
@@ -113,6 +113,7 @@ class Dexcom(object):
       sys.exit(1)
     else:
       dex = cls(device)
+      # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
           #print item.attrib
       print 'Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId')
@@ -130,9 +131,8 @@ class Dexcom(object):
       print '- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA')))
       print '- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME')))
       print '- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET')))
-      myDevType = dex.GetDeviceType()
-      if (myDevType == 'g5') or (myDevType == 'g6') :
-          print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
+
+      # Uncomment out any record types you want to display
 
       #print 'SENSOR_DATA\n======================================================'
       #for sen_rec in dex.ReadRecords('SENSOR_DATA'):
@@ -146,6 +146,33 @@ class Dexcom(object):
       #print '\nMANUFACTURING_DATA\n======================================================'
       #mfg_data = dex.ReadAllManufacturingData()
       #print 'char data =', mfg_data
+
+      # Not sure if the G4 has USER_SETTING_DATA, so we'll retrieve the
+      # device type and restrict the following code to G5 or G6 cases.
+      myDevType = dex.GetDeviceType()
+      if (myDevType == 'g5') or (myDevType == 'g6') :
+          print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
+
+          #################################################################################
+          # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
+          # record gets generated, so there can be a large number of these.
+          #################################################################################
+          #print 'USER_SETTING_DATA\n======================================================'
+          #for sen_rec in dex.ReadRecords('USER_SETTING_DATA'):
+              #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data)
+              #print 'transmitterPaired =', sen_rec.transmitterPaired
+              #print 'highAlert =', sen_rec.highAlert
+              #print 'highRepeat =', sen_rec.highRepeat
+              #print 'lowAlert =', sen_rec.lowAlert
+              #print 'lowRepeat =', sen_rec.lowRepeat
+              #print 'riseRate =', sen_rec.riseRate
+              #print 'fallRate =', sen_rec.fallRate
+              #print 'outOfRangeAlert =', sen_rec.outOfRangeAlert
+              #print 'soundsType =', sen_rec.soundsType
+              #if myDevType == 'g6' :
+                  #print 'urgentLowSoonRepeat =', sen_rec.urgentLowSoonRepeat
+                  #print 'sensorCode =', sen_rec.sensorCode
+                  #print ''
 
   def __init__(self, port_path, port=None):
     self._port_name = port_path
@@ -472,16 +499,26 @@ class DexcomG5 (Dexcom):
       'INSERTION_TIME': database_records.G5InsertionRecord,
       'EGV_DATA': database_records.G5EGVRecord,
       'SENSOR_DATA': database_records.SensorRecord,
-      'USER_SETTING_DATA': database_records.UserSettings,
+      'USER_SETTING_DATA': database_records.G5UserSettings,
+  }
+
+class DexcomG6 (Dexcom):
+  PARSER_MAP = {
+      'USER_EVENT_DATA': database_records.EventRecord,
+      'METER_DATA': database_records.G5MeterRecord,
+      'CAL_SET': database_records.Calibration,
+      'INSERTION_TIME': database_records.G5InsertionRecord,
+      'EGV_DATA': database_records.G5EGVRecord,
+      'SENSOR_DATA': database_records.SensorRecord,
+      'USER_SETTING_DATA': database_records.G6UserSettings,
   }
 
 def GetDevice (port):
   workInst = Dexcom(port)
   devType = workInst.GetDeviceType()  # g4 | g5 | g6
   if devType == 'g6':
-    # Don't yet know if we need any differences for G6 verses G5
     #print 'GetDevice() creating DexcomG6 class'
-    return DexcomG5(port)
+    return DexcomG6(port)
   elif devType == 'g5':
     #print 'GetDevice() creating DexcomG5 class'
     return DexcomG5(port)

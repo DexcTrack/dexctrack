@@ -37,8 +37,8 @@
 # to replace 'c' (char) with 'B' (byte). This makes it easier to
 # work with the extracted data. There's no longer any need to
 # call ord() every time the value is referenced.
-# A new class, UserSettings has been added. This allows one to
-# read the user configured alert level settings.
+# New class, G5UserSettings & G6UserSettings have been added. These
+# allows one to read the user configuration settings.
 #
 #########################################################################
 
@@ -183,28 +183,77 @@ class G5InsertionRecord (InsertionRecord):
   def transmitterPaired (self):
     return self.data[5]     # a 6-byte string
 
-class UserSettings (GenericTimestampedRecord):
-  FORMAT = '<4I6s3I3H2IH'   # total length = 50
-                            # Integer values in positions 2,3,5,11,12 are unknown
+class G5UserSettings (GenericTimestampedRecord):
+  # {'RecordLength': '50', 'Name': 'UserSettingData', 'RecordRevision': '5', 'Id': '12'}
+  FORMAT = '<4I6sI8HBBIH'   # total length = 50
+                            # Values in positions 2,3,5,13,15, 16 are unknown
 
   @property
   def transmitterPaired (self):
-    return self.data[4]     # a 6-byte string
+    return self.data[4]     # Transmitter ID is a 6-byte string
   @property
   def highAlert (self):
     return self.data[6]
   @property
-  def lowAlert (self):
+  def highRepeat (self):
     return self.data[7]
   @property
-  def riseAlert (self):
+  def lowAlert (self):
     return self.data[8]
   @property
-  def fallAlert (self):
+  def lowRepeat (self):
     return self.data[9]
   @property
-  def outOfRangeAlert (self):
+  def riseRate (self):
     return self.data[10]
+  @property
+  def fallRate (self):
+    return self.data[11]
+  @property
+  def outOfRangeAlert (self):
+    return self.data[12]
+  @property
+  def soundsType (self):
+    return self.data[14]
+
+class G6UserSettings (GenericTimestampedRecord):
+  # {'RecordLength': '60', 'Name': 'UserSettingData', 'RecordRevision': '6', 'Id': '12'}
+  FORMAT = '<4I6sI8HBBHB4s7BH'   # total length = 60
+                            # Values in positions 2,3,5,13,15,17 are unknown
+
+  @property
+  def transmitterPaired (self):
+    return self.data[4]     # Transmitter ID is a 6-byte string
+  @property
+  def highAlert (self):
+    return self.data[6]
+  @property
+  def highRepeat (self):
+    return self.data[7]
+  @property
+  def lowAlert (self):
+    return self.data[8]
+  @property
+  def lowRepeat (self):
+    return self.data[9]
+  @property
+  def riseRate (self):
+    return self.data[10]
+  @property
+  def fallRate (self):
+    return self.data[11]
+  @property
+  def outOfRangeAlert (self):
+    return self.data[12]
+  @property
+  def soundsType (self):
+    return self.data[14]
+  @property
+  def urgentLowSoonRepeat (self):
+    return self.data[16]
+  @property
+  def sensorCode (self):
+    return self.data[18]     # Sensor Code is a 4-byte string
   
 
 class Calibration(GenericTimestampedRecord):

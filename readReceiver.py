@@ -89,7 +89,7 @@ class readReceiverBase(readdata.Dexcom):
 
                     respList = self.ReadRecords('USER_SETTING_DATA')
                     for usr_rec in respList:
-                        curs.execute(insert_usr_sql, (usr_rec.system_secs, usr_rec.display_secs, usr_rec.transmitterPaired, usr_rec.highAlert, usr_rec.lowAlert, usr_rec.riseAlert, usr_rec.fallAlert, usr_rec.outOfRangeAlert))
+                        curs.execute(insert_usr_sql, (usr_rec.system_secs, usr_rec.display_secs, usr_rec.transmitterPaired, usr_rec.highAlert, usr_rec.lowAlert, usr_rec.riseRate, usr_rec.fallRate, usr_rec.outOfRangeAlert))
 
 
                 curs.execute('CREATE TABLE IF NOT EXISTS EgvRecord( sysSeconds INT PRIMARY KEY, dispSeconds INT, full_glucose INT, glucose INT, testNum INT, trend INT);')
@@ -170,7 +170,7 @@ class readReceiverG5(readReceiverBase):
         'INSERTION_TIME': database_records.G5InsertionRecord,
         'EGV_DATA': database_records.G5EGVRecord,
         'SENSOR_DATA': database_records.SensorRecord,
-        'USER_SETTING_DATA': database_records.UserSettings,
+        'USER_SETTING_DATA': database_records.G5UserSettings,
     }
 
     def __init__(self, portname, port=None):
@@ -184,7 +184,7 @@ class readReceiverG5(readReceiverBase):
 
 #-------------------------------------------------------------------------
 class readReceiverG6(readReceiverBase):
-    # Don't yet know if we need any differences for G6 verses G5
+    # G6 uses the same format as G5 for Meter Data, Insertion, and EGV data
     rr_version = 'g6'
     PARSER_MAP = {
         'USER_EVENT_DATA': database_records.EventRecord,
@@ -193,7 +193,7 @@ class readReceiverG6(readReceiverBase):
         'INSERTION_TIME': database_records.G5InsertionRecord,
         'EGV_DATA': database_records.G5EGVRecord,
         'SENSOR_DATA': database_records.SensorRecord,
-        'USER_SETTING_DATA': database_records.UserSettings,
+        'USER_SETTING_DATA': database_records.G6UserSettings,
     }
 
     def __init__(self, portname, port=None):
