@@ -134,6 +134,20 @@ class Dexcom(object):
 
       # Uncomment out any record types you want to display
 
+      #print '\nEGV_DATA\n======================================================'
+      #maxrec = 300
+      #for egv_rec in dex.ReadRecords('EGV_DATA'):
+          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data)
+          #maxrec -= 1
+          #if maxrec <= 0:
+              #break
+      #print '\nUSER_EVENT_DATA\n======================================================'
+      #maxrec = 300
+      #for evt_rec in dex.ReadRecords('USER_EVENT_DATA'):
+          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data)
+          #maxrec -= 1
+          #if maxrec <= 0:
+              #break
       #print 'SENSOR_DATA\n======================================================'
       #for sen_rec in dex.ReadRecords('SENSOR_DATA'):
           #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data)
@@ -214,6 +228,16 @@ class Dexcom(object):
                     print '\n   su -', username
                 print '\nFor a short term solution, run ...'
                 print '\n   sudo chmod 666', self._port_name,'\n'
+    if self._port is not None:
+        try:
+            self.clear()
+        except Exception as e:
+            pass
+
+        try:
+            self.flush()
+        except Exception as e:
+            pass
 
   def Disconnect(self):
     if self._port is not None:
