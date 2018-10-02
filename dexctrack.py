@@ -1306,7 +1306,7 @@ def plotInit():
         legDefaultPosX = 0.095
         avgFontSz = 'large'
         verX = 0.007
-        verY = 0.875
+        verY = 0.870
         trendArrowSize = 15
         if height < 1080:
             avgTextY = 0.885
