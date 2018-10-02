@@ -1,36 +1,127 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with a G5 receiver on Linux and Mac OSX High Sierra, so far.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
 
 ![image](https://user-images.githubusercontent.com/39347592/42004451-8605b49e-7a35-11e8-9158-e3468ca495c3.png)
 
-I recommend installing the latest 2.7.* version from https://www.python.org/downloads/ for whatever operating system you are running on your computer. Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is fairly old, and is missing the ***fivethirtyeight*** **style** which will provide the best looking graph.
+## Installing
 
-You also need to make sure several Python libraries are available. This can be done from a command line with 'pip'. 'pip' is included with the installation package from www.python.org, but it tends to not be included, by default, on Linux systems.
+>Install the latest 2.7.* version of 'python' for whatever operating system you are running on your computer.
 
-On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
+>Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python', you may need to specify an additional package to get 'pip' installed.
 
-***sudo apt-get install python-pip python-wxtools libpython2.7-dev***
+- Linux
 
-On rpm-based Linux systems (e.g. Fedora or Red Hat):
+>1. Install 'python' and 'pip'
 
-***sudo dnf install redhat-rpm-config python2-devel tkinter wxPython***
+>>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
-(or the equivalent command for your packaging system) to install the 'pip' tool and the 'wx' services for python.
+>>>>***sudo apt-get install python python-pip python-tk python-wxtools libpython2.7-dev***
 
-Next, use 'pip' to install the python libraries we need.
+>>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
-***pip install --upgrade setuptools***
+>>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter wxPython***
 
-***pip install matplotlib pyserial pytz tzlocal numpy pympler***
+>2. Install 'git'
+
+>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
+
+>>>***sudo apt-get install git***
+
+>>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
+
+>>>***sudo dnf install git***
+
+>3. Install dexctrack, using 'git'
+
+>>>***git clone https://github.com/DexcTrack/dexctrack.git***
+
+>4. Install required python libraries, using 'pip'
+
+>>>***pip install --upgrade setuptools***
+
+>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
 
 
-To launch the program invoke ***python dexctrack.py***
+
+- MacOs
+
+>1. Install 'python' and 'pip'
+
+>Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. So, install the latest 2.* release under
+
+>>>https://www.python.org/downloads/
+
+>>Update your PATH environmental variable to include paths to the 'python' and 'pip' executables. This can be done by ...
+
+>>>***echo 'export PATH="/usr/local/opt/python@2/bin:$PATH"' >> ~/.bashrc***
+
+
+>2. Install 'git'
+
+>>>https://git-scm.com/downloads
+
+>3. Install dexctrack, using 'git'
+
+>>>***git clone https://github.com/DexcTrack/dexctrack.git***
+
+>4. Install required python libraries, using 'pip'
+
+>>>***pip install --upgrade setuptools***
+
+>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
+
+
+
+- Windows
+
+>1. Install 'python' and 'pip'
+
+>>>https://www.python.org/downloads/
+
+>>Update your ***Path*** environmental variable to include paths to the 'python' and 'pip' executables. Menu->Settings and then search for "Edit environment variables for your account". This will open an "Environment Variables" window. Click on the "Path" variable, and then the Edit button. Add
+
+>>>>C:\Python27
+>>>>C:\Python27\Scripts
+
+>>to the ***Path*** variable.
+
+>2. Install 'git'
+
+>>>https://git-scm.com/downloads
+
+>>Update your ***Path*** environmental variable to include a path to the 'git' executable.
+
+>>>>C:\Program Files\Git\bin
+
+>3. Install dexctrack, using 'git'
+
+>>>***git clone https://github.com/DexcTrack/dexctrack.git***
+
+>4. Install required python libraries, using 'pip'
+
+>>>***pip install --upgrade setuptools***
+
+>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler wxpython***
+
+## Running
+
+To launch the program, move into the dexctrack/ directory and invoke
+
+>>>***python dexctrack.py***
+
+or
+
+>>>***python dexctrack.py -d***
+
+to run in Debug mode.
 
 Once the application is running, 
 
 ![image](https://user-images.githubusercontent.com/39347592/40758362-91bbe2e8-6452-11e8-8139-1d99352ca79a.png)
 
 connect your Dexcom receiver device to your computer using the USB cable. The device will be detected within about 20 seconds, and all of the data on it will be read into an SQLITE database in your home directory.
+
+>Note for the Windows 10 operating system, the USB serial port driver (Usbser.sys) does not properly support USB3 -> USB2 backwards compatibility, so you need to plug into to a USB2 port. Plugging into a USB2 or USB3 port will work fine on Linux or MacOS systems.
 
 ![image](https://user-images.githubusercontent.com/39347592/40758366-95861c18-6452-11e8-863b-b66917db71d8.png)
 
@@ -113,17 +204,6 @@ The upper one, colored red shows the percentage of glucose values (in the last 9
 This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
 
 ![image](https://user-images.githubusercontent.com/39347592/42004458-8781a38c-7a35-11e8-8adf-f3363759d903.png)
-
----
-
-I have tested this program under Linux and Macintosh OSX with a Dexcom G5.
-
-If someone could test it on Windows and let me know how it works, I would appreciate it. If someone with a Dexcom G4 or Dexcom G6 system could test it, I'd like to hear whether it works. If there are problems, please execute in in Debug mode:
-
-***python dexctrack.py -d***
-
-In this mode, extra messages will print out in the terminal where you launched the application from.
-Capture the debug output and send it to me at ***dexctrack@gmail.com***
 
 ---
 
