@@ -132,11 +132,8 @@ def win_find_usbserial(vendor, product):
         # we'll just guess the first available one.
         return "\\\\.\\com33"
     else:
-        # convert string arguments to integer values
-        vendor_int = int(vendor, 16)
-        product_int = int(product, 16)
         for cport in serial.tools.list_ports.comports():
-            if (cport.vid == vendor_int) and (cport.pid == product_int):
+            if (cport.vid == vendor) and (cport.pid == product):
                 # found a port which matches vendor and product IDs
                 if cport.device is not None:
                     return cport.device

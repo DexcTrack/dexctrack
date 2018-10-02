@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.0
+dexctrackVersion = 2.1
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -1336,10 +1336,10 @@ def plotInit():
             mediumFontSize = 'small'
             smallFontSize = 'x-small'
             avgTextX = 0.710
-            avgTextY = 0.869
+            avgTextY = 0.855
             avgFontSz = 'large'
             legDefaultPosX = 0.088
-            legDefaultPosY = 0.864
+            legDefaultPosY = 0.844
             verX = 0.010
             verY = 0.860
             trendArrowSize = 13
@@ -1639,12 +1639,24 @@ def readDataFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
-            selectSql = 'SELECT sysSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent ORDER BY sysSeconds'
+            #                       0           1           2         3     4      5      6       7
+            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent ORDER BY sysSeconds'
             curs.execute(selectSql)
             sqlData = curs.fetchall()
             for row in sqlData:
                 #print 'Event: sysSeconds =',row[0],'type =',row[1],'subtype =',row[2],'value =',row[3],'xoffset =',row[4],'yoffset =',row[5]
-                eventList.append([ReceiverTimeToUtcTime(row[0]), row[1], row[2], row[3], row[4], row[5]])
+                #########################################################################################
+                # In older (G5) versions Receiver firmware, the current date and time is always assigned
+                # when a user enters an Event.  In newer (G6) releases of firmware, the user is allowed
+                # to specify an alternate date and time for the Event.
+                #    sysSeconds = event creation time in seconds since BASE_TIME in UTC timezone
+                #    dispSeconds = event creation time in seconds since BASE_TIME in Local timezone
+                #    meterSeconds = User entered Event time in seconds since BASE_TIME in Local timezone
+                # We need the User entered Event time in the UTC timezone.
+                #   Offset in seconds = sysSeconds - dispSeconds
+                #   Event time (in UTC)= (sysSeconds - dispSeconds) + meterSeconds
+                #########################################################################################
+                eventList.append([ReceiverTimeToUtcTime(row[0] - row[1] + row[2]), row[3], row[4], row[5], row[6], row[7]])
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserNote'"
         curs.execute(selectSql)
