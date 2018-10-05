@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.1
+dexctrackVersion = 2.2
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -1004,7 +1004,7 @@ def onclose(event):
 
 
             # If the user has repositioned any event text boxes, update the X and Y offsets in the database
-            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds=?'
+            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds-dispSeconds+meterSeconds=?'
             insert_evt_sql = '''INSERT OR REPLACE INTO UserEvent( sysSeconds, dispSeconds, meterSeconds, type, subtype, value, xoffset, yoffset) VALUES (?, ?, ?, ?, ?, ?, ?, ?);'''
             for evt_inst in evtPlotList:
                 eseconds = UtcTimeToReceiverTime(mdates.num2date(evt_inst.xy[0]))
@@ -1640,7 +1640,7 @@ def readDataFromSql():
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
             #                       0           1           2         3     4      5      6       7
-            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent ORDER BY sysSeconds'
+            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent ORDER BY sysSeconds-dispSeconds+meterSeconds'
             curs.execute(selectSql)
             sqlData = curs.fetchall()
             for row in sqlData:
