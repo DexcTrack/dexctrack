@@ -17,13 +17,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
-import datetime
-import sys
-import time
+#import datetime
 import sqlite3
 import threading
-import serial
-#------------------------------
 import readdata
 import database_records
 
@@ -60,6 +56,32 @@ class readReceiverBase(readdata.Dexcom):
             self._port_name = None
             self._lock.release()
             return None
+
+
+    def GetPowerInfo(self):
+        #print 'readReceiverBase() GetPowerInfo running'
+        self._lock.acquire()
+        try:
+            #print 'readReceiverBase.GetPowerInfo() : self._port_name =', self._port_name
+            if not self._port_name:
+                dport = self.FindDevice()
+                self._port_name = dport
+
+            powerState = None
+            powerLevel = 0
+            if self._port_name:
+                powerState = self.ReadBatteryState()
+                powerLevel = self.ReadBatteryLevel()
+
+            self._lock.release()
+            return (powerState, powerLevel)
+
+        except Exception as e:
+            #print 'GetPowerInfo() : Exception =', e
+            self.Disconnect()
+            self._port_name = None
+            self._lock.release()
+            return (None, 0)
 
 
     def DownloadToDb(self, dbPath):

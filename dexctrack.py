@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.2
+dexctrackVersion = 2.3
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -112,7 +112,11 @@ legDefaultPosY = 1.00           # default Legend vertical location
 graphTop = 0.87                 # top of y axis in figure coordinates
 graphBottom = 0.24              # bottom of y axis position in figure coordinates
 #####################################################################################################################
-sliderSpace = 0.26              # reserve this much space below the graph to hold our 2 sliders
+sliderSpace = 0.24              # reserve this much space below the graph to hold our 2 sliders
+powerState = None
+lastPowerState = None
+powerLevel = 0
+lastPowerLevel = 0
 
 graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
@@ -131,6 +135,7 @@ cfgDisplayHigh = None
 rthread = None
 sthread = None
 stat_text = None
+batt_text = None
 serialNum = None
 sPos = None
 avgText = None
@@ -217,6 +222,8 @@ mediumFontSize = 'medium'
 smallFontSize = 'small'
 percentFontSize = largeFontSize
 trendArrowSize = 15
+battX = 0.946
+battY = 0.10
 
 
 # Disable default keyboard shortcuts so that a user
@@ -559,6 +566,11 @@ class deviceSeekThread(threading.Thread):
             global rthread
             global restart
             global readSerialNumInstance
+            global powerState
+            global powerLevel
+            global lastPowerState
+            global lastPowerLevel
+            global batt_text
 
             prior_sqlite_file = sqlite_file
             prior_connected_state = self.connected_state
@@ -570,15 +582,20 @@ class deviceSeekThread(threading.Thread):
                 self.connected_state = False
 
             if readSerialNumInstance is not None:
+                (powerState, powerLevel) = readSerialNumInstance.GetPowerInfo()
                 sNum = readSerialNumInstance.GetSerialNumber()
                 if not sNum:
                     self.connected_state = False
                     del readSerialNumInstance
                     readSerialNumInstance = None
+                    (powerState, powerLevel) = (None, 0)
                 else:
                     self.connected_state = True
 
                 sqlite_file = getSqlFileName(sNum)
+            else:
+                (powerState, powerLevel) = (None, 0)
+
 
             #if args.debug:
                 #print 'deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -597,6 +614,11 @@ class deviceSeekThread(threading.Thread):
                         stat_text.set_text('Receiver\nDevice\nAbsent')
                         stat_text.set_backgroundcolor('thistle')
                         stat_text.draw(fig.canvas.get_renderer())
+                    if batt_text:
+                        batt_text.remove()
+                        batt_text = None
+                        (powerState, powerLevel) = (None, 0)
+                        (lastPowerState, lastPowerLevel) = (None, 0)
                     plt.draw()
                 else:
                     # A different device has been connected
@@ -1218,6 +1240,8 @@ def plotInit():
     global smallFontSize
     global trendArrowSize
     global percentFontSize
+    global battX
+    global battY
     #global axtest
     #global testRead
 
@@ -1252,21 +1276,23 @@ def plotInit():
     if 1.0 < dispRatio <= 1.4:   # 1.25 ratio for 1280 x 1024
                                  # 1.30 ratio for 1024 x 768
         rangeX = 0.901
-        rangeY = 0.008
+        rangeY = 0.004
         rangeW = 0.089
-        rangeH = 0.099
+        rangeH = 0.080
         trendX = 0.955
-        trendY = 0.930
+        trendY = 0.945
+        battX = 0.946
+        battY = 0.10
         noteX = 0.34
         noteY = 0.92
         noteW = 0.32
         noteH = 0.04
         logoX = 0.043
         logoY = 0.952
-        avgTextX = 0.68
+        avgTextX = 0.73
         avgTextY = 0.89
         verX = 0.003
-        verY = 0.885
+        verY = 0.875
         if height < 1080:
             largeFontSize = 'medium'
             mediumFontSize = 'small'
@@ -1288,11 +1314,13 @@ def plotInit():
         percentFontSize = mediumFontSize
     elif 1.4 < dispRatio <= 1.7:  # 1.6 ration for 1440 x 900, 1680 x 1050, 1920 x 1200
         rangeX = 0.901
-        rangeY = 0.008
+        rangeY = 0.004
         rangeW = 0.089
         rangeH = 0.099
         trendX = 0.965
-        trendY = 0.930
+        trendY = 0.945
+        battX = 0.946
+        battY = 0.13
         noteX = 0.33
         noteY = 0.92
         noteW = 0.36
@@ -1319,11 +1347,13 @@ def plotInit():
     else:  # 1.78 ratio for 1920 x 1080, 1366 x 768, 1280 x 720, 1536 x 864,
            #                1600 x 900, 2560 x 1440, 3840 x 2160, 7680 x 4320
         rangeX = 0.905
-        rangeY = 0.010
+        rangeY = 0.005
         rangeW = 0.085
         rangeH = 0.075
         trendX = 0.965
-        trendY = 0.930
+        trendY = 0.945
+        battX = 0.946
+        battY = 0.10
         noteX = 0.28
         noteY = 0.92
         noteW = 0.40
@@ -1428,7 +1458,6 @@ def plotInit():
                              color='orange', backgroundcolor='teal', ha='center', va='center')
 
     figVersion = plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
-
 
 #---------------------------------------------------------
 def readDataFromSql():
@@ -2028,7 +2057,7 @@ def ShowOrHideEventsNotes():
                               xytext=(nxoffset, nyoffset), textcoords='offset pixels',
                               color='black', fontsize=16,
                               arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
-                                              shrink=0.10, width=2, headwidth=6.5), zorder=11)
+                                              shrink=0.10, width=2, headwidth=6.5), zorder=16)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
         #print 'ShowOrHideEventsNotes note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
@@ -2089,6 +2118,9 @@ def plotGraph():
     global highPercentText
     global midPercentText
     global lowPercentText
+    global batt_text
+    global lastPowerState
+    global lastPowerLevel
 
     #print 'plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++'
     if firstPlotGraph == 1:
@@ -2106,9 +2138,9 @@ def plotGraph():
         ax.xaxis.set_minor_formatter(minorFormatter)
         ax.autoscale_view()
         ax.grid(True)
-        ax.tick_params(direction='out', pad=15)
-        ax.set_xlabel('Date & Time')
-        ax.set_ylabel('Glucose (%s)'%gluUnits)
+        ax.tick_params(direction='out', pad=10)
+        ax.set_xlabel('Date & Time', labelpad=-12)
+        ax.set_ylabel('Glucose (%s)'%gluUnits, labelpad=10)
 
         dis_annot = ax.annotate("", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
                                 bbox=dict(boxstyle="round", facecolor="w"),
@@ -2634,6 +2666,58 @@ def plotGraph():
 
     if trendRot < 360.0:
         trendArrow.set_rotation(trendRot)
+    #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+    if (powerState != lastPowerState) or (powerLevel != lastPowerLevel):
+        if (batt_text is None) and (powerState is not None):
+            batt_text = plt.figtext(battX, battY, '',
+                                    backgroundcolor='springgreen', size=largeFontSize,
+                                    horizontalalignment='center')
+        if batt_text is not None:
+            if powerState is None:
+                batt_text.remove()
+                batt_text = None
+            else:
+                if powerState == 'CHARGING':
+                    if powerLevel == 100:
+                        powerStateString = 'Charged'
+                    else:
+                        powerStateString = 'Charging'
+                elif powerState == 'NOT_CHARGING':
+                    powerStateString = 'Not Charging'
+                elif powerState == 'NTC_FAULT':
+                    powerStateString = 'NTC Fault'
+                elif powerState == 'BAD_BATTERY':
+                    powerStateString = 'Bad Battery'
+                else:
+                    powerStateString = 'Unknown'
+
+                # Sometimes, even though you've plugged the Receiver into a USB
+                # port, charging power is not being applied to that port. In such
+                # a case, the power level will drop. When we detect this condition,
+                # alert the user by switching to a crimson background, and switch
+                # the text to "Draining". This way they will know to try to find
+                # an alternate, powered port  to charge their Receiver.
+                if powerLevel < lastPowerLevel:
+                    # we're losing charge
+                    batt_text.set_backgroundcolor('crimson')
+                    batt_text.set_text('Draining\n%d%%' % powerLevel)
+                else:
+
+                    batt_text.set_text('%s\n%d%%' % (powerStateString, powerLevel))
+
+                    if powerLevel < 30:
+                        batt_text.set_backgroundcolor('lightcoral')
+                    elif powerLevel < 70:
+                        batt_text.set_backgroundcolor('teal')
+                    elif powerLevel < 100:
+                        batt_text.set_backgroundcolor('springgreen')
+                    else:
+                        batt_text.set_backgroundcolor('forestgreen')
+                batt_text.draw(fig.canvas.get_renderer())
+
+        lastPowerState = powerState
+        lastPowerLevel = powerLevel
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     if args.debug:
