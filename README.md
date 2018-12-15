@@ -1,7 +1,7 @@
 # dexctrack
 A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python (2.7.*), so it will run on Linux, Macintosh OSX, and Windows operating systems. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
 
-![image](https://user-images.githubusercontent.com/39347592/42004451-8605b49e-7a35-11e8-9158-e3468ca495c3.png)
+![image](https://user-images.githubusercontent.com/39347592/50038042-e08d9d80-ffde-11e8-8805-f28195183766.png)
 
 ## Installing
 
@@ -143,7 +143,7 @@ The Scale slider (in green at the bottom of the screen) can be used to zoom the 
 
 When you scale out to a large time period, the graph could get cluttered with a large number of Event or Note strings. When the number of such strings gets too large (> 30), they get dropped from the display.
 
-![image](https://user-images.githubusercontent.com/39347592/42005343-818b5596-7a39-11e8-9871-36f07a6b4621.png)
+![image](https://user-images.githubusercontent.com/39347592/50038172-cc4aa000-ffe0-11e8-9044-82ba09e01717.png)
 
 With a smaller time period, user added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
 
@@ -154,6 +154,24 @@ Grab it and drag it a bit higher, and we get ...
 ![image](https://user-images.githubusercontent.com/39347592/40756244-f7c68364-6447-11e8-9872-901a99ff2852.png)
 
 This gives a cleaner image. The new position will get stored in the database, so after quitting and relaunching, this better position will be restored.
+
+---
+
+Usually, when the Receiver is connected to a USB port, its battery gets recharged. On rare occasions, a computer may stop providing power to a particular USB port. I had mine connected for many hours, but when I detached it to depart from home, I found it had no charge. That was frustrating, so I added a display of the current battery status in the lower right corner, above the "Set New Target Range" button. When the battery is currently charging, the percentage of full charge is displayed in a light green color.
+
+![image](https://user-images.githubusercontent.com/39347592/50038105-c7392100-ffdf-11e8-825c-18e44f63b399.png)
+
+When fully charged, this switches to a darker green.
+
+![image](https://user-images.githubusercontent.com/39347592/50038108-cbfdd500-ffdf-11e8-8725-fb47a304aa24.png)
+
+If no power is being provided, and battery charge is decreasing, the status will be labeled "Draining" with a red color.
+
+![image](https://user-images.githubusercontent.com/39347592/50038110-d15b1f80-ffdf-11e8-834c-13358d9c9229.png)
+
+If you see such a condition, try disconnecting and reconnecting the USB cable. You may want to try switching to a different USB port, if available.
+
+---
 
 The user can add a Note using the following procedure. First click within the Note box, and enter a string. Hit return when you are done.
 
@@ -201,6 +219,11 @@ The upper one, colored red shows the percentage of glucose values (in the last 9
 
 ---
 
+Your goal is to stay within your Target Range. If you can do so for at least one day, this accomplishment will be highlighted with a light blue background above and below the Target Range, and a display of the number of hours you've been in range.
+
+![image](https://user-images.githubusercontent.com/39347592/50038294-e6857d80-ffe2-11e8-9c9c-5a1e68d4f589.png)
+
+---
 This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
 
 ![image](https://user-images.githubusercontent.com/39347592/42004458-8781a38c-7a35-11e8-8adf-f3363759d903.png)
