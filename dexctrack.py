@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.3
+dexctrackVersion = 2.4
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -878,7 +878,7 @@ def writeNote():
                                   xytext=(0, yoffset), textcoords='offset pixels',
                                   color='black', fontsize=16,
                                   arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
-                                                  shrink=0.10, width=2, headwidth=6.5))
+                                                  shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
             noteAnn.draggable()
             noteSet.add(noteAnn)
             noteTimeSet.add(mdates.num2date(noteAnn.xy[0], tz=mytz))
@@ -944,7 +944,7 @@ def onpick(event):
                                             xytext=(noteBoxPos.x0, noteBoxPos.y0),
                                             textcoords='figure fraction',
                                             arrowprops=dict(arrowstyle="->", color='green',
-                                                            linewidth=3.0))
+                                                            linewidth=3.0, zorder=16), zorder=16)
                     fig.canvas.draw()
 
                     if matchNote is None:
@@ -1548,7 +1548,7 @@ def readDataFromSql():
                 elif lastTrend == 7:   # doubleDown
                     trendChar = 'V'
                 else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
-                    trendChar = '-'
+                    trendChar = '?'
 
             if args.debug:
                 print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastTestGluc
@@ -1978,7 +1978,7 @@ def ShowOrHideEventsNotes():
                                 xytext=(exoffset, eyoffset), textcoords='offset pixels',
                                 fontsize=16, color=evt_color,
                                 arrowprops=dict(connectionstyle="arc3,rad=.3", facecolor=evt_color,
-                                                shrink=0.10, width=2, headwidth=6.5), zorder=11)
+                                                shrink=0.10, width=2, headwidth=6.5, zorder=11), zorder=11)
 
         #if args.debug:
             #print 'After event annotation, count =',len(muppy.get_objects())
@@ -2057,7 +2057,7 @@ def ShowOrHideEventsNotes():
                               xytext=(nxoffset, nyoffset), textcoords='offset pixels',
                               color='black', fontsize=16,
                               arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
-                                              shrink=0.10, width=2, headwidth=6.5), zorder=16)
+                                              shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
         #print 'ShowOrHideEventsNotes note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1]
@@ -2299,7 +2299,7 @@ def plotGraph():
         # will still display the window title, or at least the beginning
         # portion of the window title. We want to include critical
         # information at the beginning of that title, so the user can see
-        # the the current glucose level and trend.
+        # the current glucose level and trend.
         # For example, if the current glucose level is 93 and falling, the
         # window title will begin with '93 \'.
         try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
@@ -2398,6 +2398,20 @@ def plotGraph():
                                                         backgroundcolor='pink',
                                                         size='xx-large', weight='bold',
                                                         horizontalalignment='center')
+
+                if sys.platform != "win32":
+                    # Under some window managers, e.g. MATE, a minimized application
+                    # will still display the window title, or at least the beginning
+                    # portion of the window title. We want to include critical
+                    # information at the beginning of that title, so the user can see
+                    # the remaining sensor warm-up time.
+                    try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+                        fig.canvas.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
+                    except Exception as e:
+                        if args.debug:
+                            print 'fig.canvas.set_window_title: Exception =', e
+                        return
+
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
                 # before telling the user that we're ready for calibration, so we'll
                 # restart the device reading sequence, with an initial delay of 80 seconds.
