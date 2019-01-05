@@ -54,11 +54,21 @@ parser.add_argument("-v", "--version", help="show version", action="store_true")
 # code which maximizes the window.
 parser.add_argument("-x", "--xsize", help="specify width in pixels", type=int)
 parser.add_argument("-y", "--ysize", help="specify height in pixels", type=int)
+parser.add_argument("databaseFile", nargs='?', help="optionally specified database file", type=str)
 args = parser.parse_args()
 
 if args.version:
     print 'Version =', dexctrackVersion
     sys.exit(0)
+
+specDatabase = None
+if args.databaseFile:
+    # abspath() will normalize path navigation elements like '~/' or '../'
+    specDatabase = os.path.abspath(args.databaseFile)
+    print 'Specified Database =', specDatabase
+    if not os.path.exists(specDatabase):
+        print "Specified database file '%s' does not exist" % specDatabase
+        sys.exit(2)
 
 if args.debug:
     from pympler import muppy
@@ -81,11 +91,15 @@ if args.debug:
     print 'get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio
 
 # Use the fivethirtyeight style, if it's available
+# To find explicit Exception type use ...
+#except Exception as e:
+#    print 'Exception type =', type(e).__name__
 try:
     style.use('fivethirtyeight')
-except Exception as e:
-    #print 'Style set. Exception =', e
+except IOError as e:
+    print 'Exception =', e
     style.use('ggplot')
+    sys.exc_clear()
 
 #####################################################################################################################
 # The following variables are set for G4 or G5 devices. They might need to be altered for others.
@@ -257,8 +271,8 @@ plt.rcParams['axes.axisbelow'] = False
 
 dotsPerInch = plt.rcParams['figure.dpi']
 if args.xsize and args.ysize:
-    xinches = (float)(args.xsize) / dotsPerInch
-    yinches = (float)(args.ysize) / dotsPerInch
+    xinches = float(args.xsize) / dotsPerInch
+    yinches = float(args.ysize) / dotsPerInch
 else:
     xinches = 14.5
     yinches = 8.5
@@ -343,9 +357,7 @@ def SecondsToGeneralTimeString(secs):
 
     genstr = ''
 
-    if months == 0:
-        mstr = ''
-    else:
+    if months != 0:
         if months == 1:
             mstr = '%u month'%months
         else:
@@ -437,8 +449,9 @@ def displayCurrentRange():
             #if args.debug:
                 #print 'displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects())
                 #tr.print_diff()
-        except Exception as e:
+        except RuntimeError as e:
             print 'displayCurrentRange() : dispBegin =', dispBegin, ', dispEnd =', dispEnd, ', Exception =', e
+            sys.exc_clear()
 
 #---------------------------------------------------------
 def getSqlFileName(sNum):
@@ -605,7 +618,7 @@ class deviceSeekThread(threading.Thread):
                 #if args.debug:
                     #print 'Connected state :', prior_connected_state,' -> ',self.connected_state
                 if not sNum:
-                    if rthread != None:
+                    if rthread is not None:
                         # stop trying to read the missing device
                         rthread.stop()
                         rthread.join()
@@ -622,7 +635,7 @@ class deviceSeekThread(threading.Thread):
                     plt.draw()
                 else:
                     # A different device has been connected
-                    if rthread != None:
+                    if rthread is not None:
                         rthread.stop()
                         rthread.join()
                         rthread = None
@@ -686,8 +699,6 @@ def PeriodicReadData():
                 else:
                     readDataInstance = readReceiver.readReceiverG5(dport)
     elif devType == 'g6':
-        # We might need a different routine for G6. I won't know until
-        # I get access to a G6. For now call the same one as for G5.
         if readDataInstance is None:
             dport = readReceiver.readReceiverBase.FindDevice()
             if dport is None:
@@ -700,12 +711,12 @@ def PeriodicReadData():
                     readDataInstance = readReceiver.readReceiverG6(dport)
     else:
         print 'PeriodicReadData() : Unrecognized firmware version', devType
-        if rthread != None:
+        if rthread is not None:
             rthread.stop()
             rthread.join()
         return
 
-    if rthread != None:
+    if rthread is not None:
         rthread.stop()
         rthread.join()
     rthread = deviceReadThread(1, "Periodic read thread", readDataInstance.DownloadToDb)
@@ -1057,10 +1068,11 @@ def onclose(event):
 
             curs.close()
             conn.commit()
-        except Exception as e:
+        except sqlite3.Error as e:
             print 'onclose() : Rolling back sql changes due to exception =', e
             curs.close()
             conn.rollback()
+            sys.exc_clear()
         conn.close()
     plt.close('all')
 
@@ -1254,13 +1266,13 @@ def plotInit():
     axcolor = 'lightsteelblue'
 
     axPos = plt.axes([0.20, 0.05, 0.70, 0.03], facecolor=axcolor)
-    sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='royalblue')
+    sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
     # We don't want to display the numerical value, since we're going to
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
     axScale = plt.axes([0.20, 0.01, 0.70, 0.03], facecolor=axcolor)
-    sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='green')
+    sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
@@ -1761,6 +1773,7 @@ def ShowOrHideEventsNotes():
     multX = 1.0
     multY = 1.0
     visibleAnnotCount = 0
+    longTextBump = 0
 
     # Find the size of the plotting area in pixels
     ax_bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
@@ -2157,10 +2170,7 @@ def plotGraph():
         #posText = axPos.text(50.0, 0.35, '%5.2f%%'%position, horizontalalignment='center')
         dispDate = displayStartDate.strftime("%Y-%m-%d")
         posText = axPos.text(50.0, 0.35, dispDate, horizontalalignment='center', weight='bold')
-        if gluUnits == 'mmol/L':
-            scaleText = axScale.text(50.00, 7.0, SecondsToGeneralTimeString(displayRange), horizontalalignment='center', weight='bold')
-        else:
-            scaleText = axScale.text(50.00, 100.0, SecondsToGeneralTimeString(displayRange), horizontalalignment='center', weight='bold')
+        scaleText = axScale.text(50.00, 100.0, SecondsToGeneralTimeString(displayRange), horizontalalignment='center', verticalalignment='bottom', weight='bold')
 
         dspan = SpanSelector(ax, onselect, 'vertical', useblit=True,
                              rectprops=dict(alpha=0.5, facecolor='red'),
@@ -2307,9 +2317,10 @@ def plotGraph():
                 fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
             else:
                 fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
-        except Exception as e:
+        except AttributeError as e:
             if args.debug:
                 print 'fig.canvas.set_window_title: Exception =', e
+            sys.exc_clear()
             return
 
     if len(egvList) > 0:
@@ -2407,9 +2418,10 @@ def plotGraph():
                     # the remaining sensor warm-up time.
                     try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
                         fig.canvas.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
-                    except Exception as e:
+                    except AttributeError as e:
                         if args.debug:
                             print 'fig.canvas.set_window_title: Exception =', e
+                        sys.exc_clear()
                         return
 
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
