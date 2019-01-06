@@ -518,14 +518,20 @@ class G5EGVRecord (EGVRecord):
   #  2 = glucose value = ushort (2 bytes)
   #  3 = meterTime = integer (4 bytes)
   #  4 = unknown = unsigned char (1 byte)
-  #  5 = testNum = unsigned short (4 bytes) generally increases with each record, but
-  #                          sometimes has out-of-order '7fffffff' value instead
-  #  6 = trend = unsigned char (1 byte) low 4 bits are significant
+  #  5 = testNum = unsigned (3 bytes) generally increases with each record, but
+  #                         sometimes has out-of-order 'ffffff' value instead
+  #      trendrate = unsigned char (1 byte)
+  #                         sometimes has odd '7f' value
+  #  6 = trendArrow = unsigned char (1 byte), only low 4 bits are significant
   #  7 = unknown = unsigned char (1 byte)
-  #  8 = unknown = unsigned short (2 bytes) seems to always hold '00 00'
+  #  8 = 0000 [for G5] = ushort (2 bytes)
+  #    = realtime glucose value [for G6] = ushort (2 bytes)
   #  9 = crc = unsigned short (2 bytes)
   FORMAT = '<2IHIBIBBHH'
   @property
   def full_trend(self):
     return self.data[6]
 
+  @property
+  def realtime(self):
+    return self.data[8]

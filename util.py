@@ -109,12 +109,14 @@ def thisIsWine():
                         return False
                 except Exception as e:
                     #print 'OpenKey failed. Exception =', e
+                    sys.exc_clear()
                     return False
             else:
                 return False
 
         except Exception as f:
             #print 'ConnectRegistry failed. Exception =', f
+            sys.exc_clear()
             return False
     else:
         return False
