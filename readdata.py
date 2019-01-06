@@ -82,7 +82,8 @@ class Dexcom(object):
     try:
         return util.find_usbserial(constants.DEXCOM_G4_USB_VENDOR,
                                    constants.DEXCOM_G4_USB_PRODUCT)
-    except:
+    except NotImplementedError:
+        sys.exc_clear()
         return None
 
   def GetDeviceType(self):
@@ -103,6 +104,7 @@ class Dexcom(object):
               return fw_ver
     except Exception as e:
         print 'GetDeviceType() : Exception =', e
+        sys.exc_clear()
         return None
 
   @classmethod
@@ -197,6 +199,7 @@ class Dexcom(object):
         if self._port is None:
             self._port = serial.Serial(port=self._port_name, baudrate=115200)
     except serial.SerialException:
+        sys.exc_clear()
         try:
             if self._port is None:
                 #print 'First attempt failed'
@@ -209,6 +212,7 @@ class Dexcom(object):
                 self._port = serial.Serial(port=self._port_name, baudrate=115200)
 
         except serial.SerialException:
+            sys.exc_clear()
             print 'Read/Write permissions missing for', self._port_name
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
@@ -231,12 +235,16 @@ class Dexcom(object):
     if self._port is not None:
         try:
             self.clear()
+            #print 'Connect() : self.clear()'
         except Exception as e:
+            sys.exc_clear()
             pass
 
         try:
             self.flush()
+            #print 'Connect() : self.flush()'
         except Exception as e:
+            sys.exc_clear()
             pass
 
   def Disconnect(self):
@@ -253,12 +261,14 @@ class Dexcom(object):
           self.clear()
       except Exception as e:
           #print 'Disconnect() : Exception =', e
+          sys.exc_clear()
           pass
 
       try:
           self.flush()
       except Exception as e:
           #print 'Disconnect() : Exception =', e
+          sys.exc_clear()
           pass
       self._port.close()
     self._port = None

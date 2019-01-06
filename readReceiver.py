@@ -18,6 +18,7 @@
 ###############################################################################
 
 #import datetime
+import sys
 import sqlite3
 import threading
 import readdata
@@ -55,6 +56,7 @@ class readReceiverBase(readdata.Dexcom):
             self.Disconnect()
             self._port_name = None
             self._lock.release()
+            sys.exc_clear()
             return None
 
 
@@ -81,6 +83,7 @@ class readReceiverBase(readdata.Dexcom):
             self.Disconnect()
             self._port_name = None
             self._lock.release()
+            sys.exc_clear()
             return (None, 0)
 
 
@@ -162,6 +165,7 @@ class readReceiverBase(readdata.Dexcom):
                 print 'DownloadToDb() : Rolling back SQL changes due to exception =', e
                 curs.close()
                 conn.rollback()
+                sys.exc_clear()
             conn.close()
         self._lock.release()
         return
