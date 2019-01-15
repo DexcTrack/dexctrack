@@ -43,7 +43,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.4
+dexctrackVersion = 2.5
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -144,6 +144,7 @@ lastTestDateTime = UTC_BASE_TIME
 lastMeanTestDateTime = UTC_BASE_TIME
 nextMeanNn = 0
 displayStartSecs = 0
+displayEndSecs = 0
 cfgDisplayLow = None
 cfgDisplayHigh = None
 rthread = None
@@ -238,6 +239,9 @@ percentFontSize = largeFontSize
 trendArrowSize = 15
 battX = 0.946
 battY = 0.10
+# Can we append new readings to the database?
+# We'll only allow appending to a db matching a currently attached device.
+appendable_db = True
 
 
 # Disable default keyboard shortcuts so that a user
@@ -400,6 +404,7 @@ def SecondsToGeneralTimeString(secs):
 
 #---------------------------------------------------------
 def displayCurrentRange():
+    global displayEndSecs
     #print 'displayRange =',displayRange,', displayStartSecs =',displayStartSecs,', displayStartSecs+displayRange =',displayStartSecs+displayRange,', lastTestSysSecs =',lastTestSysSecs
 
     #   +--------------------+--------------------------------------------------------+
@@ -409,6 +414,7 @@ def displayCurrentRange():
     #   +--------------------+--------------------------------------------------------+
     #   |                    |                                                        |
     #   displayStartSecs     displayStartSecs+displayRange                            lastTestSysSecs
+    #                        displayEndSecs
 
     #   +--------------------------+--------------------+-----------------------------+
     #   |**************************|                    |*****************************|
@@ -417,6 +423,7 @@ def displayCurrentRange():
     #   +--------------------------+--------------------+-----------------------------+
     #   |                          |                    |                             |
     #   firstTestSysSecs           displayStartSecs     displayStartSecs+displayRange lastTestSysSecs
+    #                                                   displayEndSecs
 
     #   +-----------------------------------------------------------------------------+
     #   |********************************************************|                    |
@@ -426,6 +433,7 @@ def displayCurrentRange():
     #   |                                                        |                    |
     #   firstTestSysSecs                                         displayStartSecs     displayStartSecs+displayRange
     #                                                                                 lastTestSysSecs
+    #                                                                                 displayEndSecs
 
     if (displayStartSecs + displayRange) > lastTestSysSecs:
         # there isn't enough data to fill out displayRange
@@ -433,16 +441,16 @@ def displayCurrentRange():
             dispBegin = firstTestSysSecs
         else:
             dispBegin = max(lastTestSysSecs - displayRange, firstTestSysSecs)
-        dispEnd = lastTestSysSecs
+        displayEndSecs = lastTestSysSecs
     else:
         dispBegin = displayStartSecs
-        dispEnd = displayStartSecs + displayRange
-    #print 'displayCurrentRange() displayStartSecs =',displayStartSecs,'displayRange =',displayRange,'dispBegin =',dispBegin,'dispEnd =',dispEnd
-    if dispEnd > dispBegin:
+        displayEndSecs = displayStartSecs + displayRange
+    #print 'displayCurrentRange() displayStartSecs =',displayStartSecs,'displayRange =',displayRange,'dispBegin =',dispBegin,'displayEndSecs =',displayEndSecs
+    if displayEndSecs > dispBegin:
         try:
             # the following can cause 'RuntimeError: dictionary changed size during iteration'
             ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(dispBegin)),
-                        mdates.date2num(ReceiverTimeToUtcTime(dispEnd)))
+                        mdates.date2num(ReceiverTimeToUtcTime(displayEndSecs)))
             #if args.debug:
                 #print 'displayCurrentRange() before fig.canvas.draw_idle(), count =',len(muppy.get_objects())
             fig.canvas.draw_idle()   # each call generates new references to 120 - 300 objectss
@@ -450,12 +458,13 @@ def displayCurrentRange():
                 #print 'displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects())
                 #tr.print_diff()
         except RuntimeError as e:
-            print 'displayCurrentRange() : dispBegin =', dispBegin, ', dispEnd =', dispEnd, ', Exception =', e
+            print 'displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e
             sys.exc_clear()
 
 #---------------------------------------------------------
 def getSqlFileName(sNum):
     global serialNum
+    global appendable_db
     #=======================================================================
     # The database files are of the form dexc_<SERIAL_NUMBER>.sqlite
     # This naming scheme allows handling of multiple receiver
@@ -477,9 +486,19 @@ def getSqlFileName(sNum):
         else:
             my_sqlite_file = None
             serialNum = None
+        appendable_db = False
     else:
         my_sqlite_file = '%s%s.sqlite' % (sqlprefix, sNum)
         serialNum = sNum
+        appendable_db = True
+
+    # A specified database overrides the value determined above
+    if specDatabase:
+        if appendable_db and my_sqlite_file and (specDatabase != my_sqlite_file):
+            appendable_db = False
+        my_sqlite_file = specDatabase
+        serialNum = string.replace(string.replace(specDatabase, sqlprefix, ''), '.sqlite', '')
+
     return my_sqlite_file
 
 #---------------------------------------------------------
@@ -513,6 +532,8 @@ class deviceReadThread(threading.Thread):
 
     def run(self):
         global readDataInstance
+        global lastTestGluc
+        global lastTrend
         while True:
             if self.restart is True:
                 self.restart = False
@@ -526,13 +547,28 @@ class deviceReadThread(threading.Thread):
                     print 'Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
                 if sqlite_file is not None:
-                    # We probably have new records to add to the database
-                    self.readIntoDbFunc(sqlite_file)
+                    if appendable_db:
+                        # We probably have new records to add to the database
+                        self.readIntoDbFunc(sqlite_file)
+                    else:
+                        if not readDataInstance:
+                            readDataInstance = getReadDataInstance()
+                        if readDataInstance:
+                            curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
+                            if curGluc and curFullTrend:
+                                lastTestGluc = curGluc
+                                lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
+                            print 'deviceReadThread.run() lastTestGluc =', lastTestGluc
+                        else:
+                            print 'deviceReadThread.run() readDataInstance = NULL'
+
                     if stat_text:
                         stat_text.set_text('Receiver\nDevice\nPresent')
                         stat_text.set_backgroundcolor('tomato')
                         stat_text.draw(fig.canvas.get_renderer())
+
                     plotGraph()    # Draw a new graph
+
 
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
@@ -664,57 +700,59 @@ def PerodicDeviceSeek():
     return
 
 #---------------------------------------------------------
+def getReadDataInstance():
+    rsni = None
+    rdi = None
+
+    my_dport = readReceiver.readReceiverBase.FindDevice()
+    if readSerialNumInstance:
+        rsni = readSerialNumInstance
+        devType = rsni.GetDeviceType()
+    else:
+        devType = None
+        if my_dport is not None:
+            rsni = readReceiver.readReceiver(my_dport)
+            if rsni:
+                devType = rsni.GetDeviceType()
+
+    if my_dport:
+        if rsni:
+            if devType and my_dport:
+                if devType == 'g4':
+                    rdi = readReceiver.readReceiver(my_dport, rsni.port)
+                elif devType == 'g5':
+                    rdi = readReceiver.readReceiverG5(my_dport, rsni.port)
+                elif devType == 'g6':
+                    rdi = readReceiver.readReceiverG6(my_dport, rsni.port)
+                else:
+                    print 'getReadDataInstance() : Unrecognized firmware version', devType
+        else:
+            rdi = readReceiver.readReceiver(my_dport)
+
+    return rdi
+
+#---------------------------------------------------------
 def PeriodicReadData():
     global rthread
     global readDataInstance
+    global lastTestGluc
+    global lastTrend
 
-    # read data from the reciever
-    if readSerialNumInstance is not None:
-        devType = readSerialNumInstance.GetDeviceType()
-    else:
-        devType = None
+    if readDataInstance is None:
+        readDataInstance = getReadDataInstance()
 
-    if devType is None:
-        return
-    elif devType == 'g4':
-        if readDataInstance is None:
-            dport = readReceiver.readReceiverBase.FindDevice()
-            if dport is None:
-                readDataInstance = None
-                return
-            else:
-                if readSerialNumInstance:
-                    readDataInstance = readReceiver.readReceiver(dport, readSerialNumInstance.port)
-                else:
-                    readDataInstance = readReceiver.readReceiver(dport)
-    elif devType == 'g5':
-        if readDataInstance is None:
-            dport = readReceiver.readReceiverBase.FindDevice()
-            if dport is None:
-                readDataInstance = None
-                return
-            else:
-                if readSerialNumInstance:
-                    readDataInstance = readReceiver.readReceiverG5(dport, readSerialNumInstance.port)
-                else:
-                    readDataInstance = readReceiver.readReceiverG5(dport)
-    elif devType == 'g6':
-        if readDataInstance is None:
-            dport = readReceiver.readReceiverBase.FindDevice()
-            if dport is None:
-                readDataInstance = None
-                return
-            else:
-                if readSerialNumInstance:
-                    readDataInstance = readReceiver.readReceiverG6(dport, readSerialNumInstance.port)
-                else:
-                    readDataInstance = readReceiver.readReceiverG6(dport)
-    else:
-        print 'PeriodicReadData() : Unrecognized firmware version', devType
+    if readDataInstance is None:
         if rthread is not None:
             rthread.stop()
             rthread.join()
         return
+
+    if appendable_db == False:
+        curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
+        if curGluc and curFullTrend:
+            lastTestGluc = curGluc
+            lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
+        print 'PeriodicReadData() lastTestGluc =', lastTestGluc
 
     if rthread is not None:
         rthread.stop()
@@ -730,6 +768,8 @@ def updatePos(val):
     global displayStartSecs
     global displayStartDate
     global position
+    global displayEndSecs
+
     position = val
     origDisplayStartSecs = displayStartSecs
     #print 'updatePos() displayStartSecs =',displayStartSecs
@@ -741,6 +781,8 @@ def updatePos(val):
         displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
         posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
     if displayStartSecs != origDisplayStartSecs:
+        displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+        calcStats()
         displayCurrentRange()
 
 #---------------------------------------------------------
@@ -749,6 +791,7 @@ def updateScale(val):
     global displayStartDate
     global minorTickSequence
     global displayStartSecs
+    global displayEndSecs
 
     displayRange = int(displayRangeMin + (val / 100.0) * (displayRangeMax - displayRangeMin))
     priorTickSequence = minorTickSequence
@@ -783,6 +826,8 @@ def updateScale(val):
     if scaleText:
         scaleText.set_text(SecondsToGeneralTimeString(displayRange))
     ShowOrHideEventsNotes()
+    displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+    calcStats()
     displayCurrentRange()
 
 #-----------------------------------------------------------------------------------
@@ -809,6 +854,8 @@ def updateScale(val):
 def press(event):
     global position
     global displayStartSecs
+    global displayEndSecs
+
     #print('press', event.key)
     sys.stdout.flush()
 
@@ -822,6 +869,7 @@ def press(event):
     else:
         if event.key == 'left':
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - displayRange)
+            displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
             # Need to convert datetime values to floats to avoid occasional
             # 'TypeError: float() argument must be a string or a number' errors.
             if displayStartSecs != origDisplayStartSecs:
@@ -832,12 +880,14 @@ def press(event):
             else:
                 position = 100.0
             if position != origPosition:
+                calcStats()
                 sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
             elif displayStartSecs != origDisplayStartSecs:
                 fig.canvas.draw()
 
         elif event.key == 'right':
             displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + displayRange))
+            displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
             # Need to convert datetime values to floats to avoid occasional
             # 'TypeError: float() argument must be a string or a number' errors.
             if displayStartSecs != origDisplayStartSecs:
@@ -848,6 +898,7 @@ def press(event):
             else:
                 position = 100.0
             if position != origPosition:
+                calcStats()
                 sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
             elif displayStartSecs != origDisplayStartSecs:
                 fig.canvas.draw()
@@ -1472,6 +1523,147 @@ def plotInit():
     figVersion = plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
 
 #---------------------------------------------------------
+# This function coverts a trend value to a character which
+# represents the direction represented by that trend.
+def trendToChar(trendValue):
+    if trendValue == 1:     # doubleUp
+        my_trendChar = '^'
+    elif trendValue == 2:   # singleUp
+        my_trendChar = '^'
+    elif trendValue == 3:   # fortyFiveUp
+        my_trendChar = '/'
+    elif trendValue == 4:   # flat
+        my_trendChar = '-'
+    elif trendValue == 5:   # fortyFiveDown
+        my_trendChar = '\\'
+    elif trendValue == 6:   # singleDown
+        my_trendChar = 'v'
+    elif trendValue == 7:   # doubleDown
+        my_trendChar = 'V'
+    else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
+        my_trendChar = '?'
+    return my_trendChar
+
+#---------------------------------------------------------
+def calcStats():
+    global avgGlu
+    global hba1c
+    global egvStdDev
+    global highPercent
+    global midPercent
+    global lowPercent
+    global displayEndSecs
+
+    if displayEndSecs == 0:
+        displayEndSecs = lastTestSysSecs
+
+    if sqlite_file:
+        conn = sqlite3.connect(sqlite_file)
+        curs = conn.cursor()
+
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Find HbA1c. This is based on the average of glucose values over a 3 month period
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+        ninetyDaysBack = int(displayEndSecs - 60*60*24*30*3)
+        #print 'ninetyDaysBack =',ninetyDaysBack
+        curs.execute(selectSql, (ninetyDaysBack,displayEndSecs))
+        sqlData = curs.fetchone()
+        if sqlData[0] is None:
+            avgGlu = 0.0
+            hba1c = 0.0
+        else:
+            avgGlu = sqlData[0]
+            hba1c = (sqlData[0] + 46.7) / 28.7
+            #if args.debug:
+                #print 'Average glucose =', avgGlu,', HbA1c =',hba1c
+
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Find percentages of readings in High, Middle, and Low ranges over a 3 month period
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > 12 AND glucose < ? AND sysSeconds >= ? AND sysSeconds <= ?'
+        curs.execute(selectSql, (displayLow, ninetyDaysBack, displayEndSecs))
+        sqlData = curs.fetchone()
+        if sqlData[0] is None:
+            lowCount = 0
+        else:
+            lowCount = sqlData[0]
+
+        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose >= ? AND glucose <= ? AND sysSeconds >= ? AND sysSeconds <= ?'
+        curs.execute(selectSql, (displayLow, displayHigh, ninetyDaysBack, displayEndSecs))
+        sqlData = curs.fetchone()
+        if sqlData[0] is None:
+            midCount = 0
+        else:
+            midCount = sqlData[0]
+
+        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > ? AND sysSeconds >= ? AND sysSeconds <= ?'
+        curs.execute(selectSql, (displayHigh, ninetyDaysBack, displayEndSecs))
+        sqlData = curs.fetchone()
+        if sqlData[0] is None:
+            highCount = 0
+        else:
+            highCount = sqlData[0]
+
+        lmhTotal = lowCount + midCount + highCount
+        if lmhTotal > 0:
+            highPercent = 100.0 * highCount / lmhTotal
+            midPercent = 100.0 * midCount / lmhTotal
+            lowPercent = 100.0 * lowCount / lmhTotal
+        else:
+            highPercent = 0.0
+            midPercent = 0.0
+            lowPercent = 0.0
+        #if args.debug:
+            #print 'highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent
+
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Calculate the SampleVariance over a 3 month period
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        #selectSql = 'SELECT AVG((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
+        selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+        curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
+        sqlData = curs.fetchall()
+        egvCount = len(sqlData)
+
+        if egvCount > 1:
+            selectSql = 'SELECT TOTAL((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+            curs.execute(selectSql, (avgGlu, avgGlu, ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                egvSampleVariance = 0.0
+            else:
+                # For a Sample Variance, divide by N - 1
+                egvSampleVariance = sqlData[0] / (egvCount - 1)
+        else:
+            egvSampleVariance = 0.0
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # The Standard Deviation is the square root of the SampleVariance
+        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        egvStdDev = math.sqrt(egvSampleVariance)
+        #if args.debug:
+            #print 'egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev
+
+        del sqlData
+        curs.close()
+        conn.close()
+
+        if avgText:
+            if gluUnits == 'mmol/L':
+                avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                 %(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
+            else:
+                avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                 %(lastTestGluc, avgGlu, egvStdDev, hba1c))
+
+        if highPercentText:
+            highPercentText.set_text('%4.1f%%' %highPercent)
+        if midPercentText:
+            midPercentText.set_text('%4.1f%%' %midPercent)
+        if lowPercentText:
+            lowPercentText.set_text('%4.1f%%' %lowPercent)
+
+#---------------------------------------------------------
 def readDataFromSql():
     global firstTestSysSecs
     global lastTestSysSecs
@@ -1482,9 +1674,6 @@ def readDataFromSql():
     global calibList
     global eventList
     global noteList
-    global avgGlu
-    global hba1c
-    global egvStdDev
     global lastTrend
     global trendChar
     global cfgDisplayLow
@@ -1493,9 +1682,7 @@ def readDataFromSql():
     global legPosX
     global legPosY
     global dbGluUnits
-    global highPercent
-    global midPercent
-    global lowPercent
+    global readDataInstance
 
     egvList = []
     calibList = []
@@ -1538,29 +1725,26 @@ def readDataFromSql():
                 lastTestDateTime = ReceiverTimeToUtcTime(lastTestSysSecs)
                 #print 'Last testNum =',row[3]
 
-            # get the last real glucose reading
-            curs.execute('SELECT glucose,trend FROM EgvRecord WHERE glucose > 12 ORDER BY sysSeconds DESC LIMIT 1')
-            sqlData = curs.fetchall()
-            for row in sqlData:
-                lastTestGluc = row[0]
-                lastTrend = row[1] & constants.EGV_TREND_ARROW_MASK
+            if appendable_db:
+                # get the last real glucose reading
+                curs.execute('SELECT glucose,trend FROM EgvRecord WHERE glucose > 12 ORDER BY sysSeconds DESC LIMIT 1')
+                sqlData = curs.fetchall()
+                for row in sqlData:
+                    lastTestGluc = row[0]
+                    lastTrend = row[1] & constants.EGV_TREND_ARROW_MASK
+            else:
+                if not readDataInstance:
+                    readDataInstance = getReadDataInstance()
+                if readDataInstance:
+                    curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
+                    if curGluc and curFullTrend:
+                        lastTestGluc = curGluc
+                        lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
+                    print 'readDataFromSql() lastTestGluc =', lastTestGluc
+                else:
+                    print 'readDataFromSql() readDataInstance = NULL'
 
-                if lastTrend == 1:     # doubleUp
-                    trendChar = '^'
-                elif lastTrend == 2:   # singleUp
-                    trendChar = '^'
-                elif lastTrend == 3:   # fortyFiveUp
-                    trendChar = '/'
-                elif lastTrend == 4:   # flat
-                    trendChar = '-'
-                elif lastTrend == 5:   # fortyFiveDown
-                    trendChar = '\\'
-                elif lastTrend == 6:   # singleDown
-                    trendChar = 'v'
-                elif lastTrend == 7:   # doubleDown
-                    trendChar = 'V'
-                else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
-                    trendChar = '?'
+            trendChar = trendToChar(lastTrend)
 
             if args.debug:
                 print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastTestGluc
@@ -1572,7 +1756,7 @@ def readDataFromSql():
 
             selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
 
-            # We need to limit the size of the selection to avoid ...
+            # We may need to limit the size of the selection to avoid ...
             # RuntimeError: RRuleLocator estimated to generate 4194 ticks from
             # 2018-02-13 04:51:15.957009+00:00 to 2018-02-27 18:22:28.042979+00:00
             # : exceeds Locator.MAXTICKS * 2 (2000)
@@ -1593,86 +1777,6 @@ def readDataFromSql():
             for row in sqlData:
                 calibList.append([ReceiverTimeToUtcTime(row[0]), row[1]])
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # Find HbA1c. This is based on the average of glucose values over the last
-            # 3 months, so limit the range of values to be averaged.
-            selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
-            ninetyDaysBack = int(lastTestSysSecs - 60*60*24*30*3)
-            #print 'ninetyDaysBack =',ninetyDaysBack
-            curs.execute(selectSql, (ninetyDaysBack,))
-            sqlData = curs.fetchone()
-            if sqlData[0] is None:
-                avgGlu = 0.0
-                hba1c = 0.0
-            else:
-                avgGlu = sqlData[0]
-                hba1c = (sqlData[0] + 46.7) / 28.7
-                #print 'Average glucose =', avgGlu,', HbA1c =',hba1c
-
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > 12 AND glucose < ? AND sysSeconds >= ?'
-            curs.execute(selectSql, (displayLow, ninetyDaysBack))
-            sqlData = curs.fetchone()
-            if sqlData[0] is None:
-                lowCount = 0
-            else:
-                lowCount = sqlData[0]
-
-            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose >= ? AND glucose <= ? AND sysSeconds >= ?'
-            curs.execute(selectSql, (displayLow, displayHigh, ninetyDaysBack))
-            sqlData = curs.fetchone()
-            if sqlData[0] is None:
-                midCount = 0
-            else:
-                midCount = sqlData[0]
-
-            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > ? AND sysSeconds >= ?'
-            curs.execute(selectSql, (displayHigh, ninetyDaysBack))
-            sqlData = curs.fetchone()
-            if sqlData[0] is None:
-                highCount = 0
-            else:
-                highCount = sqlData[0]
-
-            lmhTotal = lowCount + midCount + highCount
-            if lmhTotal > 0:
-                highPercent = 100.0 * highCount / lmhTotal
-                midPercent = 100.0 * midCount / lmhTotal
-                lowPercent = 100.0 * lowCount / lmhTotal
-            else:
-                highPercent = 0.0
-                midPercent = 0.0
-                lowPercent = 0.0
-            #print 'highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent
-
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # Calculate the SampleVariance over the last 3 months
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            #selectSql = 'SELECT AVG((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
-            selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
-            curs.execute(selectSql, (ninetyDaysBack,))
-            sqlData = curs.fetchall()
-            egvCount = len(sqlData)
-
-            if egvCount > 1:
-                selectSql = 'SELECT TOTAL((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
-                curs.execute(selectSql, (avgGlu, avgGlu, ninetyDaysBack,))
-                sqlData = curs.fetchone()
-                if sqlData[0] is None:
-                    egvSampleVariance = 0.0
-                else:
-                    # For a Sample Variance, divide by N - 1
-                    egvSampleVariance = sqlData[0] / (egvCount - 1)
-            else:
-                egvSampleVariance = 0.0
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            # The Standard Deviation is the square root of the SampleVariance
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-            egvStdDev = math.sqrt(egvSampleVariance)
-            #if args.debug:
-                #print 'egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev
-
 
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -1952,14 +2056,14 @@ def ShowOrHideEventsNotes():
 
         # If the Y offset is more than half the height of the screen, we'll override
         # it with a small offset.
-        if eyoffset < -ax_height * gluMult / 2:
+        if eyoffset < -ax_height / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height * gluMult / 2)
+                print 'Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2)
             eyoffset = -60.0
             repositioned = True
-        elif eyoffset > ax_height * gluMult / 2:
+        elif eyoffset > ax_height / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height * gluMult / 2)
+                print 'Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2)
             eyoffset = 60.0
             repositioned = True
 
@@ -1970,18 +2074,18 @@ def ShowOrHideEventsNotes():
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
-        if (ynorm[timeIndex] + eyoffset > maxDisplayHigh) or (ynorm[timeIndex] + eyoffset < 0):
+        if (ynorm[timeIndex] + gluMult * eyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + eyoffset, ynorm[timeIndex], eyoffset)
+                print 'Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset)
             strawY = multY*(75+longTextBump)
-            if ((ynorm[timeIndex] + strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + strawY) < 0):
+            if ((ynorm[timeIndex] + gluMult * strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + gluMult * strawY) < 0):
                 eyoffset = -strawY
             else:
                 eyoffset = strawY
 
-            if ((ynorm[timeIndex] + eyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + eyoffset < 0):
+            if ((ynorm[timeIndex] + gluMult * eyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
                 if args.debug:
-                    print 'Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + eyoffset, ynorm[timeIndex], eyoffset)
+                    print 'Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset)
                 eyoffset *= -1.5
             if args.debug:
                 print '    new offsets =', (exoffset, eyoffset)
@@ -2048,18 +2152,18 @@ def ShowOrHideEventsNotes():
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
-        if (ynorm[timeIndex] + nyoffset > maxDisplayHigh) or (ynorm[timeIndex] + nyoffset < 0):
+        if (ynorm[timeIndex] + gluMult * nyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
             if args.debug:
-                print 'Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + nyoffset, ynorm[timeIndex], nyoffset)
+                print 'Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset)
             strawY = multY*(75+longTextBump)
             if ((ynorm[timeIndex] + strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + strawY) < 0):
                 nyoffset = -strawY
             else:
                 nyoffset = strawY
 
-            if ((ynorm[timeIndex] + nyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + nyoffset < 0):
+            if ((ynorm[timeIndex] + gluMult * nyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
                 if args.debug:
-                    print 'Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + nyoffset, ynorm[timeIndex], nyoffset)
+                    print 'Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset)
                 nyoffset *= -1.5
             if args.debug:
                 print '    new offsets =', (nxoffset, nyoffset)
@@ -2291,9 +2395,7 @@ def plotGraph():
 
     gluUnits = dbGluUnits
 
-    highPercentText.set_text('%4.1f%%' %highPercent)
-    midPercentText.set_text('%4.1f%%' %midPercent)
-    lowPercentText.set_text('%4.1f%%' %lowPercent)
+    calcStats()
 
     if sys.platform == "win32":
         # fig.canvas.set_window_title() hangs forever under Windows, so don't try to use it
@@ -2666,12 +2768,12 @@ def plotGraph():
         #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
         #tr.print_diff()
 
-    if gluUnits == 'mmol/L':
-        avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                         %(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
-    else:
-        avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                         %(lastTestGluc, avgGlu, egvStdDev, hba1c))
+    #if gluUnits == 'mmol/L':
+        #avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                         #%(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
+    #else:
+        #avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                         #%(lastTestGluc, avgGlu, egvStdDev, hba1c))
 
     if lastTrend == 1:     # doubleUp
         trendRot = 90.0

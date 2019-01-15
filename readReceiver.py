@@ -59,6 +59,19 @@ class readReceiverBase(readdata.Dexcom):
             sys.exc_clear()
             return None
 
+    def GetCurrentGlucoseAndTrend(self):
+        self._lock.acquire()
+        if not self._port_name:
+            dport = self.FindDevice()
+            self._port_name = dport
+        respList = self.ReadRecords('EGV_DATA')
+        if respList:
+            currentEgv = respList[-1]
+            self._lock.release()
+            return (currentEgv.glucose, currentEgv.full_trend)
+        else:
+            self._lock.release()
+            return (None, None)
 
     def GetPowerInfo(self):
         #print 'readReceiverBase() GetPowerInfo running'
