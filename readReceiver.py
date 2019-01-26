@@ -171,6 +171,15 @@ class readReceiverBase(readdata.Dexcom):
                     else:
                         curs.execute(insert_ins_sql, (ins_rec.system_secs, ins_rec.display_secs, ins_rec.insertion_secs, ins_rec.state_value, 0, ''))
 
+                curs.execute('CREATE TABLE IF NOT EXISTS Calib( sysSeconds INT PRIMARY KEY, dispSeconds INT, meterSeconds INT, type INT, glucose INT, testNum INT, xx INT);')
+                insert_cal_sql = '''INSERT OR IGNORE INTO Calib( sysSeconds, dispSeconds, meterSeconds, type, glucose, testNum, xx) VALUES (?, ?, ?, ?, ?, ?, ?);'''
+
+                respList = self.ReadRecords('METER_DATA')
+                for cal_rec in respList:
+                    #print 'raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data)
+                    #print 'Calib(', cal_rec.system_secs, ',', cal_rec.display_secs, ', ', cal_rec.meter_secs, ', ', cal_rec.record_type, ', ', cal_rec.calib_gluc, ',', cal_rec.testNum
+                    curs.execute(insert_cal_sql, (cal_rec.system_secs, cal_rec.display_secs, cal_rec.meter_secs, cal_rec.record_type, cal_rec.calib_gluc, cal_rec.testNum, cal_rec.xx))
+
                 del respList
                 curs.close()
                 conn.commit()

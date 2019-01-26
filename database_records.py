@@ -1,5 +1,5 @@
 #########################################################################
-# This source file is from the openaps/dexcom_reader project. 
+# This source file is from the openaps/dexcom_reader project.
 #
 #    https://github.com/openaps/dexcom_reader
 #
@@ -359,33 +359,78 @@ class SubCal (GenericTimestampedRecord):
 class MeterRecord(GenericTimestampedRecord):
   #  0 = system_time = uint (4 bytes)
   #  1 = display_time = uint (4 bytes)
-  #  2 = meter_glucose = ushort (2 bytes)
+  #  2 = calib_gluc = ushort (2 bytes)
   #  3 = meter_time = uint (4 bytes)
   #  4 = crc = unsigned short (2 bytes)
   FORMAT = '<2IHIH'
-  FIELDS = ['meter_glucose', 'meter_time' ]
+  FIELDS = ['calib_gluc', 'meter_time']
 
   @property
-  def meter_glucose(self):
+  def calib_gluc(self):
     return self.data[2]
+
+  @property
+  def meter_secs(self): # seconds since BASE_TIME
+    return self.data[3]
+
+  @property
+  def testNum(self):
+    return 0
 
   @property
   def meter_time(self):
     return util.ReceiverTimeToTime(self.data[3])
 
   def __repr__(self):
-    return '%s: Meter BG:%s' % (self.display_time, self.meter_glucose)
+    return '%s: Calib BG:%s' % (self.display_time, self.calib_gluc)
 
-class G5MeterRecord (GenericTimestampedRecord):
+class G5MeterRecord(GenericTimestampedRecord):
   #  0 = system_time = uint (4 bytes)
   #  1 = display_time = uint (4 bytes)
-  #  2 = meter_glucose = ushort (2 bytes)
-  #  3 = ? = unsigned char (1 byte) 
+  #  2 = calib_gluc = ushort (2 bytes)
+  #  3 = record_type = unsigned char (1 byte)
+  #      1 = User calibration entry, testNum = 0xffffff, at time of entry
+  #      3 = User calibration entry, with real testNum, within 5 minutes after entry
+  #      11 = ?
+  #      12 = ?
   #  4 = meter_time = uint (4 bytes)
-  #  5 = ?  = uint (4 bytes)    frequently == -1
+  #  5 = xx_testNum = uint (4 bytes)
+  #      +----------------+
+  #      | testNum  | xx  | in integer form
+  #      +----------------+
+  #      testNum = unsigned (3 bytes) corresponds to testNum under the EGV records
+  #                testNum restarts at 0 upon insertion of a new transmitter
+  #           xx = unsigned (1 byte) of unknown purpose
   #  6 = crc = unsigned short (2 bytes)
   FORMAT = '<2IHBIIH'
-  FIELDS = ['meter_glucose', 'meter_unknown1', 'meter_time', 'meter_unknown2' ]
+  FIELDS = ['calib_gluc', 'record_type', 'meter_time', 'xx_testNum']
+
+  @property
+  def calib_gluc(self):
+    return self.data[2]
+
+  @property
+  def record_type(self):
+    return self.data[3]
+
+  @property
+  def meter_secs(self): # seconds since BASE_TIME
+    return self.data[4]
+
+  @property
+  def xx_testNum(self):
+    return self.data[5]
+
+  @property
+  def xx(self):
+    return self.data[5] & 0xff
+
+  @property
+  def testNum(self):
+    return (self.data[5] >> 8) & 0xffffff
+
+  def __repr__(self):
+    return '%s: Calib BG:%s' % (self.display_time, self.calib_gluc)
 
 
 class EventRecord(GenericTimestampedRecord):
@@ -428,7 +473,7 @@ class EventRecord(GenericTimestampedRecord):
     return self.data[3]
 
   @property
-  def meter_secs (self):    # seconds since BASE_TIME
+  def meter_secs(self): # seconds since BASE_TIME
     return self.data[4]
 
   @property
@@ -512,20 +557,21 @@ class EGVRecord(GenericTimestampedRecord):
                                            self.trend_arrow, self.display_only)
 
 
-class G5EGVRecord (EGVRecord):
+class G5EGVRecord(EGVRecord):
   #  0 = systemTime = integer (4 bytes)
   #  1 = displayTime = integer (4 bytes)
   #  2 = glucose value = ushort (2 bytes)
   #  3 = meterTime = integer (4 bytes)
   #  4 = unknown = unsigned char (1 byte)
   #  5 = testNum = unsigned (3 bytes) generally increases with each record, but
-  #                         sometimes has out-of-order 'ffffff' value instead
+  #                sometimes has out-of-order 'ffffff' value instead.
+  #                testNum restarts at 0 upon insertion of a new transmitter.
   #      trendrate = unsigned char (1 byte)
   #                         sometimes has odd '7f' value
   #  6 = trendArrow = unsigned char (1 byte), only low 4 bits are significant
   #  7 = unknown = unsigned char (1 byte)
   #  8 = 0000 [for G5] = ushort (2 bytes)
-  #    = realtime glucose value [for G6] = ushort (2 bytes)
+  #    = realtime (non-smoothed) glucose value [for G6] = ushort (2 bytes)
   #  9 = crc = unsigned short (2 bytes)
   FORMAT = '<2IHIBIBBHH'
   @property
