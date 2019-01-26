@@ -1336,13 +1336,13 @@ def plotInit():
     axcolor = 'lightsteelblue'
 
     #                [Left, Bottom, Width, Height]
-    axPos = plt.axes([0.17, 0.05, 0.70, 0.03], facecolor=axcolor)
+    axPos = plt.axes([0.20, 0.05, 0.70, 0.03], facecolor=axcolor)
     sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
     # We don't want to display the numerical value, since we're going to
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    axScale = plt.axes([0.17, 0.01, 0.70, 0.03], facecolor=axcolor)
+    axScale = plt.axes([0.20, 0.01, 0.70, 0.03], facecolor=axcolor)
     sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
@@ -1806,7 +1806,8 @@ def readDataFromSql():
             haveCalib = (sqlData[0] > 0)
 
             # testNum == 16777215 for calibration events
-            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE testNum = 16777215 AND sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
+            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE testNum = 16777215 AND glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
+            #                          0        1     2       3     4
             selectCalSql = 'SELECT sysSeconds,type,glucose,testNum,xx FROM Calib WHERE type=1 AND sysSeconds BETWEEN ?-10 AND ?+10'
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
@@ -1820,7 +1821,7 @@ def readDataFromSql():
                 else:
                     calRow = None
                 if calRow:
-                    #print '--> type =', calRow[1], ', calib_gluc =', calRow[2], ', testNum =', calRow[3], ' xx =', calRow[4], ', diff =', calRow[0] - row[0]
+                    #print '--> type =', calRow[1], ', calib_gluc =', calRow[2], ', testNum =', calRow[3], ' xx =', calRow[4], ', timeDiff =', calRow[0] - row[0], ', cgmGluc =', row[1], ', calibDiff =', calRow[2] - row[1]
                     # calRow[2] is used to calculate an errorbar offset
                     calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], calRow[2] - row[1], None])
                 else:
