@@ -19,7 +19,6 @@
 
 import os
 import sys
-import time
 import glob
 import string
 import sqlite3
@@ -43,7 +42,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.5
+dexctrackVersion = 2.6
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -193,6 +192,7 @@ evtPlotList = []
 notePlotList = []
 etimeSet = set()
 noteSet = set()
+calibDict = {}
 noteTimeSet = set()
 leg = None
 legPosX = -1.0
@@ -242,6 +242,8 @@ battY = 0.10
 # Can we append new readings to the database?
 # We'll only allow appending to a db matching a currently attached device.
 appendable_db = True
+unitRead = None
+#unitButton = None
 
 
 # Disable default keyboard shortcuts so that a user
@@ -558,8 +560,11 @@ class deviceReadThread(threading.Thread):
                             if curGluc and curFullTrend:
                                 lastTestGluc = curGluc
                                 lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
+                            else:
+                                lastTestGluc = 0
                             print 'deviceReadThread.run() lastTestGluc =', lastTestGluc
                         else:
+                            lastTestGluc = 0
                             print 'deviceReadThread.run() readDataInstance = NULL'
 
                     if stat_text:
@@ -588,6 +593,9 @@ class deviceReadThread(threading.Thread):
                 else:
                     if args.debug:
                         print 'deviceReadThread terminated'
+                    lastTestGluc = 0
+                    if sys.platform != "win32":
+                        fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
                     del readDataInstance
                     readDataInstance = None
                     return  # terminate the thread
@@ -747,7 +755,7 @@ def PeriodicReadData():
             rthread.join()
         return
 
-    if appendable_db == False:
+    if appendable_db is False:
         curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
         if curGluc and curFullTrend:
             lastTestGluc = curGluc
@@ -777,7 +785,6 @@ def updatePos(val):
                            max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
     #print '----------> displayStartSecs =',displayStartSecs
     if posText:
-        #posText.set_text('%5.2f%%'%position)
         displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
         posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
     if displayStartSecs != origDisplayStartSecs:
@@ -1136,7 +1143,6 @@ def leave_axes(event):
             fig.canvas.draw_idle()
     elif event.inaxes is axPos:
         if posText:
-            #posText.set_text('%5.2f%%'%position)
             displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
             posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
             fig.canvas.draw_idle()
@@ -1224,6 +1230,16 @@ def ReadButtonCallback(event):
             #bread.label.set_text('Use Left mouse button\nto select range')
 
 #---------------------------------------------------------
+def UnitButtonCallback(event):
+    print 'Unit Button pressed.'
+    if gluUnits == 'mmol/L':
+        #gluUnits = 'mg/dL'
+        unitRead.label.set_text('Switch to\nmmol/L')
+    else:
+        #gluUnits = 'mmol/L'
+        unitRead.label.set_text('Switch to\nmg/dL')
+
+#---------------------------------------------------------
 def TestButtonCallback(event):
     print 'Test Button pressed. Will read in 10 seconds.'
     timeLeftSeconds = 10
@@ -1272,6 +1288,7 @@ def ClearGraph(event):
     if calibScatter:
         calibScatter.remove()
         calibScatter = None
+    calibDict.clear()
     if linePlot:
         linePlot.pop(0).remove()
         linePlot = None
@@ -1305,6 +1322,8 @@ def plotInit():
     global percentFontSize
     global battX
     global battY
+    global unitRead
+    #global unitButton
     #global axtest
     #global testRead
 
@@ -1316,19 +1335,23 @@ def plotInit():
 
     axcolor = 'lightsteelblue'
 
-    axPos = plt.axes([0.20, 0.05, 0.70, 0.03], facecolor=axcolor)
+    #                [Left, Bottom, Width, Height]
+    axPos = plt.axes([0.17, 0.05, 0.70, 0.03], facecolor=axcolor)
     sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
     # We don't want to display the numerical value, since we're going to
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    axScale = plt.axes([0.20, 0.01, 0.70, 0.03], facecolor=axcolor)
+    axScale = plt.axes([0.17, 0.01, 0.70, 0.03], facecolor=axcolor)
     sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
 
     #print 'pixels per inch =',fig.canvas.winfo_fpixels( '1i' )
+    #print 'axPos : Rect =', axPos.get_position().bounds
+    #print 'axPos : Rect.bottom =', axPos.get_position().bounds[1]
+    #print 'axScale : Rect.bottom =', axScale.get_position().bounds[1]
 
     ########################################################
     # hd terminal = 1920 x 1080 -> 1920/1080 = 1.78
@@ -1517,10 +1540,18 @@ def plotInit():
     #testRead = Button(axtest, 'Jump', color='pink')
     #testRead.on_clicked(TestButtonCallback)
 
-    figLogo = plt.gcf().text(logoX, logoY, 'Dexc\nTrack', style='italic', size=25, weight='bold',
-                             color='orange', backgroundcolor='teal', ha='center', va='center')
+    #                     Left, Bottom, Width, Height
+    #unitButton = plt.axes([0.010, 0.20, 0.054, 0.065])
+    #if gluUnits == 'mmol/L':
+        #unitRead = Button(unitButton, 'Switch to\nmg/dL', color='lightsalmon')
+    #else:
+        #unitRead = Button(unitButton, 'Switch to\nmmol/L', color='lightsalmon')
+    #unitRead.on_clicked(UnitButtonCallback)
 
-    figVersion = plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
+    plt.gcf().text(logoX, logoY, 'Dexc\nTrack', style='italic', size=25, weight='bold',
+                   color='orange', backgroundcolor='teal', ha='center', va='center')
+
+    plt.gcf().text(verX, verY, 'v%s' %dexctrackVersion, size=12, weight='bold')
 
 #---------------------------------------------------------
 # This function coverts a trend value to a character which
@@ -1567,7 +1598,7 @@ def calcStats():
         selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
         ninetyDaysBack = int(displayEndSecs - 60*60*24*30*3)
         #print 'ninetyDaysBack =',ninetyDaysBack
-        curs.execute(selectSql, (ninetyDaysBack,displayEndSecs))
+        curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
         sqlData = curs.fetchone()
         if sqlData[0] is None:
             avgGlu = 0.0
@@ -1768,15 +1799,33 @@ def readDataFromSql():
                 egvList.append([ReceiverTimeToUtcTime(row[0]), row[1]])
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Check to see if we have any Calib records in the database
+            selectSql = "SELECT count(*) from sqlite_master where type='table' and name='Calib'"
+            curs.execute(selectSql)
+            sqlData = curs.fetchone()
+            haveCalib = (sqlData[0] > 0)
+
             # testNum == 16777215 for calibration events
             selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE testNum = 16777215 AND sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
+            selectCalSql = 'SELECT sysSeconds,type,glucose,testNum,xx FROM Calib WHERE type=1 AND sysSeconds BETWEEN ?-10 AND ?+10'
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             #print 'sql calibration results length =',len(sqlData)
 
             for row in sqlData:
-                calibList.append([ReceiverTimeToUtcTime(row[0]), row[1]])
-            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+                if haveCalib:
+                    # Search for a User Calibration entry close to this EGV record
+                    curs.execute(selectCalSql, (row[0], row[0]))
+                    calRow = curs.fetchone()
+                else:
+                    calRow = None
+                if calRow:
+                    #print '--> type =', calRow[1], ', calib_gluc =', calRow[2], ', testNum =', calRow[3], ' xx =', calRow[4], ', diff =', calRow[0] - row[0]
+                    # calRow[2] is used to calculate an errorbar offset
+                    calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], calRow[2] - row[1], None])
+                else:
+                    # No calRow found so specify a 0 distance offset
+                    calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], 0, None])
 
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2271,9 +2320,8 @@ def plotGraph():
 
         sScale.set_val(100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin))
 
-        #posText = axPos.text(50.0, 0.35, '%5.2f%%'%position, horizontalalignment='center')
         dispDate = displayStartDate.strftime("%Y-%m-%d")
-        posText = axPos.text(50.0, 0.35, dispDate, horizontalalignment='center', weight='bold')
+        posText = axPos.text(50.0, 0.15, dispDate, horizontalalignment='center', verticalalignment='bottom', weight='bold')
         scaleText = axScale.text(50.00, 100.0, SecondsToGeneralTimeString(displayRange), horizontalalignment='center', verticalalignment='bottom', weight='bold')
 
         dspan = SpanSelector(ax, onselect, 'vertical', useblit=True,
@@ -2298,9 +2346,6 @@ def plotGraph():
         inRangeRegionAnnotList = []
         while len(inRangeRegionList) > 0:
             inRangeRegionList.pop(0).remove()
-            #inRangeItem = inRangeRegionList.pop(0)
-            #poly = inRangeItem
-            #poly.remove()
         inRangeRegionList = []
         inRangeStartSet.clear()
 
@@ -2358,9 +2403,6 @@ def plotGraph():
             inRangeRegionAnnotList = []
             while len(inRangeRegionList) > 0:
                 inRangeRegionList.pop(0).remove()
-                #inRangeItem = inRangeRegionList.pop(0)
-                #poly = inRangeItem
-                #poly.remove()
             inRangeRegionList = []
             inRangeStartSet.clear()
 
@@ -2415,7 +2457,10 @@ def plotGraph():
         # For example, if the current glucose level is 93 and falling, the
         # window title will begin with '93 \'.
         try:    # during shutdown, this can fail with "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-            if gluUnits == 'mmol/L':
+            #if appendable_db is False:
+            if lastTestGluc == 0:
+                fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
+            elif gluUnits == 'mmol/L':
                 fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
             else:
                 fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
@@ -2456,15 +2501,18 @@ def plotGraph():
         #print 'sizeof(calibdata) =',len(calibdata)
         cx = []
         cy = []
+        cz = []
         cxnorm = []
         cx = calibdata[:, 0] # sysSeconds
         cy = calibdata[:, 1] # glucose
+        cz = calibdata[:, 2] # calibration
         cxnorm = cx[cy > 12]
         #print 'sizeof(xnorm) =',len(xnorm),'sizeof(cx) =',len(cx),'sizeof(cy) =',len(cy),'sizeof(cxnorm) =',len(cxnorm)
         ynorm = []
         cynorm = []
         ynorm = yy[yy > 12] * gluMult
         cynorm = cy[cy > 12] * gluMult
+        cznorm = cz[cy > 12] * gluMult
 
         #print 'len(xx) =',len(xx),' len(yy) =',len(yy),' len(cx) =',len(cx),' len(cy) =',len(cy),' len(cxnorm) =',len(cxnorm),' len(cynorm) =',len(cynorm)
 
@@ -2681,10 +2729,42 @@ def plotGraph():
         #if args.debug:
             #print 'plotGraph() : new size(egvScatter) =', len(muppy.get_objects())
 
-        # Plot the calibration settings with a diamond marker
+        # Plot the calibration settings with a diamond marker and an errorbar
         if calibScatter:
             calibScatter.remove()
-        calibScatter = ax.scatter([mdates.date2num(jj) for jj in cxnorm], cynorm, s=30, c='k', zorder=9, marker='D', picker=True)
+
+        # Get slices of negative and positive calibration offsets
+        negSlice = np.array([-i for i in cznorm.clip(max=0)])
+        posSlice = np.array(cznorm.clip(min=0))
+        # Get a slice of absolute values
+        absSlice = np.array([abs(i) for i in cznorm])
+
+        # lower & upper limits of the errorbars
+        lowerLims = np.array(posSlice, dtype=bool)
+        upperLims = np.array(negSlice, dtype=bool)
+
+        calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
+                                   yerr=absSlice, lolims=lowerLims, uplims=upperLims,
+                                   marker='D', linestyle='None', color='black',
+                                   elinewidth=2, picker=True, zorder=10)
+
+        calibZip = zip(cxnorm, cynorm, cznorm)
+        for qq in calibZip:
+            if qq[0] not in calibDict:
+                if qq[2] >= 0:
+                    # plot the calibration value a little above an Up arrow
+                    heightOffset = 6 * gluMult
+                else:
+                    # plot the calibration value a little below a Down arrow
+                    heightOffset = -14 * gluMult
+                # Save the reference to ax.text in a dictionary
+                if gluUnits == 'mmol/L':
+                    calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                               '%5.2f' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
+                else:
+                    calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                               '%d' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
+
         #if args.debug:
             #print 'plotGraph() : new size(calibScatter) =', len(muppy.get_objects())
 
@@ -2706,7 +2786,7 @@ def plotGraph():
                 # There is no previous entry. The average, so far, is just this value.
                 runningMean.append(float(ynorm[0]))
             else:
-                runningMean.append(float((nextMeanNn + nn) * runningMean[nextMeanNn + nn - 1] + newYnorm[nn]) / (nextMeanNn + nn + 1))
+                runningMean.append(float((nextMeanNn + nn) * runningMean[nextMeanNn + nn - 1] + gluc) / (nextMeanNn + nn + 1))
         if meanPlot:
             meanPlot.pop(0).remove()
         meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=3, alpha=0.6)
@@ -2767,13 +2847,6 @@ def plotGraph():
         #print 'plotGraph() :  After legend count =', len(muppy.get_objects())
         #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
         #tr.print_diff()
-
-    #if gluUnits == 'mmol/L':
-        #avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                         #%(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
-    #else:
-        #avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                         #%(lastTestGluc, avgGlu, egvStdDev, hba1c))
 
     if lastTrend == 1:     # doubleUp
         trendRot = 90.0
