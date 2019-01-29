@@ -42,7 +42,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.6
+dexctrackVersion = 2.7
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -1829,7 +1829,8 @@ def readDataFromSql():
                 else:
                     calRow = None
                 if calRow:
-                    #print '--> type =', calRow[1], ', calib_gluc =', calRow[2], ', testNum =', calRow[3], ' xx =', calRow[4], ', timeDiff =', calRow[0] - row[0], ', cgmGluc =', row[1], ', calibDiff =', calRow[2] - row[1]
+                    #ctime = ReceiverTimeToUtcTime(row[0])
+                    #print '--> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calRow[2], ' xx =', calRow[4], ', timeDiff =', calRow[0] - row[0], ', cgmGluc =', row[1], ', calibDiff =', calRow[2] - row[1]
                     # calRow[2] is used to calculate an errorbar offset
                     calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], calRow[2] - row[1], None])
                 else:

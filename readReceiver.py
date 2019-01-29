@@ -120,15 +120,16 @@ class readReceiverBase(readdata.Dexcom):
             try:
                 curs = conn.cursor()
 
-                # The PARSER_MAP for G4 doesn't include USER_SETTING_DATA, so restrict use of it to newer releases
-                if (self.rr_version == 'g5') or (self.rr_version == 'g6'):
-                    curs.execute('CREATE TABLE IF NOT EXISTS UserSettings( sysSeconds INT, dispSeconds INT, transmitter STR, high INT, low INT, rise INT, fall INT, outOfRange INT);')
-                    insert_usr_sql = '''INSERT OR IGNORE INTO UserSettings( sysSeconds, dispSeconds, transmitter, high, low, rise, fall, outOfRange) VALUES (?, ?, ?, ?, ?, ?, ?, ?);'''
-
-                    respList = self.ReadRecords('USER_SETTING_DATA')
-                    for usr_rec in respList:
-                        curs.execute(insert_usr_sql, (usr_rec.system_secs, usr_rec.display_secs, usr_rec.transmitterPaired, usr_rec.highAlert, usr_rec.lowAlert, usr_rec.riseRate, usr_rec.fallRate, usr_rec.outOfRangeAlert))
-
+                # Earlier releases had a UserSettings table, but it sucked up a huge amount of storage space,
+                # and didn't provide anything useful. So, if that table exists, we'll drop it and run
+                # vacuum to free up 97% of the disk space.
+                usCheckReq = "SELECT count(*) from sqlite_master where type='table' and name='UserSettings'"
+                curs.execute(usCheckReq)
+                sqlData = curs.fetchone()
+                if sqlData[0] > 0:
+                    print 'Deleting UserSettings table from database'
+                    curs.execute('DROP TABLE IF EXISTS UserSettings;')
+                    curs.execute('VACUUM;')
 
                 curs.execute('CREATE TABLE IF NOT EXISTS EgvRecord( sysSeconds INT PRIMARY KEY, dispSeconds INT, full_glucose INT, glucose INT, testNum INT, trend INT);')
                 insert_egv_sql = '''INSERT OR IGNORE INTO EgvRecord( sysSeconds, dispSeconds, full_glucose, glucose, testNum, trend) VALUES (?, ?, ?, ?, ?, ?);'''
