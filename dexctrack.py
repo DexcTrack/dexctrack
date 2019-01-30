@@ -246,6 +246,21 @@ unitRead = None
 #unitButton = None
 
 
+# Sometimes there's a failure running under Windows. If this happens before
+# the graphics window has been set up, then there's no simple
+# way to terminate the program. Ctrl-C gets ignored, by default.
+# Here we set up a handler for Ctrl-C, which we'll use under Windows.
+def CtrlCHandler(signum, frame):
+    print 'Exiting due to Ctrl-C'
+    sys.exit(1)
+
+# Linux & Mac automatically handle Ctrl-C, but for Windows
+# we need to set up a specific handler
+if sys.platform == "win32":
+    import signal
+    signal.signal(signal.SIGINT, CtrlCHandler)
+
+
 # Disable default keyboard shortcuts so that a user
 # accidentally hitting 'q' won't kill the application.
 plt.rcParams['keymap.all_axes'] = ''
@@ -2759,7 +2774,7 @@ def plotGraph():
         calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
                                    yerr=absSlice, lolims=lowerLims, uplims=upperLims,
                                    marker='D', linestyle='None', color='black',
-                                   elinewidth=2, picker=True, zorder=10)
+                                   elinewidth=2, ecolor='deeppink', picker=True, zorder=10)
 
         calibZip = zip(cxnorm, cynorm, cznorm)
         for qq in calibZip:
