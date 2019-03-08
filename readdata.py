@@ -83,6 +83,7 @@ class Dexcom(object):
         return util.find_usbserial(constants.DEXCOM_G4_USB_VENDOR,
                                    constants.DEXCOM_G4_USB_PRODUCT)
     except NotImplementedError:
+        #print 'FindDevice() : Exception =', e
         sys.exc_clear()
         return None
 
@@ -159,6 +160,7 @@ class Dexcom(object):
       #print '\nMETER_DATA\n======================================================'
       #for met_rec in dex.ReadRecords('METER_DATA'):
           #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data)
+          #print '            record_type =', met_rec.record_type, ', calib_gluc =', met_rec.calib_gluc, ', testNum =', met_rec.testNum, ' xx =', met_rec.xx
       #print '\nMANUFACTURING_DATA\n======================================================'
       #mfg_data = dex.ReadAllManufacturingData()
       #print 'char data =', mfg_data
@@ -237,6 +239,7 @@ class Dexcom(object):
             self.clear()
             #print 'Connect() : self.clear()'
         except Exception as e:
+            #print 'Exception in Connect() : self.clear()'
             sys.exc_clear()
             pass
 
@@ -244,6 +247,7 @@ class Dexcom(object):
             self.flush()
             #print 'Connect() : self.flush()'
         except Exception as e:
+            #print 'Exception in Connect() : self.flush()'
             sys.exc_clear()
             pass
 
@@ -260,14 +264,14 @@ class Dexcom(object):
       try:
           self.clear()
       except Exception as e:
-          #print 'Disconnect() : Exception =', e
+          #print 'Disconnect() : self.clear Exception =', e
           sys.exc_clear()
           pass
 
       try:
           self.flush()
       except Exception as e:
-          #print 'Disconnect() : Exception =', e
+          #print 'Disconnect() : self.flush Exception =', e
           sys.exc_clear()
           pass
       self._port.close()

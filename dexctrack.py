@@ -42,7 +42,7 @@ import readReceiver
 import constants
 import screensize
 
-dexctrackVersion = 2.7
+dexctrackVersion = 2.8
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -131,6 +131,11 @@ lastPowerState = None
 powerLevel = 0
 lastPowerLevel = 0
 
+# Constants for use in SQL retrieve operations. We'll collect data
+# for (ninetyDaysInSeconds + bufferSeconds) at a time.
+ninetyDaysInSeconds = 60*60*24*90
+bufferSeconds = 60*60*24*15
+
 graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
 readSerialNumInstance = None
@@ -139,9 +144,8 @@ ax = None
 tr = None
 firstTestSysSecs = 0
 lastTestSysSecs = 0
+lastTestGluc = 0
 lastTestDateTime = UTC_BASE_TIME
-lastMeanTestDateTime = UTC_BASE_TIME
-nextMeanNn = 0
 displayStartSecs = 0
 displayEndSecs = 0
 cfgDisplayLow = None
@@ -156,7 +160,7 @@ avgText = None
 trendArrow = None
 hba1c = 0.0
 egvStdDev = 0.0
-lastTestGluc = 0
+lastRealGluc = 0
 xnorm = []
 ynorm = []
 runningMean = []
@@ -199,7 +203,7 @@ legPosX = -1.0
 legPosY = -1.0
 restart = False
 bread = None
-firstTestGluc = 0
+sqlMinGluc = 0
 avgGlu = 0
 axNote = None
 noteBoxPos = None
@@ -239,11 +243,14 @@ percentFontSize = largeFontSize
 trendArrowSize = 15
 battX = 0.946
 battY = 0.10
+curSqlMinTime = 0
+curSqlMaxTime = 0
 # Can we append new readings to the database?
 # We'll only allow appending to a db matching a currently attached device.
 appendable_db = True
 unitRead = None
 #unitButton = None
+newRange = True
 
 
 # Sometimes there's a failure running under Windows. If this happens before
@@ -327,7 +334,6 @@ else:
         figManager.frame.Maximize(True)
 
 #---------------------------------------------------------
-
 # The function below is a duplicate of the dexcom_reader util.py
 # function ReceiverTimeToTime() except it uses UTC_BASE_TIME,
 # which specifies a timezone.
@@ -336,8 +342,58 @@ def ReceiverTimeToUtcTime(rtime):
 
 def UtcTimeToReceiverTime(dtime):
     return (int)((dtime - UTC_BASE_TIME).total_seconds())
-#---------------------------------------------------------
 
+#---------------------------------------------------------
+# If this routine gets called from plotGraph, set the
+# calledFromPlotGraph to True to avoid recursion.
+def SetCurrentSqlSelectRange(calledFromPlotGraph = False):
+    global curSqlMinTime
+    global curSqlMaxTime
+    global newRange
+    global displayEndSecs
+    global displayStartSecs
+
+    # Check to see if the new display range will fall outside of the previous
+    # SQL retrieve range. If so, then we'll update the SQL retrieve range and
+    # cause a new read from the SQL database.
+
+    # |<-----------------------------------maxRangeSecs----------------------------------------->|
+    # |                                                                                          |
+    # firstTestSysSecs                                                             lastTestSysSecs
+    #
+    #         <--displayRange-->            <--displayRange-->                 <--displayRange-->
+    #       +-------------------+         +-------------------+              +-------------------+
+    #       |                   |         |                   |              |                   |
+    # 0     | 1000       2000   |  3000   |   4000      5000  |    6000      |7000   |   8000    |
+    #       |                   |         |                   |              |                   |
+    #       +-------------------+         +-------------------+              +-------------------+
+    #       ^                   ^         ^                   ^              ^                   |
+    #       |                   |         |                   |              |                   |
+    #       +-displayStartSecs  |         +-displayStartSecs  |              +-displayStartSecs  |
+    #                           |                             |                                  |
+    #            displayEndSecs-+              displayEndSecs-+                   displayEndSecs-+
+    # ^                                ^
+    # |                                |
+    # +------ sql retrieve range ------+
+    # |                                |
+    # curSqlMinTime                    curSqlMaxTime
+
+    displayStartSecs = int(firstTestSysSecs + (position / 100.0) *
+                           max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
+    displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+
+    if (displayStartSecs < curSqlMinTime) or (displayEndSecs > curSqlMaxTime):
+        # the range of data we need is outside of the last retrieved one
+        curSqlMinTime = max(displayEndSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
+        curSqlMaxTime = min(max(displayEndSecs + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs)
+        qtime = ReceiverTimeToUtcTime(curSqlMinTime)
+        rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
+        newRange = True
+        #print 'SetCurrentSqlSelectRange(): newRange =', newRange
+        #print 'SetCurrentSqlSelectRange(', curSqlMinTime, ',', curSqlMaxTime, ') : curSqlMinTime =', qtime.astimezone(mytz), ', curSqlMaxTime =', rtime.astimezone(mytz)
+        if calledFromPlotGraph is False:
+            #print 'SetCurrentSqlSelectRange : Calling plotGraph()'
+            plotGraph()
 
 #---------------------------------------------------------
 def SecondsToGeneralTimeString(secs):
@@ -416,7 +472,6 @@ def SecondsToGeneralTimeString(secs):
             genstr += ', '+hstr
 
     return genstr
-
 
 
 #---------------------------------------------------------
@@ -529,7 +584,7 @@ class deviceReadThread(threading.Thread):
         self.restart = False
         self.firstDelayPeriod = 0
         if args.debug:
-            print 'deviceReadThread launched, threadID =', threadID
+            print 'deviceReadThread launched at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     def stop(self):
         self.restart = False
@@ -549,7 +604,7 @@ class deviceReadThread(threading.Thread):
 
     def run(self):
         global readDataInstance
-        global lastTestGluc
+        global lastRealGluc
         global lastTrend
         while True:
             if self.restart is True:
@@ -568,19 +623,18 @@ class deviceReadThread(threading.Thread):
                         # We probably have new records to add to the database
                         self.readIntoDbFunc(sqlite_file)
                     else:
-                        if not readDataInstance:
-                            readDataInstance = getReadDataInstance()
+                        readDataInstance = getReadDataInstance()
                         if readDataInstance:
                             curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
                             if curGluc and curFullTrend:
-                                lastTestGluc = curGluc
+                                lastRealGluc = curGluc
                                 lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
                             else:
-                                lastTestGluc = 0
-                            print 'deviceReadThread.run() lastTestGluc =', lastTestGluc
+                                lastRealGluc = 0
+                            print 'deviceReadThread.run() lastRealGluc =', lastRealGluc
                         else:
-                            lastTestGluc = 0
-                            print 'deviceReadThread.run() readDataInstance = NULL'
+                            lastRealGluc = 0
+                            #print 'deviceReadThread.run() readDataInstance = NULL'
 
                     if stat_text:
                         stat_text.set_text('Receiver\nDevice\nPresent')
@@ -588,7 +642,6 @@ class deviceReadThread(threading.Thread):
                         stat_text.draw(fig.canvas.get_renderer())
 
                     plotGraph()    # Draw a new graph
-
 
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
@@ -602,13 +655,13 @@ class deviceReadThread(threading.Thread):
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
                 if self.restart is True:
-                    if args.debug:
-                        print 'deviceReadThread restart requested'
+                    #if args.debug:
+                        #print 'deviceReadThread restart requested'
                     self.evobj.clear()
                 else:
                     if args.debug:
                         print 'deviceReadThread terminated'
-                    lastTestGluc = 0
+                    lastRealGluc = 0
                     if sys.platform != "win32":
                         try:
                             # During shutdown, set_window_title() can fail with
@@ -675,7 +728,6 @@ class deviceSeekThread(threading.Thread):
                 sqlite_file = getSqlFileName(sNum)
             else:
                 (powerState, powerLevel) = (None, 0)
-
 
             #if args.debug:
                 #print 'deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -766,7 +818,7 @@ def getReadDataInstance():
 def PeriodicReadData():
     global rthread
     global readDataInstance
-    global lastTestGluc
+    global lastRealGluc
     global lastTrend
 
     if readDataInstance is None:
@@ -781,9 +833,9 @@ def PeriodicReadData():
     if appendable_db is False:
         curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
         if curGluc and curFullTrend:
-            lastTestGluc = curGluc
+            lastRealGluc = curGluc
             lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
-        print 'PeriodicReadData() lastTestGluc =', lastTestGluc
+        print 'PeriodicReadData() lastRealGluc =', lastRealGluc
 
     if rthread is not None:
         rthread.stop()
@@ -803,15 +855,11 @@ def updatePos(val):
 
     position = val
     origDisplayStartSecs = displayStartSecs
-    #print 'updatePos() displayStartSecs =',displayStartSecs
-    displayStartSecs = int(firstTestSysSecs + (position / 100.0) *
-                           max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
-    #print '----------> displayStartSecs =',displayStartSecs
+    SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     if posText:
         displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
         posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
     if displayStartSecs != origDisplayStartSecs:
-        displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
         calcStats()
         displayCurrentRange()
 
@@ -820,8 +868,6 @@ def updateScale(val):
     global displayRange
     global displayStartDate
     global minorTickSequence
-    global displayStartSecs
-    global displayEndSecs
 
     displayRange = int(displayRangeMin + (val / 100.0) * (displayRangeMax - displayRangeMin))
     priorTickSequence = minorTickSequence
@@ -848,15 +894,13 @@ def updateScale(val):
     if minorTickSequence != priorTickSequence:
         ax.xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=minorTickSequence, tz=mytz))
 
-    displayStartSecs = int(firstTestSysSecs + (position / 100.0) *
-                           max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
+    SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
     if posText:
         posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
     if scaleText:
         scaleText.set_text(SecondsToGeneralTimeString(displayRange))
     ShowOrHideEventsNotes()
-    displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
     calcStats()
     displayCurrentRange()
 
@@ -900,15 +944,16 @@ def press(event):
         if event.key == 'left':
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - displayRange)
             displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
+                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
+            else:
+                position = 100.0
+            SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
             # Need to convert datetime values to floats to avoid occasional
             # 'TypeError: float() argument must be a string or a number' errors.
             if displayStartSecs != origDisplayStartSecs:
                 ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
                             mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
-            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
-                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
-            else:
-                position = 100.0
             if position != origPosition:
                 calcStats()
                 sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
@@ -918,15 +963,16 @@ def press(event):
         elif event.key == 'right':
             displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + displayRange))
             displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
+                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
+            else:
+                position = 100.0
+            SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
             # Need to convert datetime values to floats to avoid occasional
             # 'TypeError: float() argument must be a string or a number' errors.
             if displayStartSecs != origDisplayStartSecs:
                 ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
                             mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
-            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
-                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
-            else:
-                position = 100.0
             if position != origPosition:
                 calcStats()
                 sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
@@ -1116,7 +1162,6 @@ def onclose(event):
                 #print 'INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(note.xy[0],tz=mytz)),'%s'%note.get_text(),note.xyann[0],note.xyann[1])
                 curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(note.xy[0], tz=mytz)), '%s'%note.get_text(), note.xyann[0], note.xyann[1]))
 
-
             # If the user has repositioned any event text boxes, update the X and Y offsets in the database
             selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds-dispSeconds+meterSeconds=?'
             insert_evt_sql = '''INSERT OR REPLACE INTO UserEvent( sysSeconds, dispSeconds, meterSeconds, type, subtype, value, xoffset, yoffset) VALUES (?, ?, ?, ?, ?, ?, ?, ?);'''
@@ -1156,6 +1201,7 @@ def onclose(event):
             sys.exc_clear()
         conn.close()
     plt.close('all')
+    sys.exit(0)
 
 #---------------------------------------------------------
 def leave_axes(event):
@@ -1237,7 +1283,6 @@ def onselect(ymin, ymax):
     if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
         if rthread is not None:
             rthread.restartDelay()
-        #print 'onselect: calling plotGraph'
         plotGraph()
 
 #---------------------------------------------------------
@@ -1282,6 +1327,8 @@ def ClearGraph(event):
     global linePlot
     global inRangeRegionList
     global inRangeRegionAnnotList
+    global curSqlMinTime
+    global curSqlMaxTime
 
     # erase all previously plotted red calibration regions
     for redmark in redRegionList:
@@ -1315,6 +1362,8 @@ def ClearGraph(event):
     if linePlot:
         linePlot.pop(0).remove()
         linePlot = None
+    curSqlMinTime = 0
+    curSqlMaxTime = 0
 
 #---------------------------------------------------------
 def plotInit():
@@ -1345,7 +1394,7 @@ def plotInit():
     global percentFontSize
     global battX
     global battY
-    global unitRead
+    #global unitRead
     #global unitButton
     #global axtest
     #global testRead
@@ -1521,7 +1570,6 @@ def plotInit():
                                  '%4.1f' %midPercent, style='italic', size=percentFontSize, weight='bold', color='cornflowerblue')
     lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
                                  '%4.1f' %lowPercent, style='italic', size=percentFontSize, weight='bold', color='magenta')
-
 
     # To show every 0.05 step of figure height
     #for bb in range(0, 20, 1):
@@ -1704,11 +1752,19 @@ def calcStats():
 
         if avgText:
             if gluUnits == 'mmol/L':
-                avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                                 %(gluMult * lastTestGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
+                if (lastTestGluc == 5) or (lastTestGluc == 1):
+                    avgText.set_text('Latest = ?\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                     %(gluMult * avgGlu, gluMult * egvStdDev, hba1c))
+                else:
+                    avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                     %(gluMult * lastRealGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
             else:
-                avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
-                                 %(lastTestGluc, avgGlu, egvStdDev, hba1c))
+                if (lastTestGluc == 5) or (lastTestGluc == 1):
+                    avgText.set_text('Latest = ?\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                     %(avgGlu, egvStdDev, hba1c))
+                else:
+                    avgText.set_text('Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
+                                     %(lastRealGluc, avgGlu, egvStdDev, hba1c))
 
         if highPercentText:
             highPercentText.set_text('%4.1f%%' %highPercent)
@@ -1718,12 +1774,42 @@ def calcStats():
             lowPercentText.set_text('%4.1f%%' %lowPercent)
 
 #---------------------------------------------------------
-def readDataFromSql():
+def readRangeFromSql():
     global firstTestSysSecs
     global lastTestSysSecs
-    global lastTestDateTime
-    global firstTestGluc
     global lastTestGluc
+    global lastTestDateTime
+
+    if sqlite_file:
+        conn = sqlite3.connect(sqlite_file)
+        curs = conn.cursor()
+
+        selectSql = "SELECT count(*) from sqlite_master where type='table' and name='EgvRecord'"
+        curs.execute(selectSql)
+        sqlData = curs.fetchone()
+        if sqlData[0] > 0:
+            # get the first test info
+            curs.execute('SELECT sysSeconds,glucose FROM EgvRecord ORDER BY sysSeconds ASC LIMIT 1')
+            sqlData = curs.fetchall()
+            for row in sqlData:
+                firstTestSysSecs = row[0]
+
+            # get the last test info
+            curs.execute('SELECT sysSeconds,glucose FROM EgvRecord ORDER BY sysSeconds DESC LIMIT 1')
+            sqlData = curs.fetchall()
+            for row in sqlData:
+                lastTestSysSecs = row[0]
+                lastTestGluc = row[1]
+                lastTestDateTime = ReceiverTimeToUtcTime(lastTestSysSecs)
+
+        del sqlData
+        curs.close()
+        conn.close()
+
+#---------------------------------------------------------
+def readDataFromSql(sqlMinTime, sqlMaxTime):
+    global sqlMinGluc
+    global lastRealGluc
     global egvList
     global calibList
     global eventList
@@ -1738,6 +1824,8 @@ def readDataFromSql():
     global dbGluUnits
     global readDataInstance
 
+    #if args.debug:
+        #print 'readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz))
     egvList = []
     calibList = []
     eventList = []
@@ -1764,27 +1852,19 @@ def readDataFromSql():
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
 
-            # get the first test info
-            curs.execute('SELECT sysSeconds,glucose,testNum FROM EgvRecord ORDER BY sysSeconds ASC LIMIT 1')
+            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? AND glucose > 12 ORDER BY sysSeconds ASC LIMIT 1'
+            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
-                firstTestSysSecs = row[0]
-                firstTestGluc = row[1]
-
-            # get the last test info
-            curs.execute('SELECT sysSeconds,glucose,testNum FROM EgvRecord ORDER BY sysSeconds DESC LIMIT 1')
-            sqlData = curs.fetchall()
-            for row in sqlData:
-                lastTestSysSecs = row[0]
-                lastTestDateTime = ReceiverTimeToUtcTime(lastTestSysSecs)
-                #print 'Last testNum =',row[3]
+                sqlMinGluc = row[1]
 
             if appendable_db:
                 # get the last real glucose reading
-                curs.execute('SELECT glucose,trend FROM EgvRecord WHERE glucose > 12 ORDER BY sysSeconds DESC LIMIT 1')
+                selectSql = 'SELECT glucose,trend FROM EgvRecord WHERE glucose > 12 ORDER BY sysSeconds DESC LIMIT 1'
+                curs.execute(selectSql)
                 sqlData = curs.fetchall()
                 for row in sqlData:
-                    lastTestGluc = row[0]
+                    lastRealGluc = row[0]
                     lastTrend = row[1] & constants.EGV_TREND_ARROW_MASK
             else:
                 if not readDataInstance:
@@ -1792,34 +1872,30 @@ def readDataFromSql():
                 if readDataInstance:
                     curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
                     if curGluc and curFullTrend:
-                        lastTestGluc = curGluc
+                        lastRealGluc = curGluc
                         lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
-                    print 'readDataFromSql() lastTestGluc =', lastTestGluc
-                else:
-                    print 'readDataFromSql() readDataInstance = NULL'
+                    #print 'readDataFromSql() lastRealGluc =', lastRealGluc
+                #else:
+                    #print 'readDataFromSql() readDataInstance = NULL'
 
             trendChar = trendToChar(lastTrend)
 
             if args.debug:
-                print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastTestGluc
+                print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastRealGluc
 
-            sqlMinTime = firstTestSysSecs
-            sqlMaxTime = lastTestSysSecs
             #print 'sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime
             #-----------------------------------------------------
 
             selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
 
-            # We may need to limit the size of the selection to avoid ...
-            # RuntimeError: RRuleLocator estimated to generate 4194 ticks from
-            # 2018-02-13 04:51:15.957009+00:00 to 2018-02-27 18:22:28.042979+00:00
-            # : exceeds Locator.MAXTICKS * 2 (2000)
+            # Limit the range of the selection ...
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             #print 'sql results length =',len(sqlData),'sqlMinTime =',sqlMinTime,'sqlMaxTime =',sqlMaxTime
 
             for row in sqlData:
                 egvList.append([ReceiverTimeToUtcTime(row[0]), row[1]])
+            #print 'readDataFromSql(2) length egvList =', len(egvList)
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # Check to see if we have any Calib records in the database
@@ -1852,15 +1928,14 @@ def readDataFromSql():
                     # No calRow found so specify a 0 distance offset
                     calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], 0, None])
 
-
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserEvent'"
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
             #                       0           1           2         3     4      5      6       7
-            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent ORDER BY sysSeconds-dispSeconds+meterSeconds'
-            curs.execute(selectSql)
+            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds-dispSeconds+meterSeconds'
+            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
                 #print 'Event: sysSeconds =',row[0],'type =',row[1],'subtype =',row[2],'value =',row[3],'xoffset =',row[4],'yoffset =',row[5]
@@ -1881,8 +1956,8 @@ def readDataFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
-            selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote ORDER BY sysSeconds'
-            curs.execute(selectSql)
+            selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
+            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
                 #print 'Note: sysSeconds =',row[0],'message =',row[1],'xoffset =',row[2],'yoffset =',row[3]
@@ -1893,8 +1968,9 @@ def readDataFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
+            selectSql = 'SELECT insertSeconds FROM SensorInsert WHERE state = 7 ORDER BY sysSeconds DESC LIMIT 1'
             # get the latest sensor insertion Start (state == 7) time
-            curs.execute('SELECT insertSeconds FROM SensorInsert WHERE state = 7 ORDER BY sysSeconds DESC LIMIT 1')
+            curs.execute(selectSql)
             sqlData = curs.fetchall()
             for row in sqlData:
                 latestSensorInsertTime = row[0]
@@ -2272,7 +2348,6 @@ def plotGraph():
     global desirableRange
     global tr
     global displayRange
-    global displayStartSecs
     global firstPlotGraph
     global dis_annot
     global linePlot
@@ -2304,14 +2379,15 @@ def plotGraph():
     global gluMult
     global displayStartDate
     global meanPlot
-    global lastMeanTestDateTime
-    global nextMeanNn
     global highPercentText
     global midPercentText
     global lowPercentText
     global batt_text
     global lastPowerState
     global lastPowerLevel
+    global curSqlMinTime
+    global curSqlMaxTime
+    global newRange
 
     #print 'plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++'
     if firstPlotGraph == 1:
@@ -2355,6 +2431,10 @@ def plotGraph():
         # The span selector will not be activated until the setRangeButton is clicked
         dspan.active = False
 
+        readRangeFromSql()
+        curSqlMaxTime = lastTestSysSecs
+        curSqlMinTime = max(lastTestSysSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
+
         firstPlotGraph = 0
 
     if restart is True:
@@ -2386,15 +2466,22 @@ def plotGraph():
         notePlotList = []
         del runningMean[:]
         runningMean = []
-        lastMeanTestDateTime = UTC_BASE_TIME
-        nextMeanNn = 0
         cfgDisplayLow = None
         cfgDisplayHigh = None
         restart = False
 
     #if args.debug:
         #tr.print_diff()
-    readDataFromSql()
+
+    readRangeFromSql()
+    SetCurrentSqlSelectRange(True) # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
+    readDataFromSql(curSqlMinTime, curSqlMaxTime)
+    #if position == 100.0:
+        #print '---> At the end position'
+
+    displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
+    if posText:
+        posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
 
     if dbGluUnits != gluUnits:
         if dbGluUnits == 'mmol/L':
@@ -2415,6 +2502,28 @@ def plotGraph():
         for noteP in notePlotList:
             noteP.remove()
         notePlotList = []
+
+    if newRange is True:
+        # erase all previously plotted event annotations
+        for evtP in evtPlotList:
+            evtP.remove()
+        evtPlotList = []
+        etimeSet.clear()
+        # erase all previously plotted notes
+        noteTimeSet.clear()
+        for noteP in notePlotList:
+            noteP.remove()
+        notePlotList = []
+        for redmark in redRegionList:
+            redmark.remove()
+        redRegionList = []
+        redStartSet.clear()
+        inRangeRegionList = []
+        while len(inRangeRegionAnnotList) > 0:
+            inRangeItem = inRangeRegionAnnotList.pop(0)
+            inRangeItem.remove()
+        inRangeRegionAnnotList = []
+        inRangeStartSet.clear()
 
     # mark the desirable glucose region
     if desirableRange:
@@ -2470,9 +2579,9 @@ def plotGraph():
         # The code below writes the string near the top of the window, but not in the window
         # title bar.
         #if gluUnits == 'mmol/L':
-            #plt.suptitle('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
+            #plt.suptitle('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
         #else:
-            #plt.suptitle('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+            #plt.suptitle('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
     else:
         # Under some window managers, e.g. MATE, a minimized application
         # will still display the window title, or at least the beginning
@@ -2484,17 +2593,16 @@ def plotGraph():
         try:
             # During shutdown, set_window_title() can fail with
             # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-            if lastTestGluc == 0:
+            if lastRealGluc == 0:
                 fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
             elif gluUnits == 'mmol/L':
-                fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastTestGluc, trendChar, serialNum))
+                fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
             else:
-                fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastTestGluc, trendChar, serialNum))
+                fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
         except AttributeError as e:
             #if args.debug:
                 #print 'fig.canvas.set_window_title: Exception =', e
             sys.exc_clear()
-            return
 
     if len(egvList) > 0:
         data = np.array(egvList)
@@ -2516,7 +2624,6 @@ def plotGraph():
             predy = min(max(minDisplayLow, yy[-1] + 24.0 * ydiff), maxDisplayHigh)
             if args.debug:
                 print '2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy
-
 
         # create subset of normal (non-calib) data points
         # and a subset of calibration data points
@@ -2549,8 +2656,8 @@ def plotGraph():
         # partial region which is increasing in size.
         #-----------------------------------------------------
         calibZoneList = []
-        lastx = ReceiverTimeToUtcTime(firstTestSysSecs)
-        lasty = firstTestGluc
+        lastx = ReceiverTimeToUtcTime(curSqlMinTime)
+        lasty = sqlMinGluc
         startOfZone = lastx
         tempRangeEnd = startOfZone
         for pointx, pointy in zip(xx, yy):
@@ -2569,10 +2676,17 @@ def plotGraph():
             #print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
             #tr.print_diff()
 
-        if lasty <= 12:
+        # Check for SENSOR_NOT_CALIBRATED or SENSOR_NOT_ACTIVE at the end
+        # of the SQL selection.
+        if (lasty == 5) or (lasty == 1):
+            calibZoneList.append([startOfZone, lastx])
+            tempRangeEnd = lastx
+
+        # Check for SENSOR_NOT_CALIBRATED or SENSOR_NOT_ACTIVE as the latest value
+        if (lastTestGluc == 5) or (lastTestGluc == 1):
             # We reached the end of the data points while still in
             # an uncalibrated range, so add this final range.
-            secsSinceWarmupStart = max(0, UtcTimeToReceiverTime(lastx) - latestSensorInsertTime)
+            secsSinceWarmupStart = max(0, lastTestSysSecs - latestSensorInsertTime)
             if secsSinceWarmupStart < sensorWarmupPeriod:
                 if args.debug:
                     print 'Sensor Warm-up Time =', secsSinceWarmupStart, 'out of', sensorWarmupPeriod, 'seconds'
@@ -2600,7 +2714,6 @@ def plotGraph():
                         #if args.debug:
                             #print 'fig.canvas.set_window_title: Exception =', e
                         sys.exc_clear()
-                        return
 
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
                 # before telling the user that we're ready for calibration, so we'll
@@ -2617,8 +2730,6 @@ def plotGraph():
                 if args.debug:
                     print 'Writing Ready for calibrations message'
                 sensorWarmupCountDown.set_text('Ready for calibrations')
-            calibZoneList.append([startOfZone, lastx])
-            tempRangeEnd = lastx
         else:
             if sensorWarmupCountDown:
                 if args.debug:
@@ -2649,7 +2760,6 @@ def plotGraph():
                 redRegionList.append(red_patch)
                 temp_red_patch = None
 
-
         #-----------------------------------------------------------
         # Find where we're in desirable range for 24 hours or more.
         # This implementation only adds new in range regions.
@@ -2657,8 +2767,8 @@ def plotGraph():
         # partial region which is increasing in size.
         #-----------------------------------------------------------
         inRangeList = []
-        lastx = ReceiverTimeToUtcTime(firstTestSysSecs)
-        lasty = firstTestGluc
+        lastx = ReceiverTimeToUtcTime(curSqlMinTime)
+        lasty = sqlMinGluc
         startOfZone = lastx
         tempRangeEnd = startOfZone
         for pointx, pointy in zip(xnorm, ynorm):
@@ -2734,17 +2844,10 @@ def plotGraph():
                 temp_inRange_Arrow2 = None
                 temp_inRange_Arrow3 = None
 
-
         #-----------------------------------------------------
         # Set point color to Magenta (Low), Cyan (Normal), or Red (High)
         kcolor = np.where(ynorm < gluMult * displayLow, 'magenta', np.where(ynorm > gluMult * displayHigh, 'red', 'cyan'))
         #-----------------------------------------------------
-
-        displayStartSecs = int(firstTestSysSecs + (position / 100.0) *
-                               max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
-        displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
-        if posText:
-            posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
 
         if args.debug:
             print 'plotGraph() : Before plotting              count =', len(muppy.get_objects())
@@ -2805,23 +2908,19 @@ def plotGraph():
         #========================================================================================
         # Plot a running mean as a dashed line
 
-        # We only want to add data which has been added since the last time we ran through this code
-        newYnorm = ynorm[xnorm > lastMeanTestDateTime]
-        #print 'len(ynorm) =', len(ynorm), ', len(newYnorm) =', len(newYnorm),', nextMeanNn =',nextMeanNn
-        nn = 0
-        for nn, gluc in enumerate(newYnorm):
-            if nextMeanNn == 0 and nn == 0:
+        del runningMean[:]
+        runningMean = []
+        for nn, gluc in enumerate(ynorm):
+            if nn == 0:
                 # There is no previous entry. The average, so far, is just this value.
-                runningMean.append(float(ynorm[0]))
+                runningMean.append(float(gluc))
             else:
-                runningMean.append(float((nextMeanNn + nn) * runningMean[nextMeanNn + nn - 1] + gluc) / (nextMeanNn + nn + 1))
+                runningMean.append(float(nn * runningMean[nn - 1] + gluc) / (nn + 1))
         if meanPlot:
             meanPlot.pop(0).remove()
         meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=3, alpha=0.6)
-        lastMeanTestDateTime = lastTestDateTime
-        if len(newYnorm) > 0:
-            nextMeanNn = nextMeanNn + nn + 1
         #========================================================================================
+        newRange = False
 
         #if args.debug:
             #print 'plotGraph() :  After plots count =', len(muppy.get_objects())
@@ -3005,7 +3104,7 @@ plt.show()  # This hangs until the user closes the window
 # firstTestSysSecs                                    lastTestSysSecs
 #               +================================+
 #               |                                |
-#               |    <--displaySecs-->           |
+#               |   <--displayRange-->           |
 #               | +-------------------+          |
 #               | |                   |          |
 # 0       1000  | |  2000      3000   |   4000   |  5000
@@ -3024,7 +3123,6 @@ plt.show()  # This hangs until the user closes the window
 #
 # slide (0.0 ... 1.0) ===>  dispTestNum
 #		+- sqlMinTime        sqlMaxTime -+
-#
 
 
 sys.exit(0)
