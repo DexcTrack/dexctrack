@@ -56,6 +56,84 @@ parser.add_argument("-y", "--ysize", help="specify height in pixels", type=int)
 parser.add_argument("databaseFile", nargs='?', help="optionally specified database file", type=str)
 args = parser.parse_args()
 
+#==========================================================================================
+#
+# The matplotlib library has a bug which causes problems when trying to drag objects.
+# If you drag one object, and then try to drag a different object, often the first
+# selected object will get accidentally included in the second drag operation.
+# This makes it difficult to reposition User Event strings and User Note strings.
+#
+# A fix for this bug was submitted 2017-01-20 by fukatani, but his|her
+# code has not yet been pulled into the official matplotlib release.
+#
+#   https://github.com/matplotlib/matplotlib/pull/7894
+#
+# The 3 methods defined below are replacements for the original matplotlib methods.
+#
+# Thanks to fukatani for this awesome fix!
+#
+#==========================================================================================
+
+def off_drag_new_init(self, ref_artist, use_blit=False):
+    #print 'running off_drag_new_init()'
+    self.ref_artist = ref_artist
+    self.got_artist = False
+    self.got_other_artist = False
+
+    self.canvas = self.ref_artist.figure.canvas
+    self._use_blit = use_blit and self.canvas.supports_blit
+
+    c2 = self.canvas.mpl_connect('pick_event', self.on_pick)
+    c3 = self.canvas.mpl_connect('button_release_event', self.on_release)
+
+    ref_artist.set_picker(self.artist_picker)
+    self.cids = [c2, c3]
+
+def off_drag_on_pick(self, evt):
+    #print 'running off_drag_on_pick()'
+    if self.got_other_artist:
+        return
+    if self.got_artist or evt.artist == self.ref_artist:
+
+        self.mouse_x = evt.mouseevent.x
+        self.mouse_y = evt.mouseevent.y
+        self.got_artist = True
+
+        if self._use_blit:
+            self.ref_artist.set_animated(True)
+            self.canvas.draw()
+            self.background = self.canvas.copy_from_bbox(
+                                self.ref_artist.figure.bbox)
+            self.ref_artist.draw(self.ref_artist.figure._cachedRenderer)
+            self.canvas.blit(self.ref_artist.figure.bbox)
+            self._c1 = self.canvas.mpl_connect('motion_notify_event',
+                                               self.on_motion_blit)
+        else:
+            self._c1 = self.canvas.mpl_connect('motion_notify_event',
+                                               self.on_motion)
+        self.save_offset()
+    else:
+        self.got_other_artist = True
+
+def off_drag_on_release(self, event):
+    #print 'running off_drag_on_release()'
+    self.got_other_artist = False
+    if self.got_artist:
+        self.finalize_offset()
+        self.got_artist = False
+        self.canvas.mpl_disconnect(self._c1)
+
+        if self._use_blit:
+            self.ref_artist.set_animated(False)
+
+# Replace the broken original methods with fukatani's fixed versions
+mpl.offsetbox.DraggableBase.__init__ = off_drag_new_init
+mpl.offsetbox.DraggableBase.on_pick = off_drag_on_pick
+mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
+
+#==========================================================================================
+
+
 if args.version:
     print 'Version =', dexctrackVersion
     sys.exit(0)
