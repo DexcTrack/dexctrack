@@ -173,7 +173,15 @@ If you see such a condition, try disconnecting and reconnecting the USB cable. Y
 
 ---
 
-The user can add a Note using the following procedure. First click within the Note box, and enter a string. Hit return when you are done.
+Sometimes the Receiver is off in its glucose estimates and you need to enter User Calibration values to nudge it into alignment. Calibrations show up as black diamonds in the graph. When the calibration value does not match the current estimated glucose, a pink arrow pointing to the User Calibration value shows the difference between the estimated glucose value and the entered calibration value. Below is an example of a scenario where the Receiver was estimating a glucose value of 88. A blood glucose test showed the actual value to be 107. A little while later, the Receiver estimated a value of 164. A blood glucose test revealed the actual value to be 138.
+
+![image](https://user-images.githubusercontent.com/39347592/54171281-d34e4680-4447-11e9-96e9-e408319c1e87.png)
+
+If you have many large differences between the estimated and actual blood glucose values, you may be having problems with your current sensor.
+
+---
+
+You can add a Note using the following procedure. First click within the Note box, and enter a string. Hit return when you are done.
 
 ![image](https://user-images.githubusercontent.com/39347592/40761833-f9df4634-6462-11e8-9087-4d8388936262.png)
 
