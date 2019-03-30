@@ -1233,7 +1233,8 @@ def onclose(event):
             # the database. We'll do this by deleting all notes, and then inserting all notes
             # which currently exist in the note set.
             if len(noteSet) > 0:
-                curs.execute('DELETE FROM UserNote')
+                selectSql = 'DELETE FROM UserNote WHERE sysSeconds >= ? AND sysSeconds <= ?'
+                curs.execute(selectSql, (curSqlMinTime, curSqlMaxTime))
             insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
             for note in noteSet:
                 #print 'time =',note.xy[0],'=',mdates.num2date(note.xy[0],tz=mytz)
