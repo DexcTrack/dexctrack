@@ -213,7 +213,7 @@ Next, use the left mouse button to select a new range. Move the mouse into the p
 
 ![image](https://user-images.githubusercontent.com/39347592/40806464-26598006-64e7-11e8-93f8-2540b9b26c4c.png)
 
-The Target range (highlighted in gold color) will then move to the new range. Glucose values higher than this range will be colored read and glucose values lower than this range will be colored magenta.
+The Target range (highlighted in gold color) will then move to the new range. Glucose values higher than this range will be colored red and glucose values lower than this range will be colored magenta.
 
 ![image](https://user-images.githubusercontent.com/39347592/40806472-2c8f2ec6-64e7-11e8-9fa0-3201445c371f.png)
 
