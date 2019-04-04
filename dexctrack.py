@@ -218,6 +218,22 @@ mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
 #==========================================================================================
 
 
+def new_da_finalize_offset(self):
+    ann = self.annotation
+    self.fx, self.fy = ann.get_transform().transform(ann.xyann)
+    #print 'new_da_finalize_offset(): ox =', self.ox, ', oy =', self.oy, ', fx =', self.fx, ', fy =', self.fy
+    #print 'x = %s' % mdates.num2date(ann.xy[0], tz=mytz), ', y =', ann.xy[1]
+    if (self.fx != self.ox) or (self.fy != self.oy):
+        #print ann, 'Annotation moved'
+        saveAnnToDb(ann)
+    #else:
+        #print ann, 'Annotation unmoved'
+
+mpl.offsetbox.DraggableAnnotation.finalize_offset = new_da_finalize_offset
+
+#==========================================================================================
+
+
 if args.version:
     print 'Version =', dexctrackVersion
     sys.exit(0)
@@ -373,6 +389,8 @@ noteBox = None
 noteArrow = None
 noteText = ''
 oldNoteText = ''
+oldNoteXoff = 0.0
+oldNoteYoff = 0.0
 noteLoc = None
 submit_id = None
 trendChar = '-'
@@ -1145,20 +1163,26 @@ def press(event):
 def submitNote(text):
     global noteText
     global oldNoteText
+    global oldNoteXoff
+    global oldNoteYoff
+
     #print 'submitNote() : oldNoteText =', noteText,', noteText =', text
     oldNoteText = noteText
     noteText = text
     if noteArrow is not None:
-        writeNote()
+        #print 'submitNote() : writeNote(xoff=', oldNoteXoff, 'yoff=', oldNoteYoff, ')'
+        writeNote(oldNoteXoff, oldNoteYoff)
+        oldNoteXoff = 0.0
+        oldNoteYoff = 0.0
 
 #---------------------------------------------------------
-def writeNote():
+def writeNote(xoff=0.0, yoff=0.0):
     global noteText
     global oldNoteText
     global noteArrow
     global submit_id
 
-    #print 'writeNote() : oldNoteText =',oldNoteText,', noteText =',noteText
+    #print 'writeNote() : oldNoteText =',oldNoteText,', noteText =',noteText, ', xoff =', xoff, ', yoff =', yoff
 
     if noteArrow is not None:
         # oldNoteText='', noteText=''       --> do nothing
@@ -1169,13 +1193,18 @@ def writeNote():
             return
         if noteText is not '':
             #print 'add note', 'noteLoc[0] =',noteLoc[0],'noteLoc[1] =',noteLoc[1]
-            if noteLoc[1] > 200:
-                yoffset = -50.0
+            if (xoff == 0.0) and (yoff == 0.0):
+                xoffset = 0.0
+                if noteLoc[1] > 200:
+                    yoffset = -50.0
+                else:
+                    yoffset = 50.0
             else:
-                yoffset = 50.0
+                xoffset = xoff
+                yoffset = yoff
             noteAnn = ax.annotate(noteText,
                                   xy=noteLoc, xycoords='data',
-                                  xytext=(0, yoffset), textcoords='offset pixels',
+                                  xytext=(xoffset, yoffset), textcoords='offset pixels',
                                   color='black', fontsize=16,
                                   arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
                                                   shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
@@ -1183,6 +1212,7 @@ def writeNote():
             noteSet.add(noteAnn)
             noteTimeSet.add(mdates.num2date(noteAnn.xy[0], tz=mytz))
             #print 'writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',mdates.num2date(noteAnn.xy[0],tz=mytz)
+            saveAnnToDb(noteAnn)
             noteText = ''
             oldNoteText = ''
             if submit_id is not None:
@@ -1206,6 +1236,8 @@ def onpick(event):
     global noteLoc
     global noteText
     global oldNoteText
+    global oldNoteXoff
+    global oldNoteYoff
     global submit_id
 
     mouseevent = event.mouseevent
@@ -1252,11 +1284,14 @@ def onpick(event):
                         oldNoteText = ''
                         writeNote()
                     else:
+                        oldNoteXoff = matchNote.xyann[0]
+                        oldNoteYoff = matchNote.xyann[1]
                         if noteText == '':
                             noteText = matchNote.get_text()
-                            if args.debug:
-                                print "Editing existing note '%s'" % noteText
+                            #if args.debug:
+                                #print "Deleting existing note '%s'" % noteText
                             noteSet.discard(matchNote)
+                            deleteNoteFromDb(UtcTimeToReceiverTime(mdates.num2date(matchNote.xy[0], tz=mytz)), noteText)
                             matchNote.remove()
                             if submit_id is not None:
                                 noteBox.disconnect(submit_id)
@@ -1268,6 +1303,7 @@ def onpick(event):
                             if args.debug:
                                 print "Replace the old note '%s' with the new one '%s'" % (oldNoteText, noteText)
                             matchNote.set_text(noteText)
+                            saveAnnToDb(matchNote)
                             noteArrow.remove()
                             noteArrow = None
                             noteBox.set_val('')
@@ -1311,36 +1347,6 @@ def onclose(event):
         conn = sqlite3.connect(sqlite_file)
         try:
             curs = conn.cursor()
-
-            curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
-            # The user may have deleted some of the notes, so we need to eliminate them from
-            # the database. We'll do this by deleting all notes, and then inserting all notes
-            # which currently exist in the note set.
-            if len(noteSet) > 0:
-                selectSql = 'DELETE FROM UserNote WHERE sysSeconds >= ? AND sysSeconds <= ?'
-                curs.execute(selectSql, (curSqlMinTime, curSqlMaxTime))
-            insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
-            for note in noteSet:
-                #print 'time =',note.xy[0],'=',mdates.num2date(note.xy[0],tz=mytz)
-                #print 'INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(note.xy[0],tz=mytz)),'%s'%note.get_text(),note.xyann[0],note.xyann[1])
-                curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(note.xy[0], tz=mytz)), '%s'%note.get_text(), note.xyann[0], note.xyann[1]))
-
-            # If the user has repositioned any event text boxes, update the X and Y offsets in the database
-            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds-dispSeconds+meterSeconds=?'
-            insert_evt_sql = '''INSERT OR REPLACE INTO UserEvent( sysSeconds, dispSeconds, meterSeconds, type, subtype, value, xoffset, yoffset) VALUES (?, ?, ?, ?, ?, ?, ?, ?);'''
-            for evt_inst in evtPlotList:
-                eseconds = UtcTimeToReceiverTime(mdates.num2date(evt_inst.xy[0]))
-                curs.execute(selectSql, (eseconds,))
-                sqlData = curs.fetchone()
-                if sqlData is not None:
-                    if (evt_inst.xyann[0] != sqlData[6]) or (evt_inst.xyann[1] != sqlData[7]):
-                        if False:
-                            print '\nMatch Event: ', ReceiverTimeToUtcTime(sqlData[0]), 'sysSeconds =', sqlData[0], 'dispSeconds =', sqlData[1], 'meterSeconds =', sqlData[2], 'type =', sqlData[3], 'subtype =', sqlData[4], 'value =', sqlData[5], 'xoffset =', evt_inst.xyann[0], 'yoffset =', evt_inst.xy[1] - evt_inst.xyann[1]
-                            print 'evt_inst.xy =', evt_inst.xy, 'evt_inst.xyann =', evt_inst.xyann, ', Evt =', evt_inst.get_text()
-                            print 'INSERT OR REPLACE INTO UserEvent( sysSeconds=%u, dispSeconds=%u, meterSeconds=%u, type=%u, subtype=%u, value=%f, xoffset=%f, yoffset=%f);'%(sqlData[0], sqlData[1], sqlData[2], sqlData[3], sqlData[4], sqlData[5], evt_inst.xyann[0], evt_inst.xyann[1])
-                        curs.execute(insert_evt_sql, (sqlData[0], sqlData[1], sqlData[2],
-                                                      sqlData[3], sqlData[4], sqlData[5],
-                                                      evt_inst.xyann[0], evt_inst.xyann[1]))
 
             if leg:
                 lframe = leg.get_frame()
@@ -2170,6 +2176,75 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
         conn.close()
 
 #---------------------------------------------------------
+def saveAnnToDb(ann):
+    conn = sqlite3.connect(sqlite_file)
+    try:
+        curs = conn.cursor()
+        if ann.get_color() == 'black':
+            # We may have modified offsets, or modified message, or a completely new UserNote
+            #print 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.get_text())
+            selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND message=?'
+            curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
+            sqlData = curs.fetchone()
+            if sqlData is None:
+                #print 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1])
+                selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND xoffset=? AND yoffset=?'
+                curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) ,ann.xyann[0], ann.xyann[1]))
+                sqlData = curs.fetchone()
+                if sqlData is None:
+                    # A completely new UserNote
+                    curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
+                    insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
+                    #print 'INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)),'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1])
+                    curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text(), ann.xyann[0], ann.xyann[1]))
+                else:
+                    # Modified message
+                    update_note_sql = '''UPDATE UserNote SET message=? WHERE sysSeconds=? AND xoffset=? AND yoffset=?;'''
+                    #print 'UPDATE UserNote SET message=\'%s\' WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' %(ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.xyann[0], ann.xyann[1])
+                    curs.execute(update_note_sql, ('%s'%ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
+            else:
+                # Modified offsets
+                update_note_sql = '''UPDATE UserNote SET xoffset=?, yoffset=? WHERE sysSeconds=? AND message=?;'''
+                #print 'UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.get_text())
+                curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1],UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
+            curs.close()
+            conn.commit()
+        else:
+            #print 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds=%u AND xoffset=%d AND yoffset=%d;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0])), ann.xyann[0], ann.xyann[1])
+            selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds-dispSeconds+meterSeconds=?'
+            curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0])),))
+            sqlData = curs.fetchone()
+            if sqlData is None:
+                #print 'saveAnnToDb() : No match for', ann
+                pass
+            else:
+                update_evt_sql = '''UPDATE UserEvent SET xoffset=?, yoffset=? WHERE sysSeconds=? AND type=? AND subtype=? AND value=?;'''
+                #print 'UPDATE UserEvent SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND type=%u AND subtype=%u AND value=%u;'%(ann.xyann[0], ann.xyann[1], sqlData[0], sqlData[3], sqlData[4], sqlData[5])
+                curs.execute(update_evt_sql, (ann.xyann[0], ann.xyann[1], sqlData[0],
+                                              sqlData[3], sqlData[4], sqlData[5]))
+            curs.close()
+            conn.commit()
+    except sqlite3.Error as e:
+        print 'saveAnnToDb() : sql changes failed to exception =', e
+        curs.close()
+    conn.close()
+
+#---------------------------------------------------------
+def deleteNoteFromDb(sysSeconds,message):
+    conn = sqlite3.connect(sqlite_file)
+    try:
+        curs = conn.cursor()
+        #print 'DELETE FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' %(sysSeconds,message)
+        deleteSql = 'DELETE FROM UserNote WHERE sysSeconds=? AND message=?'
+        curs.execute(deleteSql, (sysSeconds, '%s'%message))
+        curs.close()
+        conn.commit()
+    except sqlite3.Error as e:
+        print 'deleteNoteFromDb() : sql changes failed to exception =', e
+        curs.close()
+    conn.close()
+
+#---------------------------------------------------------
 def getNearPos(array, value):
     idx = (np.abs(array-value)).argmin()
     return idx
@@ -2279,7 +2354,7 @@ def ShowOrHideEventsNotes():
             else:
                 evtStr = '%u min ? exercise'%evalue
         else:
-            evt_color = 'black'
+            evt_color = 'brown'
             evtStr = 'Unknown event'
         #if args.debug:
             #print 'After setting event string count =',len(muppy.get_objects())
