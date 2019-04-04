@@ -1343,32 +1343,6 @@ def onclose(event):
         sthread.join()
         sthread = None
 
-    if sqlite_file:
-        conn = sqlite3.connect(sqlite_file)
-        try:
-            curs = conn.cursor()
-
-            if leg:
-                lframe = leg.get_frame()
-                lx, ly = lframe.get_x(), lframe.get_y()
-                legx, legy = fig.transFigure.inverted().transform((lx, ly))
-                #print 'legx, legy =',(legx, legy)
-            else:
-                #legx,legy = legDefaultPosX, legDefaultPosY
-                legx, legy = 0, 0
-
-            #print 'INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0,',displayLow,',',displayHigh,',',legx,',',legy,',\'%s\');' %gluUnits
-            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0, ?, ?, ?, ?, ?);'''
-            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits))
-
-            curs.close()
-            conn.commit()
-        except sqlite3.Error as e:
-            print 'onclose() : Rolling back sql changes due to exception =', e
-            curs.close()
-            conn.rollback()
-            sys.exc_clear()
-        conn.close()
     plt.close('all')
     sys.exit(0)
 
@@ -1450,6 +1424,7 @@ def onselect(ymin, ymax):
     dspan.active = False
     #print 'onselect: displayLow =', gluMult * displayLow, ', displayHigh =', gluMult * displayHigh
     if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
+        saveConfigToDb()
         if rthread is not None:
             rthread.restartDelay()
         plotGraph()
@@ -2243,6 +2218,35 @@ def deleteNoteFromDb(sysSeconds,message):
         print 'deleteNoteFromDb() : sql changes failed to exception =', e
         curs.close()
     conn.close()
+
+#---------------------------------------------------------
+def saveConfigToDb():
+    if sqlite_file:
+        conn = sqlite3.connect(sqlite_file)
+        try:
+            curs = conn.cursor()
+
+            if leg:
+                lframe = leg.get_frame()
+                lx, ly = lframe.get_x(), lframe.get_y()
+                legx, legy = fig.transFigure.inverted().transform((lx, ly))
+                #print 'legx, legy =',(legx, legy)
+            else:
+                #legx,legy = legDefaultPosX, legDefaultPosY
+                legx, legy = 0, 0
+
+            print 'INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0,',displayLow,',',displayHigh,',',legx,',',legy,',\'%s\');' %gluUnits
+            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0, ?, ?, ?, ?, ?);'''
+            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits))
+
+            curs.close()
+            conn.commit()
+        except sqlite3.Error as e:
+            print 'saveConfigToDb() : Rolling back sql changes due to exception =', e
+            curs.close()
+            conn.rollback()
+            sys.exc_clear()
+        conn.close()
 
 #---------------------------------------------------------
 def getNearPos(array, value):
