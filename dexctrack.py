@@ -176,37 +176,33 @@ mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
 #
 #   If the user clicks on 'Annotation B', the mouse will be within that
 # text string, but outside of 'Annotation A Long String'. This greatly
-# reduces the area of collision, and behaves much better for the user.
+# reduces the area of collision, and behaves much more naturally for the user.
 #
 #==========================================================================================
 
 def draggable_anot_picker(self, artist, mouse_evt):
     ann = self.annotation
     if ann:
-        # Test whether the annotation is on the currently displayed axes
-        if ann.axes.viewLim.x0 <= ann.xy[0] <= ann.axes.viewLim.x1:
+        # Test whether the annotation is on the currently displayed axes view
+        if (ann.axes.viewLim.x0 <= ann.xy[0] <= ann.axes.viewLim.x1) and \
+           (ann.axes.viewLim.y0 <= ann.xy[1] <= ann.axes.viewLim.y1):
             pass
         else:
-            #print ann, 'Failed ax.viewLim.x0', ax.viewLim.x0, '<= ann.xy[0]', ann.xy[0], '<= ax.viewLim.x1', ax.viewLim.x1
             return False, {}
 
         # Find the location of the Text part of the annotation in Display coordinates
+        #                +-----------------+ textX1,textY1
+        #                | Annotation Text |
+        #  textX0,textY0 +-----------------+
         textX0, textY0 = ann._get_xy_display()
         textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
         textY1 = textY0 + ann.get_size()
 
-        # Test whether the mouse is within the Text area
-        if textX0 <= mouse_evt.x <= textX1:
+        # Test whether the mouse is within the Annotation Text area
+        if (textX0 <= mouse_evt.x <= textX1) and \
+           (textY0 <= mouse_evt.y <= textY1):
             pass
         else:
-            #print 'textX0', textX0, '<= mouse_evt.x', mouse_evt.x, '<= textX1', textX1
-            #print ann, '****> out of X range'
-            return False, {}
-        if textY0 <= mouse_evt.y <= textY1:
-            pass
-        else:
-            #print 'textY0', textY0, '<= mouse_evt.y', mouse_evt.y, '<= textY1', textY1
-            #print ann, '****> out of Y range'
             return False, {}
     else:
         return False, {}
@@ -526,7 +522,7 @@ def UtcTimeToReceiverTime(dtime):
 #---------------------------------------------------------
 # If this routine gets called from plotGraph, set the
 # calledFromPlotGraph to True to avoid recursion.
-def SetCurrentSqlSelectRange(calledFromPlotGraph = False):
+def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
     global curSqlMinTime
     global curSqlMaxTime
     global newRange
@@ -811,7 +807,6 @@ class deviceReadThread(threading.Thread):
                                 lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
                             else:
                                 lastRealGluc = 0
-                            print 'deviceReadThread.run() lastRealGluc =', lastRealGluc
                         else:
                             lastRealGluc = 0
                             #print 'deviceReadThread.run() readDataInstance = NULL'
@@ -1015,7 +1010,6 @@ def PeriodicReadData():
         if curGluc and curFullTrend:
             lastRealGluc = curGluc
             lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
-        print 'PeriodicReadData() lastRealGluc =', lastRealGluc
 
     if rthread is not None:
         rthread.stop()
@@ -1028,10 +1022,8 @@ def PeriodicReadData():
 
 #---------------------------------------------------------
 def updatePos(val):
-    global displayStartSecs
     global displayStartDate
     global position
-    global displayEndSecs
 
     position = val
     origDisplayStartSecs = displayStartSecs
@@ -2164,7 +2156,7 @@ def saveAnnToDb(ann):
             if sqlData is None:
                 #print 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1])
                 selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND xoffset=? AND yoffset=?'
-                curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) ,ann.xyann[0], ann.xyann[1]))
+                curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
                 sqlData = curs.fetchone()
                 if sqlData is None:
                     # A completely new UserNote
@@ -2181,7 +2173,7 @@ def saveAnnToDb(ann):
                 # Modified offsets
                 update_note_sql = '''UPDATE UserNote SET xoffset=?, yoffset=? WHERE sysSeconds=? AND message=?;'''
                 #print 'UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.get_text())
-                curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1],UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
+                curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
             curs.close()
             conn.commit()
         else:
@@ -2205,7 +2197,7 @@ def saveAnnToDb(ann):
     conn.close()
 
 #---------------------------------------------------------
-def deleteNoteFromDb(sysSeconds,message):
+def deleteNoteFromDb(sysSeconds, message):
     conn = sqlite3.connect(sqlite_file)
     try:
         curs = conn.cursor()
@@ -2235,7 +2227,7 @@ def saveConfigToDb():
                 #legx,legy = legDefaultPosX, legDefaultPosY
                 legx, legy = 0, 0
 
-            print 'INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0,',displayLow,',',displayHigh,',',legx,',',legy,',\'%s\');' %gluUnits
+            #print 'INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\');' %gluUnits
             insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0, ?, ?, ?, ?, ?);'''
             curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits))
 
