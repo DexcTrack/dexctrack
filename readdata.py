@@ -104,7 +104,7 @@ class Dexcom(object):
           else: # unrecognized firmware version
               return fw_ver
     except Exception as e:
-        print 'GetDeviceType() : Exception =', e
+        print ('GetDeviceType() : Exception =', e)
         sys.exc_clear()
         return None
 
@@ -119,21 +119,21 @@ class Dexcom(object):
       # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
           #print item.attrib
-      print 'Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId')
+      print ('Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId'))
       print ('Found %s S/N: %s'
              % (dex.GetFirmwareHeader().get('ProductName'),
                 dex.ReadManufacturingData().get('SerialNumber')))
-      print 'Transmitter paired: %s' % dex.ReadTransmitterId()
-      print 'Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
-                                           dex.ReadBatteryLevel())
-      print 'Record count:'
-      print '- Meter records: %d' % (len(dex.ReadRecords('METER_DATA')))
-      print '- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA')))
+      print ('Transmitter paired: %s' % dex.ReadTransmitterId())
+      print ('Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
+                                           dex.ReadBatteryLevel()))
+      print ('Record count:')
+      print ('- Meter records: %d' % (len(dex.ReadRecords('METER_DATA'))))
+      print ('- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA'))))
       print ('- CGM commitable records: %d'
              % (len([not x.display_only for x in dex.ReadRecords('EGV_DATA')])))
-      print '- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA')))
-      print '- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME')))
-      print '- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET')))
+      print ('- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA'))))
+      print ('- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME'))))
+      print ('- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET'))))
 
       # Uncomment out any record types you want to display
 
@@ -169,7 +169,7 @@ class Dexcom(object):
       # device type and restrict the following code to G5 or G6 cases.
       myDevType = dex.GetDeviceType()
       if (myDevType == 'g5') or (myDevType == 'g6') :
-          print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
+          print ('- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA'))))
 
           #################################################################################
           # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
@@ -215,25 +215,25 @@ class Dexcom(object):
 
         except serial.SerialException:
             sys.exc_clear()
-            print 'Read/Write permissions missing for', self._port_name
+            print ('Read/Write permissions missing for', self._port_name)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
                 port_gid = stat_info.st_gid
                 port_group = grp.getgrgid(port_gid)[0]
                 username = pwd.getpwuid(os.getuid())[0]
-                print '\nFor a persistent solution (recommended), run ...'
+                print ('\nFor a persistent solution (recommended), run ...')
                 if sys.platform == "darwin":
-                    print '\n   sudo dseditgroup -o edit -a', username, '-t user', port_group
+                    print ('\n   sudo dseditgroup -o edit -a', username, '-t user', port_group)
                 else:
                     # On Mint, Ubuntu, etc.
-                    print '\n   sudo addgroup', username, port_group
-                    print '\n   sudo -', username
-                    print '\n         OR'
+                    print ('\n   sudo addgroup', username, port_group)
+                    print ('\n   sudo -', username)
+                    print ('\n         OR')
                     # On Fedora, Red Hat, etc.
-                    print '\n   sudo usermod -a -G', port_group, username
-                    print '\n   su -', username
-                print '\nFor a short term solution, run ...'
-                print '\n   sudo chmod 666', self._port_name,'\n'
+                    print ('\n   sudo usermod -a -G', port_group, username)
+                    print ('\n   su -', username)
+                print ('\nFor a short term solution, run ...')
+                print ('\n   sudo chmod 666', self._port_name,'\n')
     if self._port is not None:
         try:
             self.clear()
@@ -564,7 +564,7 @@ def GetDevice (port):
     #print 'GetDevice() creating DexcomG4 class'
     return workInst
   else:
-    print 'readdata.GetDevice() : Unrecognized firmware version', devType
+    print ('readdata.GetDevice() : Unrecognized firmware version', devType)
     return None
 
 if __name__ == '__main__':

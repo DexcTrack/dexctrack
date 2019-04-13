@@ -81,11 +81,11 @@ def get_screen_size():
         height = screen_resolution.height()
 
     else:
-        print 'Solution not implemented yet for backend =', backend
+        print ('Solution not implemented yet for backend =', backend)
         width, height = (1280, 1024)
 
     return (width, height)
 
 if __name__ == "__main__":
     w, h = get_screen_size()
-    print 'Screen size =', (w, h)
+    print ('Screen size =', (w, h))
