@@ -70,6 +70,7 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
 
+>>>***pip install pyobjc-framework-Quartz***
 
 
 - Windows
