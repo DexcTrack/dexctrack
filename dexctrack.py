@@ -231,24 +231,24 @@ mpl.offsetbox.DraggableAnnotation.finalize_offset = new_da_finalize_offset
 
 
 if args.version:
-    print 'Version =', dexctrackVersion
+    print ('Version =', dexctrackVersion)
     sys.exit(0)
 
 specDatabase = None
 if args.databaseFile:
     # abspath() will normalize path navigation elements like '~/' or '../'
     specDatabase = os.path.abspath(args.databaseFile)
-    print 'Specified Database =', specDatabase
+    print ('Specified Database =', specDatabase)
     if not os.path.exists(specDatabase):
-        print "Specified database file '%s' does not exist" % specDatabase
+        print ("Specified database file '%s' does not exist" % specDatabase)
         sys.exit(2)
 
 if args.debug:
     from pympler import muppy
     from pympler import tracker
 
-print 'DexcTrack  Copyright (C) 2018  Steve Erlenborn'
-print 'This program comes with ABSOLUTELY NO WARRANTY.\n'
+print ('DexcTrack  Copyright (C) 2018  Steve Erlenborn')
+print ('This program comes with ABSOLUTELY NO WARRANTY.\n')
 
 # HD monitor  = 1920 x 1080 -> 1920/1080 = 1.78
 # small laptop  1366 x  768 -> 1366/ 768 = 1.78
@@ -261,7 +261,7 @@ else:
     width, height = screensize.get_screen_size()
 dispRatio = round(float(width) / float(height), 1)
 if args.debug:
-    print 'get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio
+    print ('get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio)
 
 # Use the fivethirtyeight style, if it's available
 # To find explicit Exception type use ...
@@ -270,7 +270,7 @@ if args.debug:
 try:
     style.use('fivethirtyeight')
 except IOError as e:
-    print 'Exception =', e
+    print ('Exception =', e)
     style.use('ggplot')
     sys.exc_clear()
 
@@ -434,7 +434,7 @@ newRange = True
 # way to terminate the program. Ctrl-C gets ignored, by default.
 # Here we set up a handler for Ctrl-C, which we'll use under Windows.
 def CtrlCHandler(signum, frame):
-    print 'Exiting due to Ctrl-C'
+    print ('Exiting due to Ctrl-C')
     sys.exit(1)
 
 # Linux & Mac automatically handle Ctrl-C, but for Windows
@@ -497,8 +497,8 @@ figManager = plt.get_current_fig_manager()
 
 backend = plt.get_backend()
 if args.debug:
-    print 'sys.platform =', sys.platform
-    print 'backend =', backend
+    print ('sys.platform =', sys.platform)
+    print ('backend =', backend)
 if args.xsize and args.ysize:
     pass
 else:
@@ -706,7 +706,7 @@ def displayCurrentRange():
                 #print 'displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects())
                 #tr.print_diff()
         except RuntimeError as e:
-            print 'displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e
+            print ('displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e)
             sys.exc_clear()
 
 #---------------------------------------------------------
@@ -760,13 +760,13 @@ class deviceReadThread(threading.Thread):
         self.restart = False
         self.firstDelayPeriod = 0
         if args.debug:
-            print 'deviceReadThread launched at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print ('deviceReadThread launched at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def stop(self):
         self.restart = False
         self.evobj.set()
         if args.debug:
-            print 'Turning off device read thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print ('Turning off device read thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     # This function will cause termination of the current delay
     # sequence, and start of a new one, optionally beginning with
@@ -776,7 +776,7 @@ class deviceReadThread(threading.Thread):
         self.firstDelayPeriod = firstDelaySecs
         self.evobj.set()
         if args.debug:
-            print 'Restarting device read delay. First delay =', firstDelaySecs
+            print ('Restarting device read delay. First delay =', firstDelaySecs)
 
     def run(self):
         global readDataInstance
@@ -792,7 +792,7 @@ class deviceReadThread(threading.Thread):
                     stat_text.draw(fig.canvas.get_renderer())
 
                 if args.debug:
-                    print 'Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    print ('Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
                 if sqlite_file is not None:
                     if appendable_db:
@@ -821,7 +821,7 @@ class deviceReadThread(threading.Thread):
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
                 if args.debug:
-                    print 'Setting timeout delay to', mydelay
+                    print ('Setting timeout delay to', mydelay)
                 self.firstDelayPeriod = 0
                 waitStatus = self.evobj.wait(timeout=mydelay)   # wait up to firstDelayPeriod seconds
             else:
@@ -835,7 +835,7 @@ class deviceReadThread(threading.Thread):
                     self.evobj.clear()
                 else:
                     if args.debug:
-                        print 'deviceReadThread terminated'
+                        print ('deviceReadThread terminated')
                     lastRealGluc = 0
                     if sys.platform != "win32":
                         try:
@@ -859,14 +859,14 @@ class deviceSeekThread(threading.Thread):
         self.threadID = threadID
         self.name = name
         self.connected_state = None
-        self.evobj = threading.Event(1)
+        self.evobj = threading.Event()
         #if args.debug:
             #print 'deviceSeekThread launched, threadID =', threadID
 
     def stop(self):
         self.evobj.set()
         if args.debug:
-            print 'Turning off device seek thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            print ('Turning off device seek thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def run(self):
         while True:
@@ -941,7 +941,7 @@ class deviceSeekThread(threading.Thread):
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
                 if args.debug:
-                    print 'deviceSeekThread terminated'
+                    print ('deviceSeekThread terminated')
                 del readSerialNumInstance
                 readSerialNumInstance = None
                 return  # terminate the thread
@@ -983,7 +983,7 @@ def getReadDataInstance():
                 elif devType == 'g6':
                     rdi = readReceiver.readReceiverG6(my_dport, rsni.port)
                 else:
-                    print 'getReadDataInstance() : Unrecognized firmware version', devType
+                    print ('getReadDataInstance() : Unrecognized firmware version', devType)
         else:
             rdi = readReceiver.readReceiver(my_dport)
 
@@ -1293,7 +1293,7 @@ def onpick(event):
                             # replace the old note with the new one
                             oldNoteText = matchNote.get_text()
                             if args.debug:
-                                print "Replace the old note '%s' with the new one '%s'" % (oldNoteText, noteText)
+                                print ("Replace the old note '%s' with the new one '%s'" % (oldNoteText, noteText))
                             matchNote.set_text(noteText)
                             saveAnnToDb(matchNote)
                             noteArrow.remove()
@@ -1317,9 +1317,9 @@ def onclose(event):
     global sthread
 
     if args.debug:
-        print '*****************'
-        print 'Close in progress'
-        print '*****************'
+        print ('*****************')
+        print ('Close in progress')
+        print ('*****************')
 
     # Shutdown PeriodicReadData thread
     if rthread is not None:
@@ -1435,7 +1435,7 @@ def ReadButtonCallback(event):
 
 #---------------------------------------------------------
 def UnitButtonCallback(event):
-    print 'Unit Button pressed.'
+    print ('Unit Button pressed.')
     if gluUnits == 'mmol/L':
         #gluUnits = 'mg/dL'
         unitRead.label.set_text('Switch to\nmmol/L')
@@ -1445,13 +1445,13 @@ def UnitButtonCallback(event):
 
 #---------------------------------------------------------
 def TestButtonCallback(event):
-    print 'Test Button pressed. Will read in 10 seconds.'
+    print ('Test Button pressed. Will read in 10 seconds.')
     timeLeftSeconds = 10
     if rthread is not None:
-        print 'Calling rthread.restartDelay()'
+        print ('Calling rthread.restartDelay()')
         rthread.restartDelay(firstDelaySecs=timeLeftSeconds)
     else:
-        print 'rthread is NULL'
+        print ('rthread is NULL')
 
 #---------------------------------------------------------
 def ClearGraph(event):
@@ -1536,7 +1536,7 @@ def plotInit():
     #global testRead
 
     if args.debug:
-        print 'rcParams[timezone] =', mpl.rcParams['timezone']
+        print ('rcParams[timezone] =', mpl.rcParams['timezone'])
 
     # Reserve some space at the bottom for the Sliders
     fig.subplots_adjust(bottom=sliderSpace)
@@ -2017,7 +2017,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             trendChar = trendToChar(lastTrend)
 
             if args.debug:
-                print 'Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastRealGluc
+                print ('Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastRealGluc)
 
             #print 'sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime
             #-----------------------------------------------------
@@ -2192,7 +2192,7 @@ def saveAnnToDb(ann):
             curs.close()
             conn.commit()
     except sqlite3.Error as e:
-        print 'saveAnnToDb() : sql changes failed to exception =', e
+        print ('saveAnnToDb() : sql changes failed to exception =', e)
         curs.close()
     conn.close()
 
@@ -2207,7 +2207,7 @@ def deleteNoteFromDb(sysSeconds, message):
         curs.close()
         conn.commit()
     except sqlite3.Error as e:
-        print 'deleteNoteFromDb() : sql changes failed to exception =', e
+        print ('deleteNoteFromDb() : sql changes failed to exception =', e)
         curs.close()
     conn.close()
 
@@ -2234,7 +2234,7 @@ def saveConfigToDb():
             curs.close()
             conn.commit()
         except sqlite3.Error as e:
-            print 'saveConfigToDb() : Rolling back sql changes due to exception =', e
+            print ('saveConfigToDb() : Rolling back sql changes due to exception =', e)
             curs.close()
             conn.rollback()
             sys.exc_clear()
@@ -2429,12 +2429,12 @@ def ShowOrHideEventsNotes():
         # with a small offset.
         if exoffset < -ax_width / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, -ax_width / 2)
+                print ('Event @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, -ax_width / 2))
             exoffset = -60.0
             repositioned = True
         elif exoffset > ax_width / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, ax_width / 2)
+                print ('Event @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, ax_width / 2))
             exoffset = 60.0
             repositioned = True
 
@@ -2442,25 +2442,25 @@ def ShowOrHideEventsNotes():
         # it with a small offset.
         if eyoffset < -ax_height / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2)
+                print ('Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2))
             eyoffset = -60.0
             repositioned = True
         elif eyoffset > ax_height / 2:
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2)
+                print ('Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2))
             eyoffset = 60.0
             repositioned = True
 
         if repositioned:
             if args.debug:
-                print 'After repositioning, new offsets =', (exoffset, eyoffset)
+                print ('After repositioning, new offsets =', (exoffset, eyoffset))
 
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
         if (ynorm[timeIndex] + gluMult * eyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
             if args.debug:
-                print 'Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset)
+                print ('Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
             strawY = multY*(75+longTextBump)
             if ((ynorm[timeIndex] + gluMult * strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + gluMult * strawY) < 0):
                 eyoffset = -strawY
@@ -2469,10 +2469,10 @@ def ShowOrHideEventsNotes():
 
             if ((ynorm[timeIndex] + gluMult * eyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
                 if args.debug:
-                    print 'Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset)
+                    print ('Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
                 eyoffset *= -1.5
             if args.debug:
-                print '    new offsets =', (exoffset, eyoffset)
+                print ('    new offsets =', (exoffset, eyoffset))
 
         evt_annot = ax.annotate(evtStr,
                                 xy=(mdates.date2num(estime), ynorm[timeIndex]), xycoords='data',
@@ -2507,12 +2507,12 @@ def ShowOrHideEventsNotes():
         # with a small offset.
         if nxoffset < -ax_width / 2:
             if args.debug:
-                print 'Note @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, -ax_width / 2)
+                print ('Note @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, -ax_width / 2))
             nxoffset = -60.0
             repositioned = True
         elif nxoffset > ax_width / 2:
             if args.debug:
-                print 'Note @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, ax_width / 2)
+                print ('Note @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, ax_width / 2))
             nxoffset = 60.0
             repositioned = True
 
@@ -2520,25 +2520,25 @@ def ShowOrHideEventsNotes():
         # it with a small offset.
         if nyoffset < -ax_height / 2:
             if args.debug:
-                print 'Note @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, -ax_height / 2)
+                print ('Note @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, -ax_height / 2))
             nyoffset = -60.0
             repositioned = True
         elif nyoffset > ax_height / 2:
             if args.debug:
-                print 'Note @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, ax_height / 2)
+                print ('Note @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, ax_height / 2))
             nyoffset = 60.0
             repositioned = True
 
         if repositioned:
             if args.debug:
-                print 'After repositioning, new offsets =', (nxoffset, nyoffset)
+                print ('After repositioning, new offsets =', (nxoffset, nyoffset))
 
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
         if (ynorm[timeIndex] + gluMult * nyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
             if args.debug:
-                print 'Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset)
+                print ('Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
             strawY = multY*(75+longTextBump)
             if ((ynorm[timeIndex] + strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + strawY) < 0):
                 nyoffset = -strawY
@@ -2547,10 +2547,10 @@ def ShowOrHideEventsNotes():
 
             if ((ynorm[timeIndex] + gluMult * nyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
                 if args.debug:
-                    print 'Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset)
+                    print ('Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
                 nyoffset *= -1.5
             if args.debug:
-                print '    new offsets =', (nxoffset, nyoffset)
+                print ('    new offsets =', (nxoffset, nyoffset))
 
         #print 'Note: estime =', estime, ', gluc =', ynorm[timeIndex],'message =', message, 'xoffset =', nxoffset, 'yoffset =', nyoffset
         noteAnn = ax.annotate(message,
@@ -2673,7 +2673,7 @@ def plotGraph():
 
     if restart is True:
         if args.debug:
-            print 'Erasing plot data from previous device'
+            print ('Erasing plot data from previous device')
         # erase all previously plotted red calibration regions
         for redmark in redRegionList:
             redmark.remove()
@@ -2857,7 +2857,7 @@ def plotGraph():
             predx = xx[-1] + 24 * xdiff
             predy = min(max(minDisplayLow, yy[-1] + 24.0 * ydiff), maxDisplayHigh)
             if args.debug:
-                print '2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy
+                print ('2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy)
 
         # create subset of normal (non-calib) data points
         # and a subset of calibration data points
@@ -2923,7 +2923,7 @@ def plotGraph():
             secsSinceWarmupStart = max(0, lastTestSysSecs - latestSensorInsertTime)
             if secsSinceWarmupStart < sensorWarmupPeriod:
                 if args.debug:
-                    print 'Sensor Warm-up Time =', secsSinceWarmupStart, 'out of', sensorWarmupPeriod, 'seconds'
+                    print ('Sensor Warm-up Time =', secsSinceWarmupStart, 'out of', sensorWarmupPeriod, 'seconds')
                 timeLeftSeconds = sensorWarmupPeriod - secsSinceWarmupStart
                 timeLeftString = 'Sensor Warm-up Time Left = %u minutes' % (timeLeftSeconds // 60)
                 if sensorWarmupCountDown:
@@ -2955,19 +2955,19 @@ def plotGraph():
                 if timeLeftSeconds < meterSamplingPeriod:
                     if rthread is not None:
                         if args.debug:
-                            print 'calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds
+                            print ('calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds)
                         rthread.restartDelay(firstDelaySecs=timeLeftSeconds)
                     else:
                         if args.debug:
-                            print 'rthread is None'
+                            print ('rthread is None')
             elif sensorWarmupCountDown:
                 if args.debug:
-                    print 'Writing Ready for calibrations message'
+                    print ('Writing Ready for calibrations message')
                 sensorWarmupCountDown.set_text('Ready for calibrations')
         else:
             if sensorWarmupCountDown:
                 if args.debug:
-                    print 'done with sensorWarmupCountDown'
+                    print ('done with sensorWarmupCountDown')
                 sensorWarmupCountDown.remove()
                 sensorWarmupCountDown = None
 
@@ -3084,7 +3084,7 @@ def plotGraph():
         #-----------------------------------------------------
 
         if args.debug:
-            print 'plotGraph() : Before plotting              count =', len(muppy.get_objects())
+            print ('plotGraph() : Before plotting              count =', len(muppy.get_objects()))
 
         # Set higher zorder to place scatter points on top of line drawing
         # Setting 'picker' allows us to handle hover events later on.
@@ -3188,7 +3188,7 @@ def plotGraph():
 
         if legPosX < 0 or legPosX > (1.0 - 0.14) or legPosY < 0.1 or legPosY > (1.0 - 0.12):
             if args.debug:
-                print 'Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY)
+                print ('Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY))
             legPosX = legDefaultPosX
             legPosY = legDefaultPosY
 
@@ -3283,7 +3283,7 @@ def plotGraph():
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     if args.debug:
-        print 'plotGraph() : Before displayCurrentRange() count =', len(muppy.get_objects())
+        print ('plotGraph() : Before displayCurrentRange() count =', len(muppy.get_objects()))
 
     displayCurrentRange()
 
@@ -3300,11 +3300,11 @@ def plotGraph():
             #   Legend (X,Y) = [0. 0.] , (W,H) = [0.00068966 0.00117647]
             # so filter such entries out.
             if legxy[0] > 0.01 or legxy[1] > 0.01:
-                print 'Legend (X,Y) =', legxy, ', (W,H) =', legwh
+                print ('Legend (X,Y) =', legxy, ', (W,H) =', legwh)
 
     if args.debug:
-        print 'plotGraph() :  After displayCurrentRange() count =', len(muppy.get_objects())
-        print '++++++++++++++++++++++++++++++++++++++++++++++++\n'
+        print ('plotGraph() :  After displayCurrentRange() count =', len(muppy.get_objects()))
+        print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
         tr.print_diff()
 
 # end of plotGraph()
@@ -3316,7 +3316,7 @@ fig.canvas.mpl_connect('axes_leave_event', leave_axes)
 
 sqlite_file = getSqlFileName(None)
 if args.debug:
-    print 'sqlite_file =', sqlite_file
+    print ('sqlite_file =', sqlite_file)
 firstPlotGraph = 1
 plotInit()
 # We need to call plotGraph() before launching the device seek thread because
