@@ -51,6 +51,8 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >>>https://www.python.org/downloads/
 
+>>The following steps should be run from a Terminal. ***Finder -> Go -> Utilities -> Terminal***
+
 >>Update your PATH environmental variable to include paths to the 'python' and 'pip' executables. This can be done by ...
 
 >>>***echo 'export PATH="/usr/local/opt/python@2/bin:$PATH"' >> ~/.bashrc***
