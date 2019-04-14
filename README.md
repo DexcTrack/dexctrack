@@ -51,22 +51,23 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >>>https://www.python.org/downloads/
 
->>The following steps should be run from a Terminal. ***Finder -> Go -> Utilities -> Terminal***
+>2. Install 'git'
+
+>>>https://git-scm.com/downloads
+
+>The following steps should be run from a Terminal. ***Finder -> Go -> Utilities -> Terminal***
+
+>3. Update path
 
 >>Update your PATH environmental variable to include paths to the 'python' and 'pip' executables. This can be done by ...
 
 >>>***echo 'export PATH="/usr/local/opt/python@2/bin:$PATH"' >> ~/.bashrc***
 
-
->2. Install 'git'
-
->>>https://git-scm.com/downloads
-
->3. Install dexctrack, using 'git'
+>4. Install dexctrack, using 'git'
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'
+>5. Install required python libraries, using 'pip'
 
 >>>***pip install --upgrade setuptools***
 
