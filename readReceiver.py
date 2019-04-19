@@ -127,7 +127,7 @@ class readReceiverBase(readdata.Dexcom):
                 curs.execute(usCheckReq)
                 sqlData = curs.fetchone()
                 if sqlData[0] > 0:
-                    print 'Deleting UserSettings table from database'
+                    print ('Deleting UserSettings table from database')
                     curs.execute('DROP TABLE IF EXISTS UserSettings;')
                     curs.execute('VACUUM;')
 
@@ -185,7 +185,7 @@ class readReceiverBase(readdata.Dexcom):
                 curs.close()
                 conn.commit()
             except Exception as e:
-                print 'DownloadToDb() : Rolling back SQL changes due to exception =', e
+                print ('DownloadToDb() : Rolling back SQL changes due to exception =', e)
                 curs.close()
                 conn.rollback()
                 sys.exc_clear()
@@ -262,7 +262,7 @@ if __name__ == '__main__':
     if mdport:
         readSerialInstance = readReceiver(mdport)
         serialNum = readSerialInstance.GetSerialNumber()
-        print 'serialNum =', serialNum
+        print ('serialNum =', serialNum)
         mDevType = readSerialInstance.GetDeviceType()
 
         if mDevType == 'g4':
@@ -275,5 +275,5 @@ if __name__ == '__main__':
             exit
 
         if mReadDataInstance:
-            print 'Device version =', mReadDataInstance.rr_version
+            print ('Device version =', mReadDataInstance.rr_version)
             mReadDataInstance.LocateAndDownload()
