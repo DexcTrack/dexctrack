@@ -17,6 +17,9 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
+# Support python3 print syntax in python2
+from __future__ import print_function
+
 #import datetime
 import sys
 import sqlite3
@@ -34,13 +37,13 @@ class readReceiverBase(readdata.Dexcom):
     def __init__(self, portname, port=None):
         self._port_name = portname
         readdata.Dexcom.__init__(self, portname, port)
-        #print 'readReceiverBase() __init__ running. _port =', self._port, ', _port_name =', self._port_name, ', port =', port
+        #print ('readReceiverBase() __init__ running. _port =', self._port, ', _port_name =', self._port_name, ', port =', port)
 
     def GetSerialNumber(self):
-        #print 'readReceiverBase() GetSerialNumber running'
+        #print ('readReceiverBase() GetSerialNumber running')
         self._lock.acquire()
         try:
-            #print 'readReceiverBase.GetSerialNumber() : self._port_name =', self._port_name
+            #print ('readReceiverBase.GetSerialNumber() : self._port_name =', self._port_name)
             if not self._port_name:
                 dport = self.FindDevice()
                 self._port_name = dport
@@ -52,7 +55,7 @@ class readReceiverBase(readdata.Dexcom):
             return sernum
 
         except Exception as e:
-            #print 'GetSerialNumber() : Exception =', e
+            #print ('GetSerialNumber() : Exception =', e)
             self.Disconnect()
             self._port_name = None
             self._lock.release()
@@ -74,10 +77,10 @@ class readReceiverBase(readdata.Dexcom):
             return (None, None)
 
     def GetPowerInfo(self):
-        #print 'readReceiverBase() GetPowerInfo running'
+        #print ('readReceiverBase() GetPowerInfo running')
         self._lock.acquire()
         try:
-            #print 'readReceiverBase.GetPowerInfo() : self._port_name =', self._port_name
+            #print ('readReceiverBase.GetPowerInfo() : self._port_name =', self._port_name)
             if not self._port_name:
                 dport = self.FindDevice()
                 self._port_name = dport
@@ -92,7 +95,7 @@ class readReceiverBase(readdata.Dexcom):
             return (powerState, powerLevel)
 
         except Exception as e:
-            #print 'GetPowerInfo() : Exception =', e
+            #print ('GetPowerInfo() : Exception =', e)
             self.Disconnect()
             self._port_name = None
             self._lock.release()
@@ -104,16 +107,16 @@ class readReceiverBase(readdata.Dexcom):
         self._lock.acquire()
         if self._port_name is not None:
             #now = datetime.datetime.now()
-            #print 'readReceiver.py : DownloadToDb() : Reading device at', str(now)
+            #print ('readReceiver.py : DownloadToDb() : Reading device at', str(now))
 
             #for uev_rec in self.ReadRecords('USER_EVENT_DATA'):
-                #print 'raw_data =',' '.join(' %02x' % ord(c) for c in uev_rec.raw_data)
+                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in uev_rec.raw_data))
 
             #for cal_rec in self.ReadRecords('CAL_SET'):
-                #print 'raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data)
+                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data))
 
             #for ins_rec in self.ReadRecords('INSERTION_TIME'):
-                #print 'raw_data =',' '.join(' %02x' % ord(c) for c in ins_rec.raw_data)
+                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
 
             #--------------------------------------------------------------------------------
             conn = sqlite3.connect(dbPath)
@@ -138,7 +141,7 @@ class readReceiverBase(readdata.Dexcom):
                 #printJustOne = True
                 for cgm_rec in respList:
                     #if printJustOne:
-                        #print 'EGV_DATA : raw_data =', ' '.join(' %02x' % ord(c) for c in cgm_rec.raw_data)
+                        #print ('EGV_DATA : raw_data =', ' '.join(' %02x' % ord(c) for c in cgm_rec.raw_data))
                         #printJustOne = False
                     curs.execute(insert_egv_sql, (cgm_rec.system_secs, cgm_rec.display_secs, cgm_rec.full_glucose, cgm_rec.glucose, cgm_rec.testNum, cgm_rec.full_trend))
 
@@ -147,8 +150,8 @@ class readReceiverBase(readdata.Dexcom):
 
                 respList = self.ReadRecords('USER_EVENT_DATA')
                 for evt_rec in respList:
-                    #print 'raw_data =',' '.join(' %02x' % ord(c) for c in evt_rec.raw_data)
-                    #print 'UserEvent(', evt_rec.system_secs, ',', evt_rec.display_secs, ', ', evt_rec.meter_secs, ', ', evt_rec.event_type, ', ', evt_rec.event_sub_type, ',', evt_rec.event_value
+                    #print ('raw_data =',' '.join(' %02x' % ord(c) for c in evt_rec.raw_data))
+                    #print ('UserEvent(', evt_rec.system_secs, ',', evt_rec.display_secs, ', ', evt_rec.meter_secs, ', ', evt_rec.event_type, ', ', evt_rec.event_sub_type, ',', evt_rec.event_value)
                     curs.execute(insert_evt_sql, (evt_rec.system_secs, evt_rec.display_secs, evt_rec.meter_secs, evt_rec.int_type, evt_rec.int_sub_type, evt_rec.int_value, 0.0, 0.0))
 
                 curs.execute('CREATE TABLE IF NOT EXISTS Config( id INT PRIMARY KEY CHECK (id = 0), displayLow REAL, displayHigh REAL, legendX REAL, legendY REAL, glUnits STR);')
@@ -157,7 +160,7 @@ class readReceiverBase(readdata.Dexcom):
                 curs.execute(insert_cfg_sql, (75.0, 200.0, 0.01, 0.99, 'mg/dL'))
 
                 respList = self.ReadGlucoseUnit()
-                #print 'self.ReadGlucoseUnit() =', respList
+                #print ('self.ReadGlucoseUnit() =', respList)
                 if respList is not None:
                     update_cfg_sql = '''UPDATE Config SET glUnits = ? WHERE id = ?;'''
                     curs.execute(update_cfg_sql, ('%s'%respList, 0))
@@ -177,8 +180,8 @@ class readReceiverBase(readdata.Dexcom):
 
                 respList = self.ReadRecords('METER_DATA')
                 for cal_rec in respList:
-                    #print 'raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data)
-                    #print 'Calib(', cal_rec.system_secs, ',', cal_rec.display_secs, ', ', cal_rec.meter_secs, ', ', cal_rec.record_type, ', ', cal_rec.calib_gluc, ',', cal_rec.testNum
+                    #print ('raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data))
+                    #print ('Calib(', cal_rec.system_secs, ',', cal_rec.display_secs, ', ', cal_rec.meter_secs, ', ', cal_rec.record_type, ', ', cal_rec.calib_gluc, ',', cal_rec.testNum)
                     curs.execute(insert_cal_sql, (cal_rec.system_secs, cal_rec.display_secs, cal_rec.meter_secs, cal_rec.record_type, cal_rec.calib_gluc, cal_rec.testNum, cal_rec.xx))
 
                 del respList
@@ -201,11 +204,11 @@ class readReceiver(readReceiverBase):
     rr_version = 'g4'
 
     def __init__(self, portname, port=None):
-        #print 'readReceiver() __init__ running'
+        #print ('readReceiver() __init__ running')
         super(readReceiver, self).__init__(portname, port)
 
     #def __del__(self):
-        #print 'readReceiver() __del__ running'
+        #print ('readReceiver() __del__ running')
         # If readReceiverBase.__del__() gets added ...
         #super(readReceiver, self).__del__()
 
@@ -223,11 +226,11 @@ class readReceiverG5(readReceiverBase):
     }
 
     def __init__(self, portname, port=None):
-        #print 'readReceiverG5() __init__ running'
+        #print ('readReceiverG5() __init__ running')
         super(readReceiverG5, self).__init__(portname, port)
 
     #def __del__(self):
-        #print 'readReceiverG5() __del__ running'
+        #print ('readReceiverG5() __del__ running')
         # If readReceiverBase.__del__() gets added ...
         #super(readReceiverG5, self).__del__()
 
@@ -246,11 +249,11 @@ class readReceiverG6(readReceiverBase):
     }
 
     def __init__(self, portname, port=None):
-        #print 'readReceiverG6() __init__ running'
+        #print ('readReceiverG6() __init__ running')
         super(readReceiverG6, self).__init__(portname, port)
 
     #def __del__(self):
-        #print 'readReceiverG6() __del__ running'
+        #print ('readReceiverG6() __del__ running')
         # If readReceiverBase.__del__() gets added ...
         #super(readReceiverG6, self).__del__()
 

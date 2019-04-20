@@ -36,8 +36,12 @@
 #     OS is unix based, suggest steps to fix permission problems.
 #   - Added ReadAllManufacturingData()
 #   - Added USER_SETTING_DATA for G5 & G6.
+#   - Added import of print_function
 #
 #########################################################################
+
+# Support python3 print syntax in python2
+from __future__ import print_function
 
 import crc16
 import constants

@@ -270,7 +270,7 @@ if args.debug:
 # Use the fivethirtyeight style, if it's available
 # To find explicit Exception type use ...
 #except Exception as e:
-#    print 'Exception type =', type(e).__name__
+#    print ('Exception type =', type(e).__name__)
 try:
     style.use('fivethirtyeight')
 except IOError as e:

@@ -27,6 +27,9 @@
 #
 #########################################################################
 
+# Support python3 print syntax in python2
+from __future__ import print_function
+
 import constants
 import datetime
 import os
@@ -108,14 +111,14 @@ def thisIsWine():
                     else:
                         return False
                 except Exception as e:
-                    #print 'OpenKey failed. Exception =', e
+                    #print ('OpenKey failed. Exception =', e)
                     sys.exc_clear()
                     return False
             else:
                 return False
 
         except Exception as f:
-            #print 'ConnectRegistry failed. Exception =', f
+            #print ('ConnectRegistry failed. Exception =', f)
             sys.exc_clear()
             return False
     else:
