@@ -46,7 +46,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 2.9
+dexctrackVersion = 3.0
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -313,6 +313,7 @@ lastPowerLevel = 0
 # for (ninetyDaysInSeconds + bufferSeconds) at a time.
 ninetyDaysInSeconds = 60*60*24*90
 bufferSeconds = 60*60*24*15
+hourSeconds = 60*60
 
 graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
@@ -1117,43 +1118,36 @@ def press(event):
         # editing purposes. We don't want those keys to cause data display adjustments.
         pass
     else:
-        if event.key == 'left':
+        if event.key == 'left':         # shift one screen left
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - displayRange)
-            displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
-            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
-                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
-            else:
-                position = 100.0
-            SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
-            # Need to convert datetime values to floats to avoid occasional
-            # 'TypeError: float() argument must be a string or a number' errors.
-            if displayStartSecs != origDisplayStartSecs:
-                ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
-                            mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
-            if position != origPosition:
-                calcStats()
-                sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
-            elif displayStartSecs != origDisplayStartSecs:
-                fig.canvas.draw()
 
-        elif event.key == 'right':
+        elif event.key == 'right':      # shift one screen right
             displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + displayRange))
-            displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
-            if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
-                position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
-            else:
-                position = 100.0
-            SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
-            # Need to convert datetime values to floats to avoid occasional
-            # 'TypeError: float() argument must be a string or a number' errors.
-            if displayStartSecs != origDisplayStartSecs:
-                ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
-                            mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
-            if position != origPosition:
-                calcStats()
-                sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
-            elif displayStartSecs != origDisplayStartSecs:
-                fig.canvas.draw()
+
+        elif event.key == 'ctrl+left':  # shift one hour left
+            displayStartSecs = max(firstTestSysSecs, displayStartSecs - hourSeconds)
+
+        elif event.key == 'ctrl+right': # shift one hour right
+            displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + hourSeconds))
+
+        else:
+            #print('you pressed', event.key)
+            return
+
+        displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+        if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
+            position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
+        else:
+            position = 100.0
+        SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
+        if displayStartSecs != origDisplayStartSecs:
+            ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
+                        mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
+        if position != origPosition:
+            calcStats()
+            sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
+        elif displayStartSecs != origDisplayStartSecs:
+            fig.canvas.draw()
 
 #---------------------------------------------------------
 def submitNote(text):
