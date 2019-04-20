@@ -83,7 +83,7 @@ class Dexcom(object):
         return util.find_usbserial(constants.DEXCOM_G4_USB_VENDOR,
                                    constants.DEXCOM_G4_USB_PRODUCT)
     except NotImplementedError:
-        #print 'FindDevice() : Exception =', e
+        #print ('FindDevice() : Exception =', e)
         sys.exc_clear()
         return None
 
@@ -104,7 +104,7 @@ class Dexcom(object):
           else: # unrecognized firmware version
               return fw_ver
     except Exception as e:
-        print 'GetDeviceType() : Exception =', e
+        print ('GetDeviceType() : Exception =', e)
         sys.exc_clear()
         return None
 
@@ -118,79 +118,79 @@ class Dexcom(object):
       dex = cls(device)
       # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
-          #print item.attrib
-      print 'Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId')
+          #print (item.attrib)
+      print ('Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId'))
       print ('Found %s S/N: %s'
              % (dex.GetFirmwareHeader().get('ProductName'),
                 dex.ReadManufacturingData().get('SerialNumber')))
-      print 'Transmitter paired: %s' % dex.ReadTransmitterId()
-      print 'Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
-                                           dex.ReadBatteryLevel())
-      print 'Record count:'
-      print '- Meter records: %d' % (len(dex.ReadRecords('METER_DATA')))
-      print '- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA')))
+      print ('Transmitter paired: %s' % dex.ReadTransmitterId())
+      print ('Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
+                                           dex.ReadBatteryLevel()))
+      print ('Record count:')
+      print ('- Meter records: %d' % (len(dex.ReadRecords('METER_DATA'))))
+      print ('- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA'))))
       print ('- CGM commitable records: %d'
              % (len([not x.display_only for x in dex.ReadRecords('EGV_DATA')])))
-      print '- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA')))
-      print '- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME')))
-      print '- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET')))
+      print ('- Event records: %d' % (len(dex.ReadRecords('USER_EVENT_DATA'))))
+      print ('- Insertion records: %d' % (len(dex.ReadRecords('INSERTION_TIME'))))
+      print ('- Calibration records: %d' % (len(dex.ReadRecords('CAL_SET'))))
 
       # Uncomment out any record types you want to display
 
-      #print '\nEGV_DATA\n======================================================'
+      #print ('\nEGV_DATA\n======================================================')
       #maxrec = 300
       #for egv_rec in dex.ReadRecords('EGV_DATA'):
-          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data)
+          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
-      #print '\nUSER_EVENT_DATA\n======================================================'
+      #print ('\nUSER_EVENT_DATA\n======================================================')
       #maxrec = 300
       #for evt_rec in dex.ReadRecords('USER_EVENT_DATA'):
-          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data)
+          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
-      #print 'SENSOR_DATA\n======================================================'
+      #print ('SENSOR_DATA\n======================================================')
       #for sen_rec in dex.ReadRecords('SENSOR_DATA'):
-          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data)
-      #print '\nINSERTION_TIME\n======================================================'
+          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
+      #print ('\nINSERTION_TIME\n======================================================')
       #for ins_rec in dex.ReadRecords('INSERTION_TIME'):
-          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in ins_rec.raw_data)
-      #print '\nMETER_DATA\n======================================================'
+          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
+      #print ('\nMETER_DATA\n======================================================')
       #for met_rec in dex.ReadRecords('METER_DATA'):
-          #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data)
-          #print '            record_type =', met_rec.record_type, ', calib_gluc =', met_rec.calib_gluc, ', testNum =', met_rec.testNum, ' xx =', met_rec.xx
-      #print '\nMANUFACTURING_DATA\n======================================================'
+          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data))
+          #print ('            record_type =', met_rec.record_type, ', calib_gluc =', met_rec.calib_gluc, ', testNum =', met_rec.testNum, ' xx =', met_rec.xx)
+      #print ('\nMANUFACTURING_DATA\n======================================================')
       #mfg_data = dex.ReadAllManufacturingData()
-      #print 'char data =', mfg_data
+      #print ('char data =', mfg_data)
 
       # Not sure if the G4 has USER_SETTING_DATA, so we'll retrieve the
       # device type and restrict the following code to G5 or G6 cases.
       myDevType = dex.GetDeviceType()
       if (myDevType == 'g5') or (myDevType == 'g6') :
-          print '- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA')))
+          print ('- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA'))))
 
           #################################################################################
           # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
           # record gets generated, so there can be a large number of these.
           #################################################################################
-          #print 'USER_SETTING_DATA\n======================================================'
+          #print ('USER_SETTING_DATA\n======================================================')
           #for sen_rec in dex.ReadRecords('USER_SETTING_DATA'):
-              #print 'raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data)
-              #print 'transmitterPaired =', sen_rec.transmitterPaired
-              #print 'highAlert =', sen_rec.highAlert
-              #print 'highRepeat =', sen_rec.highRepeat
-              #print 'lowAlert =', sen_rec.lowAlert
-              #print 'lowRepeat =', sen_rec.lowRepeat
-              #print 'riseRate =', sen_rec.riseRate
-              #print 'fallRate =', sen_rec.fallRate
-              #print 'outOfRangeAlert =', sen_rec.outOfRangeAlert
-              #print 'soundsType =', sen_rec.soundsType
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
+              #print ('transmitterPaired =', sen_rec.transmitterPaired)
+              #print ('highAlert =', sen_rec.highAlert)
+              #print ('highRepeat =', sen_rec.highRepeat)
+              #print ('lowAlert =', sen_rec.lowAlert)
+              #print ('lowRepeat =', sen_rec.lowRepeat)
+              #print ('riseRate =', sen_rec.riseRate)
+              #print ('fallRate =', sen_rec.fallRate)
+              #print ('outOfRangeAlert =', sen_rec.outOfRangeAlert)
+              #print ('soundsType =', sen_rec.soundsType)
               #if myDevType == 'g6' :
-                  #print 'urgentLowSoonRepeat =', sen_rec.urgentLowSoonRepeat
-                  #print 'sensorCode =', sen_rec.sensorCode
-                  #print ''
+                  #print ('urgentLowSoonRepeat =', sen_rec.urgentLowSoonRepeat)
+                  #print ('sensorCode =', sen_rec.sensorCode)
+                  #print ('')
 
   def __init__(self, port_path, port=None):
     self._port_name = port_path
@@ -204,7 +204,7 @@ class Dexcom(object):
         sys.exc_clear()
         try:
             if self._port is None:
-                #print 'First attempt failed'
+                #print ('First attempt failed')
                 if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                     # Trying to access the port file may help make it visible.
                     # For example, on Linux, running 'ls <self._port_name>' helps make
@@ -215,39 +215,39 @@ class Dexcom(object):
 
         except serial.SerialException:
             sys.exc_clear()
-            print 'Read/Write permissions missing for', self._port_name
+            print ('Read/Write permissions missing for', self._port_name)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
                 port_gid = stat_info.st_gid
                 port_group = grp.getgrgid(port_gid)[0]
                 username = pwd.getpwuid(os.getuid())[0]
-                print '\nFor a persistent solution (recommended), run ...'
+                print ('\nFor a persistent solution (recommended), run ...')
                 if sys.platform == "darwin":
-                    print '\n   sudo dseditgroup -o edit -a', username, '-t user', port_group
+                    print ('\n   sudo dseditgroup -o edit -a', username, '-t user', port_group)
                 else:
                     # On Mint, Ubuntu, etc.
-                    print '\n   sudo addgroup', username, port_group
-                    print '\n   sudo -', username
-                    print '\n         OR'
+                    print ('\n   sudo addgroup', username, port_group)
+                    print ('\n   sudo -', username)
+                    print ('\n         OR')
                     # On Fedora, Red Hat, etc.
-                    print '\n   sudo usermod -a -G', port_group, username
-                    print '\n   su -', username
-                print '\nFor a short term solution, run ...'
-                print '\n   sudo chmod 666', self._port_name,'\n'
+                    print ('\n   sudo usermod -a -G', port_group, username)
+                    print ('\n   su -', username)
+                print ('\nFor a short term solution, run ...')
+                print ('\n   sudo chmod 666', self._port_name,'\n')
     if self._port is not None:
         try:
             self.clear()
-            #print 'Connect() : self.clear()'
+            #print ('Connect() : self.clear()')
         except Exception as e:
-            #print 'Exception in Connect() : self.clear()'
+            #print ('Exception in Connect() : self.clear()')
             sys.exc_clear()
             pass
 
         try:
             self.flush()
-            #print 'Connect() : self.flush()'
+            #print ('Connect() : self.flush()')
         except Exception as e:
-            #print 'Exception in Connect() : self.flush()'
+            #print ('Exception in Connect() : self.flush()')
             sys.exc_clear()
             pass
 
@@ -264,14 +264,14 @@ class Dexcom(object):
       try:
           self.clear()
       except Exception as e:
-          #print 'Disconnect() : self.clear Exception =', e
+          #print ('Disconnect() : self.clear Exception =', e)
           sys.exc_clear()
           pass
 
       try:
           self.flush()
       except Exception as e:
-          #print 'Disconnect() : self.flush Exception =', e
+          #print ('Disconnect() : self.flush Exception =', e)
           sys.exc_clear()
           pass
       self._port.close()
@@ -555,16 +555,16 @@ def GetDevice (port):
   workInst = Dexcom(port)
   devType = workInst.GetDeviceType()  # g4 | g5 | g6
   if devType == 'g6':
-    #print 'GetDevice() creating DexcomG6 class'
+    #print ('GetDevice() creating DexcomG6 class')
     return DexcomG6(port)
   elif devType == 'g5':
-    #print 'GetDevice() creating DexcomG5 class'
+    #print ('GetDevice() creating DexcomG5 class')
     return DexcomG5(port)
   elif devType == 'g4':
-    #print 'GetDevice() creating DexcomG4 class'
+    #print ('GetDevice() creating DexcomG4 class')
     return workInst
   else:
-    print 'readdata.GetDevice() : Unrecognized firmware version', devType
+    print ('readdata.GetDevice() : Unrecognized firmware version', devType)
     return None
 
 if __name__ == '__main__':
