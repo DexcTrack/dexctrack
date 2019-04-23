@@ -41,7 +41,10 @@ import sys
 
 if sys.platform == 'win32':
     import serial.tools.list_ports
-    from _winreg import *
+    if sys.version_info < (3, 0):
+        from _winreg import *
+    else:
+        from winreg import *
 
 
 def ReceiverTimeToTime(rtime):
@@ -112,14 +115,16 @@ def thisIsWine():
                         return False
                 except Exception as e:
                     #print ('OpenKey failed. Exception =', e)
-                    sys.exc_clear()
+                    if sys.version_info < (3, 0):
+                        sys.exc_clear()
                     return False
             else:
                 return False
 
         except Exception as f:
             #print ('ConnectRegistry failed. Exception =', f)
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             return False
     else:
         return False

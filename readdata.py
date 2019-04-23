@@ -88,7 +88,8 @@ class Dexcom(object):
                                    constants.DEXCOM_G4_USB_PRODUCT)
     except NotImplementedError:
         #print ('FindDevice() : Exception =', e)
-        sys.exc_clear()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
         return None
 
   def GetDeviceType(self):
@@ -109,7 +110,8 @@ class Dexcom(object):
               return fw_ver
     except Exception as e:
         print ('GetDeviceType() : Exception =', e)
-        sys.exc_clear()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
         return None
 
   @classmethod
@@ -205,7 +207,8 @@ class Dexcom(object):
         if self._port is None:
             self._port = serial.Serial(port=self._port_name, baudrate=115200)
     except serial.SerialException:
-        sys.exc_clear()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
         try:
             if self._port is None:
                 #print ('First attempt failed')
@@ -218,7 +221,8 @@ class Dexcom(object):
                 self._port = serial.Serial(port=self._port_name, baudrate=115200)
 
         except serial.SerialException:
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             print ('Read/Write permissions missing for', self._port_name)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
@@ -244,7 +248,8 @@ class Dexcom(object):
             #print ('Connect() : self.clear()')
         except Exception as e:
             #print ('Exception in Connect() : self.clear()')
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             pass
 
         try:
@@ -252,7 +257,8 @@ class Dexcom(object):
             #print ('Connect() : self.flush()')
         except Exception as e:
             #print ('Exception in Connect() : self.flush()')
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             pass
 
   def Disconnect(self):
@@ -269,14 +275,16 @@ class Dexcom(object):
           self.clear()
       except Exception as e:
           #print ('Disconnect() : self.clear Exception =', e)
-          sys.exc_clear()
+          if sys.version_info < (3, 0):
+              sys.exc_clear()
           pass
 
       try:
           self.flush()
       except Exception as e:
           #print ('Disconnect() : self.flush Exception =', e)
-          sys.exc_clear()
+          if sys.version_info < (3, 0):
+              sys.exc_clear()
           pass
       self._port.close()
     self._port = None

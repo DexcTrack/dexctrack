@@ -147,8 +147,8 @@ mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
 # graphs one day of data, then annotations located on any other day, which happen
 # to transform to display units near the mouse get picked.
 #
-#   To fix this problem, we'll use the Data coordinates for the annotation to
-# test whether it is within the view limits of the current display.
+#   To fix this bug, we'll use the view limits of the current display to
+# filter out any annotation whose Data coordinates are outside these limits.
 #
 # -------------------------------------------------------------------------------------
 #
@@ -276,7 +276,8 @@ try:
 except IOError as e:
     print ('Exception =', e)
     style.use('ggplot')
-    sys.exc_clear()
+    if sys.version_info < (3, 0):
+        sys.exc_clear()
 
 #####################################################################################################################
 # The following variables are set for G4 or G5 devices. They might need to be altered for others.
@@ -712,7 +713,8 @@ def displayCurrentRange():
                 #tr.print_diff()
         except RuntimeError as e:
             print ('displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e)
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
 
 #---------------------------------------------------------
 def getSqlFileName(sNum):
@@ -850,7 +852,8 @@ class deviceReadThread(threading.Thread):
                         except AttributeError as e:
                             #if args.debug:
                                 #print ('deviceReadThread.run() fig.canvas.set_window_title: Exception =', e)
-                            sys.exc_clear()
+                            if sys.version_info < (3, 0):
+                                sys.exc_clear()
 
                     del readDataInstance
                     readDataInstance = None
@@ -2237,7 +2240,8 @@ def saveConfigToDb():
             print ('saveConfigToDb() : Rolling back sql changes due to exception =', e)
             curs.close()
             conn.rollback()
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
         conn.close()
 
 #---------------------------------------------------------
@@ -2836,7 +2840,8 @@ def plotGraph():
         except AttributeError as e:
             #if args.debug:
                 #print ('fig.canvas.set_window_title: Exception =', e)
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
 
     if len(egvList) > 0:
         data = np.array(egvList)
@@ -2947,7 +2952,8 @@ def plotGraph():
                     except AttributeError as e:
                         #if args.debug:
                             #print ('fig.canvas.set_window_title: Exception =', e)
-                        sys.exc_clear()
+                        if sys.version_info < (3, 0):
+                            sys.exc_clear()
 
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
                 # before telling the user that we're ready for calibration, so we'll

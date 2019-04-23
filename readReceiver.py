@@ -59,7 +59,8 @@ class readReceiverBase(readdata.Dexcom):
             self.Disconnect()
             self._port_name = None
             self._lock.release()
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             return None
 
     def GetCurrentGlucoseAndTrend(self):
@@ -99,7 +100,8 @@ class readReceiverBase(readdata.Dexcom):
             self.Disconnect()
             self._port_name = None
             self._lock.release()
-            sys.exc_clear()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
             return (None, 0)
 
 
@@ -191,7 +193,8 @@ class readReceiverBase(readdata.Dexcom):
                 print ('DownloadToDb() : Rolling back SQL changes due to exception =', e)
                 curs.close()
                 conn.rollback()
-                sys.exc_clear()
+                if sys.version_info < (3, 0):
+                    sys.exc_clear()
             conn.close()
         self._lock.release()
         return
