@@ -1127,10 +1127,10 @@ def press(event):
         elif event.key == 'right':      # shift one screen right
             displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + displayRange))
 
-        elif event.key == 'ctrl+left':  # shift one hour left
+        elif event.key == 'alt+left':   # shift one hour left
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - hourSeconds)
 
-        elif event.key == 'ctrl+right': # shift one hour right
+        elif event.key == 'alt+right':  # shift one hour right
             displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + hourSeconds))
 
         else:

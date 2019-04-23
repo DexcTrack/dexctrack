@@ -45,16 +45,12 @@ def get_screen_size():
         dx, dy, width, height = display.GetGeometry()
 
     elif 'MacOSX' in backend:
-        # Implementation by Mike Rhodes at
+        # Implementation by Koen Bok and kenorb
         # https://stackoverflow.com/questions/1281397/how-to-get-the-desktop-resolution-in-mac-via-python
-        from Quartz import CGDisplayBounds
-        from Quartz import CGMainDisplayID
-        from Quartz import CGDisplayScreenSize
-        mainMonitor = CGDisplayBounds(CGMainDisplayID())
-        width = mainMonitor.size.width
-        height = mainMonitor.size.height
-        sizeInMm = CGDisplayScreenSize(CGMainDisplayID())
-        pixels2inches = width * 25.4 / sizeInMm.width   # 25.4 mm = 1 inch
+        import AppKit
+        curScreen = AppKit.NSScreen.mainScreen().frame()
+        width = curScreen.size.width
+        height = curScreen.size.height
 
     elif 'WX' in backend:
         # Implementation by Justin at
