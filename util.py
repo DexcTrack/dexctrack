@@ -26,21 +26,25 @@
 #    OTHER DEALINGS IN THE SOFTWARE.
 #
 #########################################################################
+#
+# Modifications by Steve Erlenborn:
+#   The thisIsWine() function has been added. The find_usbserial()
+# routine has been greatly simplified, eliminating the need for
+# linux_find_usbserial() and osx_find_usbserial(). The updates make
+# this file usable under both python2.7.* and python3.*.
+#
+#########################################################################
 
 # Support python3 print syntax in python2
 from __future__ import print_function
 
 import constants
 import datetime
-import os
 import platform
-import plistlib
-import re
-import subprocess
 import sys
+import serial.tools.list_ports
 
 if sys.platform == 'win32':
-    import serial.tools.list_ports
     if sys.version_info < (3, 0):
         from _winreg import *
     else:
@@ -49,58 +53,6 @@ if sys.platform == 'win32':
 
 def ReceiverTimeToTime(rtime):
   return constants.BASE_TIME + datetime.timedelta(seconds=rtime)
-
-
-def linux_find_usbserial(vendor, product):
-  DEV_REGEX = re.compile('^tty(USB|ACM)[0-9]+$')
-  for usb_dev_root in os.listdir('/sys/bus/usb/devices'):
-    device_name = os.path.join('/sys/bus/usb/devices', usb_dev_root)
-    if not os.path.exists(os.path.join(device_name, 'idVendor')):
-      continue
-    idv = open(os.path.join(device_name, 'idVendor')).read().strip()
-    if idv != vendor:
-      continue
-    idp = open(os.path.join(device_name, 'idProduct')).read().strip()
-    if idp != product:
-      continue
-    for root, dirs, files in os.walk(device_name):
-      for option in dirs + files:
-        if DEV_REGEX.match(option):
-          return os.path.join('/dev', option)
-
-
-def osx_find_usbserial(vendor, product):
-  def recur(v):
-    if hasattr(v, '__iter__') and 'idVendor' in v and 'idProduct' in v:
-      if v['idVendor'] == vendor and v['idProduct'] == product:
-        tmp = v
-        while True:
-          if 'IODialinDevice' not in tmp and 'IORegistryEntryChildren' in tmp:
-            tmp = tmp['IORegistryEntryChildren']
-          elif 'IODialinDevice' in tmp:
-            return tmp['IODialinDevice']
-          else:
-            break
-
-    if type(v) == list:
-      for x in v:
-        out = recur(x)
-        if out is not None:
-          return out
-    elif type(v) == dict or issubclass(type(v), dict):
-      for x in v.values():
-        out = recur(x)
-        if out is not None:
-          return out
-
-  sp = subprocess.Popen(['/usr/sbin/ioreg', '-k', 'IODialinDevice',
-                         '-r', '-t', '-l', '-a', '-x'],
-                        stdout=subprocess.PIPE,
-                        stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-  stdout, _ = sp.communicate()
-  plist = plistlib.readPlistFromString(stdout)
-  return recur(plist)
-
 
 def thisIsWine():
     if sys.platform == 'win32':
@@ -129,45 +81,39 @@ def thisIsWine():
     else:
         return False
 
-
-def win_find_usbserial(vendor, product):
-    if thisIsWine():
-        # When running under WINE, we have no access to real USB information, such
-        # as the Vendor & Product ID values. Also, serial.tools.list_ports.comports()
-        # returns nothing. The real port under Linux (or OSX?) is mapped to a windows
-        # serial port at \dosdevices\COMxx, but we don't know which one. Normally,
-        # COM1 - COM32 are automatically mapped to /dev/ttyS0 - /dev/ttyS31.
-        # If the Dexcom device is plugged in, it will be mapped to COM33 or greater.
-        # We have no way of identifying which port >= COM33 is the right one, so
-        # we'll just guess the first available one.
-        return "\\\\.\\com33"
-    else:
-        for cport in serial.tools.list_ports.comports():
-            if (cport.vid == vendor) and (cport.pid == product):
-                # found a port which matches vendor and product IDs
-                if cport.device is not None:
-                    return cport.device
-        return None
-
-
-
 def find_usbserial(vendor, product):
-  """Find the tty device for a given usbserial devices identifiers.
+    """Find the tty device for a given usbserial devices identifiers.
 
-  Args:
-     vendor: (int) something like 0x0000
-     product: (int) something like 0x0000
+    Args:
+       vendor: (int) something like 0x0000
+       product: (int) something like 0x0000
 
-  Returns:
-     String, like /dev/ttyACM0 or /dev/tty.usb...
-  """
-  if platform.system() == 'Linux':
-    vendor, product = [('%04x' % (x)).strip() for x in (vendor, product)]
-    return linux_find_usbserial(vendor, product)
-  elif platform.system() == 'Darwin':
-    return osx_find_usbserial(vendor, product)
-  elif platform.system() == 'Windows':
-    return win_find_usbserial(vendor, product)
-  else:
-    raise NotImplementedError('Cannot find serial ports on %s'
-                              % platform.system())
+    Returns:
+       String, like /dev/ttyACM0 or /dev/tty.usb...
+    """
+    if platform.system() == 'Linux':
+        pass
+    elif platform.system() == 'Darwin':
+        pass
+    elif platform.system() == 'Windows':
+        if thisIsWine():
+            # When running under WINE, we have no access to real USB information, such
+            # as the Vendor & Product ID values. Also, serial.tools.list_ports.comports()
+            # returns nothing. The real port under Linux (or OSX?) is mapped to a windows
+            # serial port at \dosdevices\COMxx, but we don't know which one. Normally,
+            # COM1 - COM32 are automatically mapped to /dev/ttyS0 - /dev/ttyS31.
+            # If the Dexcom device is plugged in, it will be mapped to COM33 or greater.
+            # We have no way of identifying which port >= COM33 is the right one, so
+            # we'll just guess the first available one.
+            return "\\\\.\\com33"
+        else:
+            pass
+    else:
+        raise NotImplementedError('Cannot find serial ports on %s' % platform.system())
+
+    # Linux, OSX, or non-Wine Windows
+    for cport in serial.tools.list_ports.comports():
+        if (cport.vid == vendor) and (cport.pid == product):
+            if cport.device is not None:
+              return cport.device
+    return None
