@@ -51,7 +51,7 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >1. Install 'python' and 'pip'
 
->Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Currently, on OSX, dexctrack does not work with python3, so install the latest 2.7.* release under
+>Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Install the latest 2.7.* release under
 
 >>>https://www.python.org/downloads/
 
