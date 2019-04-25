@@ -1,13 +1,13 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python version 2.7.* (for Linux, OSX, or Windows), or python 3.* (for Linux or Windows). It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python version 2.7.* for Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
 
 ![image](https://user-images.githubusercontent.com/39347592/50038042-e08d9d80-ffde-11e8-8805-f28195183766.png)
 
 ## Installing
 
->Install the latest 2.7.* or 3.* version of 'python' for whatever operating system you are running on your computer.
+>Install the latest 2.7.* version of 'python' for whatever operating system you are running on your computer.
 
->Also install 'pip' (for python2.7.*) or 'pip3' (for python3.*), a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python' or 'python3', you may need to specify an additional package to get 'pip' or 'pip3' installed.
+>Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python' or 'python3', you may need to specify an additional package to get 'pip' installed.
 
 </br>
 </br>
@@ -18,23 +18,11 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
->>>>For python2.7.*
-
->>>>>***sudo apt-get install python python-pip python-tk python-wxtools libpython2.7-dev***
-
->>>>For python3.*
-
->>>>>***sudo apt-get install python3 python3-pip python3-tk libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libwebkitgtk-3.0-dev***
+>>>>***sudo apt-get install python python-pip python-tk python-wxtools libpython2.7-dev***
 
 >>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
->>>>For python2.7.*
-
->>>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
-
->>>>For python3.*
-
->>>>>***sudo dnf install redhat-rpm-config python3 python3-pip python3-tkinter***
+>>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
 
 >2. Install 'git'
 
@@ -52,33 +40,9 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >4. Install required python libraries, using 'pip'
 
->>For python2.7.*
+>>***pip install --upgrade setuptools***
 
->>>***pip install --upgrade setuptools***
-
->>>***pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
-
->>For python3.*
-
->>>***pip3 install --upgrade setuptools***
-
->>>***pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
-
->>>For Python3, the ***wxPython*** package is odd in that there is no simple install package. Different OS releases require different "extras" to get it to work. Details are found at https://wxpython.org/pages/downloads/
-
->>>Below are examples for installing into particular OS versions. Adjust based on the OS release for your system.
-
->>On Ubuntu-based Linux systems (e.g. Mint, Ubuntu):
-
->>>***pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/ubuntu-18.04/ wxPython***
-
->>On Debian-based Linux systems (e.g. Debian, Linux Mint Debian Edition):
-
->>>***pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/debian-9/ wxPython***
-
->>On Fedora-based Linux systems (e.g. Fedora, RedHat):
-
->>>***pip3 install -U -f https://extras.wxpython.org/wxPython4/extras/linux/gtk3/fedora-28/ wxPython***
+>>***pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
 
 </br>
 </br>
@@ -154,10 +118,6 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 To launch the program, move into the dexctrack/ directory and invoke
 
 >>>***python dexctrack.py***
-
-or
-
->>>***python3 dexctrack.py***
 
 You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out which can help track down issues. For example ...
 
