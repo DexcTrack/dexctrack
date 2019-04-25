@@ -7,7 +7,7 @@ A program to graphically display information from Dexcom Continuous Glucose Moni
 
 >Install the latest 2.7.* version of 'python' for whatever operating system you are running on your computer.
 
->Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python' or 'python3', you may need to specify an additional package to get 'pip' installed.
+>Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python2.7.*', you may need to specify an additional package to get 'pip' installed.
 
 </br>
 </br>
