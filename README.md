@@ -1,5 +1,15 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python version 2.7.* for Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python version 2.7.\* for Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
+
+</br>
+
+About 95% of this code runs fine under python 3.\*, but readdata.py and packetwriter.py (borrowed from the dexcom_reader project), which includes code to write commands to and read data from the Receiver device, don't work under python 3.\* due to the change from ASCII implicit string types to Unicode implicit string types.
+
+</br>
+
+All data read from your Receiver device is stored locally in a database file on your computer. Nothing is written to a remote server or sent to "the cloud". You have complete control and ownership of your private data.
+
+</br>
 
 ![image](https://user-images.githubusercontent.com/39347592/50038042-e08d9d80-ffde-11e8-8805-f28195183766.png)
 
