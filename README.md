@@ -28,7 +28,7 @@ All data read from your Receiver device is stored locally in a database file on 
 
 >>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
->>>>***sudo apt-get install python python-pip python-tk python-wxtools libpython2.7-dev***
+>>>>***sudo apt-get install python python-pip python-tk python-wxtools python-matplotlib libpython2.7-dev***
 
 >>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
