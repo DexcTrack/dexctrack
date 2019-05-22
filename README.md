@@ -50,9 +50,9 @@ All data read from your Receiver device is stored locally in a database file on 
 
 >4. Install required python libraries, using 'pip'
 
->>***pip install --upgrade setuptools***
+>>***sudo pip install --upgrade setuptools***
 
->>***pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
+>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
 
 </br>
 </br>
