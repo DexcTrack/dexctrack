@@ -2475,6 +2475,7 @@ def ShowOrHideEventsNotes():
                 if args.debug:
                     print ('Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
                 eyoffset *= -1.5
+            repositioned = True
             if args.debug:
                 print ('    new offsets =', (exoffset, eyoffset))
 
@@ -2489,6 +2490,11 @@ def ShowOrHideEventsNotes():
             #print ('After event annotation, count =',len(muppy.get_objects()))
         evt_annot.draggable()
         evtPlotList.append(evt_annot)
+
+        # If we had to reposition the annotation, save the new location in the database
+        if repositioned == True:
+            saveAnnToDb(evt_annot)
+
         #if args.debug:
             #print ('After event append, count =',len(muppy.get_objects()))
         last_etime = estime
@@ -2553,6 +2559,7 @@ def ShowOrHideEventsNotes():
                 if args.debug:
                     print ('Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
                 nyoffset *= -1.5
+            repositioned = True
             if args.debug:
                 print ('    new offsets =', (nxoffset, nyoffset))
 
@@ -2567,6 +2574,11 @@ def ShowOrHideEventsNotes():
         notePlotList.append(noteAnn)
         #print ('ShowOrHideEventsNotes note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1])
         #print ('ShowOrHideEventsNotes note : X =', noteAnn.xy[0], 'Y =', noteAnn.xy[1], 'datetime =', estime)
+
+        # If we had to reposition the annotation, save the new location in the database
+        if repositioned == True:
+            saveAnnToDb(noteAnn)
+
         # add this to the list of notes which have already been annotated
         noteTimeSet.add(estime)
         noteSet.add(noteAnn)
