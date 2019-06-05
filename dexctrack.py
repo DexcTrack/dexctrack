@@ -1735,8 +1735,7 @@ def plotInit():
     plt.gcf().autofmt_xdate()
 
     axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=10)
-    #noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='burlywood')
-    noteBox = TextBox(axNote, 'Note', color='tan', hovercolor='coral')
+    noteBox = TextBox(axNote, 'Note', color='wheat', hovercolor='lightsalmon')
     submit_id = noteBox.on_submit(submitNote)
     noteBoxPos = axNote.get_position()
     #print ('noteBoxPos.x0 =',noteBoxPos.x0,'noteBoxPos.y0 =',noteBoxPos.y0,'noteBoxPos =',noteBoxPos)
@@ -3241,7 +3240,9 @@ def plotGraph():
         trendRot = -60.0
     elif lastTrend == 7:   # doubleDown
         trendRot = -90.0
-    else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
+    elif lastTrend == 0:   # none
+        trendRot = 0.0
+    else:                  # notComputable (8) | rateOutOfRange (9)
         trendRot = 360.0
 
     if trendRot < 360.0:
