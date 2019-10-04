@@ -56,7 +56,6 @@ import re
 import util
 import xml.etree.ElementTree as ET
 import platform
-import termios
 from traceback import print_exc
 
 # Some services are only to be invoked on unix-based OSs
@@ -257,7 +256,7 @@ class Dexcom(object):
         try:
             self.clear()
             #print ('Connect() : self.clear()')
-        except termios.error as e:
+        except Exception as e:
             #print ('Connect() - self.clear() : Exception =', e)
             if sys.version_info < (3, 0):
                 sys.exc_clear()
@@ -266,7 +265,7 @@ class Dexcom(object):
         try:
             self.flush()
             #print ('Connect() : self.flush()')
-        except termios.error as e:
+        except Exception as e:
             #print ('Connect() - self.flush() : Exception =', e)
             if sys.version_info < (3, 0):
                 sys.exc_clear()
@@ -284,7 +283,7 @@ class Dexcom(object):
       # be cleaned up, so we use try ... except to ignore those.
       try:
           self.clear()
-      except termios.error as e:
+      except Exception as e:
           #print ('Disconnect() : self.clear Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
@@ -292,7 +291,7 @@ class Dexcom(object):
 
       try:
           self.flush()
-      except termios.error as e:
+      except Exception as e:
           #print ('Disconnect() : self.flush Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
@@ -372,8 +371,8 @@ class Dexcom(object):
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
-    except termios.error as e:
-        #print ('GenericReadCommand() termios.error =', e)
+    except Exception as e:
+        #print ('GenericReadCommand() Exception =', e)
         #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
@@ -553,8 +552,8 @@ class Dexcom(object):
     try:
         self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
                           chr(record_type_index))
-    except termios.error as e:
-        #print ('ReadDatabasePageRange() termios.error =', e)
+    except Exception as e:
+        #print ('ReadDatabasePageRange() Exception =', e)
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
@@ -568,7 +567,7 @@ class Dexcom(object):
     try:
         self.WriteCommand(constants.READ_DATABASE_PAGES,
                           (chr(record_type_index), struct.pack('I', page), chr(1)))
-    except termios.error as e:
+    except Exception as e:
         #print ('ReadDatabasePage() Exception =', e)
         if sys.version_info < (3, 0):
             sys.exc_clear()
@@ -662,7 +661,7 @@ class Dexcom(object):
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return records
-    except termios.error as e:
+    except Exception as e:
         #print ('ReadRecords() : Exception =', e)
         #print_exc()
         if sys.version_info < (3, 0):
