@@ -189,7 +189,7 @@ class readReceiverBase(readdata.Dexcom):
                 del respList
                 curs.close()
                 conn.commit()
-            except Exception as e:
+            except sqlite3.Error as e:
                 print ('DownloadToDb() : Rolling back SQL changes due to exception =', e)
                 curs.close()
                 conn.rollback()

@@ -65,7 +65,7 @@ def thisIsWine():
                         return True
                     else:
                         return False
-                except Exception as e:
+                except OSError as e:
                     #print ('OpenKey failed. Exception =', e)
                     if sys.version_info < (3, 0):
                         sys.exc_clear()
@@ -73,7 +73,7 @@ def thisIsWine():
             else:
                 return False
 
-        except Exception as f:
+        except OSError as f:
             #print ('ConnectRegistry failed. Exception =', f)
             if sys.version_info < (3, 0):
                 sys.exc_clear()

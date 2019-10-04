@@ -28,7 +28,7 @@
 #########################################################################
 #
 # Modifications by Steve Erlenborn:
-#   - Added try ... except to FindDevice().
+#   - Added many try ... except blocks to handle exceptions.
 #   - Added GetDeviceType() method to identify the generation of the
 #     Dexcom device. Returns 'g4', 'g5', 'g6', or the firmware version
 #     number.
@@ -56,6 +56,8 @@ import re
 import util
 import xml.etree.ElementTree as ET
 import platform
+import termios
+from traceback import print_exc
 
 # Some services are only to be invoked on unix-based OSs
 if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
@@ -99,6 +101,7 @@ class Dexcom(object):
           sys.stderr.write('Could not find Dexcom G4|G5|G6 Receiver!\n')
           return None
         else:
+          #print ('GetFirmwareHeader =', self.GetFirmwareHeader())
           fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
           if fw_ver.startswith("4."):   # Not sure about G4 firmware versions
               return 'g4'
@@ -110,6 +113,7 @@ class Dexcom(object):
               return fw_ver
     except Exception as e:
         print ('GetDeviceType() : Exception =', e)
+        print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -174,29 +178,30 @@ class Dexcom(object):
       # Not sure if the G4 has USER_SETTING_DATA, so we'll retrieve the
       # device type and restrict the following code to G5 or G6 cases.
       myDevType = dex.GetDeviceType()
-      if (myDevType == 'g5') or (myDevType == 'g6') :
-          print ('- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA'))))
+      if myDevType is not None:
+          if (myDevType == 'g5') or (myDevType == 'g6') :
+              print ('- User Setting Records: %d' % (len(dex.ReadRecords('USER_SETTING_DATA'))))
 
-          #################################################################################
-          # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
-          # record gets generated, so there can be a large number of these.
-          #################################################################################
-          #print ('USER_SETTING_DATA\n======================================================')
-          #for sen_rec in dex.ReadRecords('USER_SETTING_DATA'):
-              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
-              #print ('transmitterPaired =', sen_rec.transmitterPaired)
-              #print ('highAlert =', sen_rec.highAlert)
-              #print ('highRepeat =', sen_rec.highRepeat)
-              #print ('lowAlert =', sen_rec.lowAlert)
-              #print ('lowRepeat =', sen_rec.lowRepeat)
-              #print ('riseRate =', sen_rec.riseRate)
-              #print ('fallRate =', sen_rec.fallRate)
-              #print ('outOfRangeAlert =', sen_rec.outOfRangeAlert)
-              #print ('soundsType =', sen_rec.soundsType)
-              #if myDevType == 'g6' :
-                  #print ('urgentLowSoonRepeat =', sen_rec.urgentLowSoonRepeat)
-                  #print ('sensorCode =', sen_rec.sensorCode)
-                  #print ('')
+              #################################################################################
+              # Every time you modify any user configuration parameter, a new USER_SETTING_DATA
+              # record gets generated, so there can be a large number of these.
+              #################################################################################
+              #print ('USER_SETTING_DATA\n======================================================')
+              #for sen_rec in dex.ReadRecords('USER_SETTING_DATA'):
+                  #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
+                  #print ('transmitterPaired =', sen_rec.transmitterPaired)
+                  #print ('highAlert =', sen_rec.highAlert)
+                  #print ('highRepeat =', sen_rec.highRepeat)
+                  #print ('lowAlert =', sen_rec.lowAlert)
+                  #print ('lowRepeat =', sen_rec.lowRepeat)
+                  #print ('riseRate =', sen_rec.riseRate)
+                  #print ('fallRate =', sen_rec.fallRate)
+                  #print ('outOfRangeAlert =', sen_rec.outOfRangeAlert)
+                  #print ('soundsType =', sen_rec.soundsType)
+                  #if myDevType == 'g6' :
+                      #print ('urgentLowSoonRepeat =', sen_rec.urgentLowSoonRepeat)
+                      #print ('sensorCode =', sen_rec.sensorCode)
+                      #print ('')
 
   def __init__(self, port_path, port=None):
     self._port_name = port_path
@@ -205,8 +210,8 @@ class Dexcom(object):
   def Connect(self):
     try:
         if self._port is None:
-            self._port = serial.Serial(port=self._port_name, baudrate=115200)
-    except serial.SerialException:
+            self._port = serial.Serial(port=self._port_name, baudrate=115200, timeout=4.3)
+    except serial.SerialException as e:
         if sys.version_info < (3, 0):
             sys.exc_clear()
         try:
@@ -216,11 +221,17 @@ class Dexcom(object):
                     # Trying to access the port file may help make it visible.
                     # For example, on Linux, running 'ls <self._port_name>' helps make
                     # a subsequent serial port access work.
-                    stat_info = os.stat(self._port_name)
+                    try:
+                        stat_info = os.stat(self._port_name)
+                    except OSError as e:
+                        #print ('Connect() - os.stat() : Exception =', e)
+                        if sys.version_info < (3, 0):
+                            sys.exc_clear()
+                        pass
                 time.sleep(15)
-                self._port = serial.Serial(port=self._port_name, baudrate=115200)
+                self._port = serial.Serial(port=self._port_name, baudrate=115200, timeout=4.3)
 
-        except serial.SerialException:
+        except serial.SerialException as e:
             if sys.version_info < (3, 0):
                 sys.exc_clear()
             print ('Read/Write permissions missing for', self._port_name)
@@ -246,8 +257,8 @@ class Dexcom(object):
         try:
             self.clear()
             #print ('Connect() : self.clear()')
-        except Exception as e:
-            #print ('Exception in Connect() : self.clear()')
+        except termios.error as e:
+            #print ('Connect() - self.clear() : Exception =', e)
             if sys.version_info < (3, 0):
                 sys.exc_clear()
             pass
@@ -255,8 +266,8 @@ class Dexcom(object):
         try:
             self.flush()
             #print ('Connect() : self.flush()')
-        except Exception as e:
-            #print ('Exception in Connect() : self.flush()')
+        except termios.error as e:
+            #print ('Connect() - self.flush() : Exception =', e)
             if sys.version_info < (3, 0):
                 sys.exc_clear()
             pass
@@ -273,7 +284,7 @@ class Dexcom(object):
       # be cleaned up, so we use try ... except to ignore those.
       try:
           self.clear()
-      except Exception as e:
+      except termios.error as e:
           #print ('Disconnect() : self.clear Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
@@ -281,7 +292,7 @@ class Dexcom(object):
 
       try:
           self.flush()
-      except Exception as e:
+      except termios.error as e:
           #print ('Disconnect() : self.flush Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
@@ -303,28 +314,35 @@ class Dexcom(object):
 
   def readpacket(self, timeout=None):
     total_read = 4
-    initial_read = self.read(total_read)
-    all_data = initial_read
-    if ord(initial_read[0]) == 1:
-      command = initial_read[3]
-      data_number = struct.unpack('<H', initial_read[1:3])[0]
-      if data_number > 6:
-        toread = abs(data_number-6)
-        second_read = self.read(toread)
-        all_data += second_read
-        total_read += toread
-        out = second_read
-      else:
-        out =  ''
-      suffix = self.read(2)
-      sent_crc = struct.unpack('<H', suffix)[0]
-      local_crc = crc16.crc16(all_data, 0, total_read)
-      if sent_crc != local_crc:
-        raise constants.CrcError("readpacket Failed CRC check")
-      num1 = total_read + 2
-      return ReadPacket(command, out)
-    else:
-      raise constants.Error('Error reading packet header!')
+    try:
+        initial_read = self.read(total_read)
+    except serial.SerialException as e:
+        #print ('readpacket() : Exception =', e)
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
+    if initial_read is not None:
+        all_data = initial_read
+        if ord(initial_read[0]) == 1:
+          command = initial_read[3]
+          data_number = struct.unpack('<H', initial_read[1:3])[0]
+          if data_number > 6:
+            toread = abs(data_number-6)
+            second_read = self.read(toread)
+            all_data += second_read
+            total_read += toread
+            out = second_read
+          else:
+            out =  ''
+          suffix = self.read(2)
+          sent_crc = struct.unpack('<H', suffix)[0]
+          local_crc = crc16.crc16(all_data, 0, total_read)
+          if sent_crc != local_crc:
+            raise constants.CrcError("readpacket Failed CRC check")
+          num1 = total_read + 2
+          return ReadPacket(command, out)
+        else:
+          raise constants.Error('Error reading packet header!')
 
   def Ping(self):
     self.WriteCommand(constants.PING)
@@ -346,38 +364,74 @@ class Dexcom(object):
     self.WritePacket(p.PacketString())
 
   def GenericReadCommand(self, command_id):
-    self.WriteCommand(command_id)
-    return self.readpacket()
+    try:
+        self.WriteCommand(command_id)
+        return self.readpacket()
+    except (serial.SerialTimeoutException, serial.SerialException) as e:
+        #print ('GenericReadCommand() : SerialException =', e)
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
+    except termios.error as e:
+        #print ('GenericReadCommand() termios.error =', e)
+        #print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
 
   def ReadTransmitterId(self):
-    return self.GenericReadCommand(constants.READ_TRANSMITTER_ID).data
+    result = self.GenericReadCommand(constants.READ_TRANSMITTER_ID)
+    if result is None:
+        return None
+    return result.data
 
   def ReadLanguage(self):
-    lang = self.GenericReadCommand(constants.READ_LANGUAGE).data
+    result = self.GenericReadCommand(constants.READ_LANGUAGE)
+    if result is None:
+        return None
+    lang = result.data
     return constants.LANGUAGES[struct.unpack('H', lang)[0]]
 
   def ReadBatteryLevel(self):
-    level = self.GenericReadCommand(constants.READ_BATTERY_LEVEL).data
+    result = self.GenericReadCommand(constants.READ_BATTERY_LEVEL)
+    if result is None:
+        return None
+    level = result.data
     return struct.unpack('I', level)[0]
 
   def ReadBatteryState(self):
-    state = self.GenericReadCommand(constants.READ_BATTERY_STATE).data
+    result = self.GenericReadCommand(constants.READ_BATTERY_STATE)
+    if result is None:
+        return None
+    state = result.data
     return constants.BATTERY_STATES[ord(state)]
 
   def ReadRTC(self):
-    rtc = self.GenericReadCommand(constants.READ_RTC).data
+    result = self.GenericReadCommand(constants.READ_RTC)
+    if result is None:
+        return None
+    rtc = result.data
     return util.ReceiverTimeToTime(struct.unpack('I', rtc)[0])
 
   def ReadSystemTime(self):
-    rtc = self.GenericReadCommand(constants.READ_SYSTEM_TIME).data
+    result = self.GenericReadCommand(constants.READ_SYSTEM_TIME)
+    if result is None:
+        return None
+    rtc = result.data
     return util.ReceiverTimeToTime(struct.unpack('I', rtc)[0])
 
   def ReadSystemTimeOffset(self):
-    raw = self.GenericReadCommand(constants.READ_SYSTEM_TIME_OFFSET).data
+    result = self.GenericReadCommand(constants.READ_SYSTEM_TIME_OFFSET)
+    if result is None:
+        return None
+    raw = result.data
     return datetime.timedelta(seconds=struct.unpack('i', raw)[0])
 
   def ReadDisplayTimeOffset(self):
-    raw = self.GenericReadCommand(constants.READ_DISPLAY_TIME_OFFSET).data
+    result = self.GenericReadCommand(constants.READ_DISPLAY_TIME_OFFSET)
+    if result is None:
+        return None
+    raw = result.data
     return datetime.timedelta(seconds=struct.unpack('i', raw)[0])
 
   def WriteDisplayTimeOffset(self, offset=None):
@@ -392,46 +446,70 @@ class Dexcom(object):
 
   def ReadGlucoseUnit(self):
     UNIT_TYPE = (None, 'mg/dL', 'mmol/L')
-    gu = self.GenericReadCommand(constants.READ_GLUCOSE_UNIT).data
+    result = self.GenericReadCommand(constants.READ_GLUCOSE_UNIT)
+    if result is None:
+        return None
+    gu = result.data
     return UNIT_TYPE[ord(gu[0])]
 
   def ReadClockMode(self):
     CLOCK_MODE = (24, 12)
-    cm = self.GenericReadCommand(constants.READ_CLOCK_MODE).data
+    result = self.GenericReadCommand(constants.READ_CLOCK_MODE)
+    if result is None:
+        return None
+    cm = result.data
     return CLOCK_MODE[ord(cm[0])]
 
   def ReadDeviceMode(self):
     # ???
-    return self.GenericReadCommand(constants.READ_DEVICE_MODE).data
+    result = self.GenericReadCommand(constants.READ_DEVICE_MODE)
+    if result is None:
+        return None
+    return result.data
 
   def ReadBlindedMode(self):
     MODES = { 0: False }
-    raw = self.GenericReadCommand(constants.READ_BLINDED_MODE).data
+    result = self.GenericReadCommand(constants.READ_BLINDED_MODE)
+    if result is None:
+        return None
+    raw = result.data
     mode = MODES.get(bytearray(raw)[0], True)
     return mode
 
   def ReadHardwareBoardId(self):
-    return self.GenericReadCommand(constants.READ_HARDWARE_BOARD_ID).data
+    result = self.GenericReadCommand(constants.READ_HARDWARE_BOARD_ID)
+    if result is None:
+        return None
+    return result.data
 
   def ReadEnableSetupWizardFlag (self):
-    # ???
-    return self.GenericReadCommand(constants.READ_ENABLE_SETUP_WIZARD_FLAG).data
+    result = self.GenericReadCommand(constants.READ_ENABLE_SETUP_WIZARD_FLAG)
+    if result is None:
+        return None
+    return result.data
 
   def ReadSetupWizardState (self):
-    # ???
-    return self.GenericReadCommand(constants.READ_SETUP_WIZARD_STATE).data
+    result = self.GenericReadCommand(constants.READ_SETUP_WIZARD_STATE)
+    if result is None:
+        return None
+    return result.data
 
   def WriteChargerCurrentSetting (self, status):
     MAP = ( 'Off', 'Power100mA', 'Power500mA', 'PowerMax', 'PowerSuspended' )
     payload = str(bytearray([MAP.index(status)]))
     self.WriteCommand(constants.WRITE_CHARGER_CURRENT_SETTING, payload)
     packet = self.readpacket()
+    if packet is None:
+        return None
     raw = bytearray(packet.data)
     return dict(ACK=ord(packet.command) == constants.ACK, raw=list(raw))
 
   def ReadChargerCurrentSetting (self):
     MAP = ( 'Off', 'Power100mA', 'Power500mA', 'PowerMax', 'PowerSuspended' )
-    raw = bytearray(self.GenericReadCommand(constants.READ_CHARGER_CURRENT_SETTING).data)
+    result = self.GenericReadCommand(constants.READ_CHARGER_CURRENT_SETTING)
+    if result is None:
+        return None
+    raw = bytearray(result.data)
     return MAP[raw[0]]
 
 
@@ -453,29 +531,51 @@ class Dexcom(object):
 
   def GetFirmwareHeader(self):
     i = self.GenericReadCommand(constants.READ_FIRMWARE_HEADER)
+    if i is None:
+        return None
     return ET.fromstring(i.data)
 
   # FirmwareSettingsParameters: FirmwareImageId
   def GetFirmwareSettings(self):
     i = self.GenericReadCommand(constants.READ_FIRMWARE_SETTINGS)
+    if i is None:
+        return None
     return ET.fromstring(i.data)
 
   def DataPartitions(self):
     i = self.GenericReadCommand(constants.READ_DATABASE_PARTITION_INFO)
+    if i is None:
+        return None
     return ET.fromstring(i.data)
 
   def ReadDatabasePageRange(self, record_type):
     record_type_index = constants.RECORD_TYPES.index(record_type)
-    self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
-                      chr(record_type_index))
+    try:
+        self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
+                          chr(record_type_index))
+    except termios.error as e:
+        #print ('ReadDatabasePageRange() termios.error =', e)
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return []
     packet = self.readpacket()
+    if packet is None:
+        return []
     return struct.unpack('II', packet.data)
 
   def ReadDatabasePage(self, record_type, page):
     record_type_index = constants.RECORD_TYPES.index(record_type)
-    self.WriteCommand(constants.READ_DATABASE_PAGES,
-                      (chr(record_type_index), struct.pack('I', page), chr(1)))
+    try:
+        self.WriteCommand(constants.READ_DATABASE_PAGES,
+                          (chr(record_type_index), struct.pack('I', page), chr(1)))
+    except termios.error as e:
+        #print ('ReadDatabasePage() Exception =', e)
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return []
     packet = self.readpacket()
+    if packet is None:
+        return []
     assert ord(packet.command) == 1
     # first index (uint), numrec (uint), record_type (byte), revision (byte),
     # page# (uint), r1 (uint), r2 (uint), r3 (uint), ushort (Crc)
@@ -525,7 +625,10 @@ class Dexcom(object):
     if start != end or not end:
       end += 1
     for x in reversed(xrange(start, end)):
-      records = list(self.ReadDatabasePage(record_type, x))
+      page_range = self.ReadDatabasePage(record_type, x)
+      if page_range == []:
+          break
+      records = list(page_range)
       records.reverse( )
       for record in records:
         yield record
@@ -533,13 +636,38 @@ class Dexcom(object):
   def ReadRecords(self, record_type):
     records = []
     assert record_type in constants.RECORD_TYPES
-    page_range = self.ReadDatabasePageRange(record_type)
-    start, end = page_range
-    if start != end or not end:
-      end += 1
-    for x in range(start, end):
-      records.extend(self.ReadDatabasePage(record_type, x))
-    return records
+    try:
+        page_range = self.ReadDatabasePageRange(record_type)
+        if page_range != []:
+            start, end = page_range
+            if start != end or not end:
+              end += 1
+            for x in range(start, end):
+              page_range = self.ReadDatabasePage(record_type, x)
+              if page_range == []:
+                  break
+              records.extend(page_range)
+        return records
+    except serial.SerialException as e:
+        #print ('ReadRecords() : SerialException =', e)
+        print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        self.Disconnect()
+        self.Connect()
+        return records
+    except ValueError as e:
+        #print ('ReadRecords() : ValueError Exception =', e)
+        print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return records
+    except termios.error as e:
+        #print ('ReadRecords() : Exception =', e)
+        #print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return records
 
 class DexcomG5 (Dexcom):
   PARSER_MAP = {
@@ -566,6 +694,8 @@ class DexcomG6 (Dexcom):
 def GetDevice (port):
   workInst = Dexcom(port)
   devType = workInst.GetDeviceType()  # g4 | g5 | g6
+  if devType is None:
+      return None
   if devType == 'g6':
     #print ('GetDevice() creating DexcomG6 class')
     return DexcomG6(port)

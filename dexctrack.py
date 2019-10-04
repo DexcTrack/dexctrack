@@ -46,7 +46,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.0
+dexctrackVersion = 3.1
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -1780,7 +1780,9 @@ def trendToChar(trendValue):
         my_trendChar = 'v'
     elif trendValue == 7:   # doubleDown
         my_trendChar = 'V'
-    else:                  # none (0) | notComputable (8) | rateOutOfRange (9)
+    elif trendValue == 0:   # none
+        my_trendChar = '-'
+    else:                  # notComputable (8) | rateOutOfRange (9)
         my_trendChar = '?'
     return my_trendChar
 
@@ -2362,25 +2364,28 @@ def ShowOrHideEventsNotes():
             # Since users can insert many events in close proximity,
             # the default placement tends to cause collisions of the
             # text. Here, we check to see if the current event is
-            # close (in time) to the previous one. If so, we'll switch
-            # the arrow position from left + down, to left + up, to right + up
-            # to right + down. If 5 in a row are close, then we push the
+            # close (in time) to the previous one. If so, we'll switch the
+            # arrow position from left + up, to left + down, to right + down
+            # to right + up. If 5 in a row are close, then we push the
             # distance out. This scheme spirals the placement out in
             # the order 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', etc.
             #
-            #  'H' (-2,2)----------------+   +-------------(2,2) 'E'
-            #                            |   |
-            #                            |   |
-            #          'D' (-1,1)-----+  |   |  +-----(1,1) 'A'
-            #                         |  V   V  |
-            #                         V         V
-            #
-            #                         ^         <-------+
-            #                         |  ^   ^          |
-            #         'C' (-1,-1)-----+  |   |        (1,-1) 'B'
-            #                            |   |
-            #                            |   |
-            # 'G' (-2,-2)----------------+   +-------------(2,-2) 'F'
+            #  'E' (-2,2)                    +-------------------(2,2) 'H'
+            #      |                         |
+            #      |                         |
+            #      |   'A' (-1,1)            |  +-------(1,1) 'D'
+            #      |          |              V  |
+            #      |          +------->         V
+            #      |
+            #      +---------------->
+            #                                    <-----------------+
+            #                                                      |
+            #                         ^        <-------+           |
+            #                         |  ^             |           |
+            #         'B' (-1,-1)-----+  |           (1,-1) 'C'    |
+            #                            |                         |
+            #                            |                         |
+            # 'F' (-2,-2)----------------+                     (2,-2) 'G'
             #
             if (estime - last_etime) < datetime.timedelta(minutes=110):
                 #print ('---> estime =',estime,'estime - last_etime =',estime - last_etime,', evtStr =',evtStr)
@@ -2389,10 +2394,10 @@ def ShowOrHideEventsNotes():
                     multY = -annRotation
                 elif annCloseCount & 3 == 1:
                     multX = -annRotation
-                    multY = annRotation
+                    multY = -annRotation
                 elif annCloseCount & 3 == 2:
                     multX = -annRotation
-                    multY = -annRotation
+                    multY = annRotation
                 else:
                     annRotation += 0.85
                     multX = annRotation
@@ -2412,8 +2417,12 @@ def ShowOrHideEventsNotes():
         # generate a value which is distanced away from recent event locations.
         #if True:   # Use this to force automatic repositioning
         if (exoffset == 0.0) and (eyoffset == 0.0):
-            exoffset = multX * 70.0
-            eyoffset = multY * (75+longTextBump)
+            if multX > 0:
+                # Push the position to the left using an estimate of the string width
+                exoffset = multX * -50.0 - len(evtStr) * 11.8
+            else:
+                exoffset = multX * -50.0
+            eyoffset = multY * (50.0+longTextBump)
 
         #################################################################################
         #   There's a bug in handling draggable annotations in matplotlib which causes
@@ -2655,7 +2664,7 @@ def plotGraph():
         ax.autoscale_view()
         ax.grid(True)
         ax.tick_params(direction='out', pad=10)
-        ax.set_xlabel('Date & Time', labelpad=-12)
+        ax.set_xlabel('Date & Time', labelpad=-3)
         ax.set_ylabel('Glucose (%s)'%gluUnits, labelpad=10)
 
         dis_annot = ax.annotate("", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
