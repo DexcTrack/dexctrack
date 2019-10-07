@@ -320,7 +320,7 @@ class Dexcom(object):
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
-    if initial_read is not None:
+    if initial_read != []:
         all_data = initial_read
         if ord(initial_read[0]) == 1:
           command = initial_read[3]
@@ -334,6 +334,8 @@ class Dexcom(object):
           else:
             out =  ''
           suffix = self.read(2)
+          if len(suffix) < 2:
+              raise constants.Error('Packet header too short!')
           sent_crc = struct.unpack('<H', suffix)[0]
           local_crc = crc16.crc16(all_data, 0, total_read)
           if sent_crc != local_crc:
@@ -345,7 +347,14 @@ class Dexcom(object):
 
   def Ping(self):
     self.WriteCommand(constants.PING)
-    packet = self.readpacket()
+    try:
+        packet = self.readpacket()
+    except Exception as e:
+        #print ('Ping() Exception =', e)
+        #print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
     return ord(packet.command) == constants.ACK
 
   def WritePacket(self, packet):
@@ -436,7 +445,14 @@ class Dexcom(object):
   def WriteDisplayTimeOffset(self, offset=None):
     payload = struct.pack('i', offset)
     self.WriteCommand(constants.WRITE_DISPLAY_TIME_OFFSET, payload)
-    packet = self.readpacket()
+    try:
+        packet = self.readpacket()
+    except Exception as e:
+        #print ('WriteDisplayTimeOffset() Exception =', e)
+        #print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
     return dict(ACK=ord(packet.command) == constants.ACK)
 
 
@@ -497,7 +513,14 @@ class Dexcom(object):
     MAP = ( 'Off', 'Power100mA', 'Power500mA', 'PowerMax', 'PowerSuspended' )
     payload = str(bytearray([MAP.index(status)]))
     self.WriteCommand(constants.WRITE_CHARGER_CURRENT_SETTING, payload)
-    packet = self.readpacket()
+    try:
+        packet = self.readpacket()
+    except Exception as e:
+        #print ('WriteChargerCurrentSetting() Exception =', e)
+        #print_exc()
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+        return None
     if packet is None:
         return None
     raw = bytearray(packet.data)
@@ -552,12 +575,12 @@ class Dexcom(object):
     try:
         self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
                           chr(record_type_index))
+        packet = self.readpacket()
     except Exception as e:
         #print ('ReadDatabasePageRange() Exception =', e)
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
-    packet = self.readpacket()
     if packet is None:
         return []
     return struct.unpack('II', packet.data)
@@ -567,12 +590,12 @@ class Dexcom(object):
     try:
         self.WriteCommand(constants.READ_DATABASE_PAGES,
                           (chr(record_type_index), struct.pack('I', page), chr(1)))
+        packet = self.readpacket()
     except Exception as e:
         #print ('ReadDatabasePage() Exception =', e)
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
-    packet = self.readpacket()
     if packet is None:
         return []
     assert ord(packet.command) == 1
@@ -649,7 +672,7 @@ class Dexcom(object):
         return records
     except serial.SerialException as e:
         #print ('ReadRecords() : SerialException =', e)
-        print_exc()
+        #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         self.Disconnect()
@@ -657,7 +680,7 @@ class Dexcom(object):
         return records
     except ValueError as e:
         #print ('ReadRecords() : ValueError Exception =', e)
-        print_exc()
+        #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return records
