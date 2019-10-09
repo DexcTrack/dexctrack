@@ -135,64 +135,73 @@ mpl.offsetbox.DraggableBase.__init__ = off_drag_new_init
 mpl.offsetbox.DraggableBase.on_pick = off_drag_on_pick
 mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
 
-#==========================================================================================
-#
-#   The default implementation of artist_picker() has 2 issues which need to be overcome.
-#
-# -------------------------------------------------------------------------------------
-#
-#   The first issue is that when looking for matching annotations, it uses Display
-# coordinates. Unfortunately, the transformation from Data coordinates to Display
-# coordinates places EVERY annotation within the current display. If the display
-# graphs one day of data, then annotations located on any other day, which happen
-# to transform to display units near the mouse get picked.
-#
-#   To fix this bug, we'll use the view limits of the current display to
-# filter out any annotation whose Data coordinates are outside these limits.
-#
-# -------------------------------------------------------------------------------------
-#
-#   The second issue is annotation eclipsing. If there are two or more annotations
-# located near each other, the default selection area for one annotation can
-# completely eclipse another annotation. For example:
-#
-#           'Annotation A Long String'
-#           /                        .
-#          /    'Annotation B'       .
-#          |   /             .       .
-#          |   |             .       .
-#          |   |             . bbox  .
-#          |   V..............       . bbox
-#          V..........................
-#
-#   The default (bbox) selection area is the rectangle including the entire arrow
-# and the text string. If the user is trying to drag 'Annotation B' and clicks the
-# mouse on top of that string, both 'Annotation A Long String' and 'Annotation B'
-# will be selected. If we're using fukatani's fix, then only the first selected
-# annotation will be dragged. If 'Annotation A Long String' is that first one,
-# the the user will be unable to drag 'Annotation B'. When they try to drag it,
-# 'Annotation A Long String' will move instead.
-#
-#   To fix this issue, we'll switch the selection area to a rectangle including
-# just the text string. The _get_xy_display() method provides the position of
-# the lower left corner of the string. The _get_rendered_text_width() method
-# provides the width, and get_size() provides the height.
-#
-#   If the user clicks on 'Annotation B', the mouse will be within that
-# text string, but outside of 'Annotation A Long String'. This greatly
-# reduces the area of collision, and behaves much more naturally for the user.
-#
-#==========================================================================================
-
+#========================================================================================
+#  The default implementation of artist_picker() has 2 issues which need to be overcome.
+#========================================================================================
 def draggable_anot_picker(self, artist, mouse_evt):
     ann = self.annotation
     if ann:
+        # --------------------------------------------------------------------------------
+        #   When looking for matching annotations, the default picker routine uses Display
+        # coordinates. Unfortunately, the transformation from Data coordinates to Display
+        # coordinates places EVERY annotation within the current display. So, even
+        # annotations which are not currently visible on the screen can get accidentally
+        # selected and dragged when the user is trying to drag an annotation which is
+        # visible.
+        #
+        #   To fix this bug, we'll use the view limits of the current display to
+        # filter out any annotation whose Data coordinates are outside those limits.
+        # --------------------------------------------------------------------------------
         # Test whether the annotation is on the currently displayed axes view
         if (ann.axes.viewLim.x0 <= ann.xy[0] <= ann.axes.viewLim.x1) and \
            (ann.axes.viewLim.y0 <= ann.xy[1] <= ann.axes.viewLim.y1):
             pass
         else:
             return False, {}
+
+
+        # --------------------------------------------------------------------------------
+        #   If there are two or more annotations located near each other, the default
+        # selection area for one annotation can completely eclipse another annotation.
+        # For example:
+        #
+        #           'Annotation A Long String'
+        #           /                        .
+        #          /    'Annotation B'       .
+        #          |   /             .       .
+        #          |   |             . bbox  .
+        #          |   V . . . . . . .       . bbox
+        #          V . . . . . . . . . . . . .
+        #
+        #   The default selection area is the (bbox) rectangle including the entire arrow
+        # and the text string. If the user is trying to drag 'Annotation B' and clicks the
+        # mouse on top of that string, both 'Annotation A Long String' and 'Annotation B'
+        # are within the selection group. If we're using fukatani's fix, then only the
+        # randomly ordered, "first" of these elements in the group will be dragged. If
+        # 'Annotation A Long String' is that first one, then the user will be unable to
+        # drag 'Annotation B'. When they try to drag it, 'Annotation A Long String'
+        # will move instead.
+        #
+        #   To fix this issue, we'll switch the selection area to a rectangle including
+        # just the text string. The _get_xy_display() method provides the position of
+        # the lower left corner of the string. The _get_rendered_text_width() method
+        # provides the width, and get_size() provides the height.
+        #
+        #          ............................
+        #          .'Annotation A Long String'.
+        #          ./..........................
+        #          /
+        #          |   ................
+        #          |   .'Annotation B'.
+        #          |   /...............
+        #          |   |
+        #          |   V
+        #          V
+        #
+        #   If the user clicks on 'Annotation B', the mouse will be within that
+        # text string, but outside of 'Annotation A Long String'. This greatly
+        # reduces the area of possible collision.
+        # --------------------------------------------------------------------------------
 
         # Find the location of the Text part of the annotation in Display coordinates
         #                +-----------------+ textX1,textY1
@@ -212,7 +221,7 @@ def draggable_anot_picker(self, artist, mouse_evt):
         return False, {}
     return self.ref_artist.contains(mouse_evt)
 
-# Replace the default artist_picker method with a better one
+# For annotations, replace the default artist_picker method with a better one
 mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
 
 #==========================================================================================
