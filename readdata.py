@@ -85,8 +85,8 @@ class Dexcom(object):
   @staticmethod
   def FindDevice():
     try:
-        return util.find_usbserial(constants.DEXCOM_G4_USB_VENDOR,
-                                   constants.DEXCOM_G4_USB_PRODUCT)
+        return util.find_usbserial(constants.DEXCOM_USB_VENDOR,
+                                   constants.DEXCOM_USB_PRODUCT)
     except NotImplementedError:
         #print ('FindDevice() : Exception =', e)
         if sys.version_info < (3, 0):
@@ -97,7 +97,7 @@ class Dexcom(object):
     try:
         device = self.FindDevice()
         if not device:
-          sys.stderr.write('Could not find Dexcom G4|G5|G6 Receiver!\n')
+          sys.stderr.write('Could not find Dexcom Receiver!\n')
           return None
         else:
           #print ('GetFirmwareHeader =', self.GetFirmwareHeader())
@@ -624,10 +624,17 @@ class Dexcom(object):
       'EGV_DATA': database_records.EGVRecord,
       'SENSOR_DATA': database_records.SensorRecord,
   }
+
   def ParsePage(self, header, data):
     record_type = constants.RECORD_TYPES[ord(header[2])]
     revision = int(header[3])
     generic_parser_map = self.PARSER_MAP
+    if revision > 4 and record_type == 'EGV_DATA':
+      generic_parser_map.update(EGV_DATA=database_records.G6EGVRecord)
+    if revision > 1 and record_type == 'INSERTION_TIME':
+      generic_parser_map.update(INSERTION_TIME=database_records.G5InsertionRecord)
+    if revision > 2 and record_type == 'METER_DATA':
+      generic_parser_map.update(METER_DATA=database_records.G5MeterRecord)
     if revision < 2 and record_type == 'CAL_SET':
       generic_parser_map.update(CAL_SET=database_records.LegacyCalibration)
     xml_parsed = ['PC_SOFTWARE_PARAMETER', 'MANUFACTURING_DATA']
@@ -708,7 +715,7 @@ class DexcomG6 (Dexcom):
       'METER_DATA': database_records.G5MeterRecord,
       'CAL_SET': database_records.Calibration,
       'INSERTION_TIME': database_records.G5InsertionRecord,
-      'EGV_DATA': database_records.G5EGVRecord,
+      'EGV_DATA': database_records.G6EGVRecord,
       'SENSOR_DATA': database_records.SensorRecord,
       'USER_SETTING_DATA': database_records.G6UserSettings,
   }

@@ -107,7 +107,7 @@ def off_drag_on_pick(self, evt):
             self.ref_artist.set_animated(True)
             self.canvas.draw()
             self.background = self.canvas.copy_from_bbox(
-                                self.ref_artist.figure.bbox)
+                self.ref_artist.figure.bbox)
             self.ref_artist.draw(self.ref_artist.figure._cachedRenderer)
             self.canvas.blit(self.ref_artist.figure.bbox)
             self._c1 = self.canvas.mpl_connect('motion_notify_event',
@@ -577,8 +577,8 @@ def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
         # the range of data we need is outside of the last retrieved one
         curSqlMinTime = max(displayEndSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
         curSqlMaxTime = min(max(displayEndSecs + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs)
-        qtime = ReceiverTimeToUtcTime(curSqlMinTime)
-        rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
+        #qtime = ReceiverTimeToUtcTime(curSqlMinTime)
+        #rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
         newRange = True
         #print ('SetCurrentSqlSelectRange(): newRange =', newRange)
         #print ('SetCurrentSqlSelectRange(', curSqlMinTime, ',', curSqlMaxTime, ') : curSqlMinTime =', qtime.astimezone(mytz), ', curSqlMaxTime =', rtime.astimezone(mytz))
@@ -1183,6 +1183,9 @@ def writeNote(xoff=0.0, yoff=0.0):
     global oldNoteText
     global noteArrow
     global submit_id
+    global noteTimeSet
+    global noteSet
+    global notePlotList
 
     #print ('writeNote() : oldNoteText =',oldNoteText,', noteText =',noteText, ', xoff =', xoff, ', yoff =', yoff)
 
@@ -1193,7 +1196,7 @@ def writeNote(xoff=0.0, yoff=0.0):
         # oldNoteText='abc', noteText=''    --> clear arrow
         if oldNoteText == noteText:
             return
-        if noteText is not '':
+        if noteText != '':
             #print ('add note', 'noteLoc[0] =',noteLoc[0],'noteLoc[1] =',noteLoc[1])
             if (xoff == 0.0) and (yoff == 0.0):
                 xoffset = 0.0
@@ -1212,8 +1215,10 @@ def writeNote(xoff=0.0, yoff=0.0):
                                                   shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
             noteAnn.draggable()
             noteSet.add(noteAnn)
-            noteTimeSet.add(mdates.num2date(noteAnn.xy[0], tz=mytz))
-            #print ('writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',mdates.num2date(noteAnn.xy[0],tz=mytz))
+            notePlotList.append(noteAnn)
+            timeIndex = getNearPos(xnorm, mdates.num2date(noteAnn.xy[0], tz=mytz))
+            noteTimeSet.add(xnorm[timeIndex])
+            #print ('writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',xnorm[timeIndex])
             saveAnnToDb(noteAnn)
             noteText = ''
             oldNoteText = ''
@@ -1292,8 +1297,13 @@ def onpick(event):
                             noteText = matchNote.get_text()
                             #if args.debug:
                                 #print ("Deleting existing note '%s'" % noteText)
-                            noteSet.discard(matchNote)
                             deleteNoteFromDb(UtcTimeToReceiverTime(mdates.num2date(matchNote.xy[0], tz=mytz)), noteText)
+                            try:
+                                notePlotList.remove(matchNote)
+                            except ValueError as e:
+                                if sys.version_info < (3, 0):
+                                    sys.exc_clear()
+                            noteSet.discard(matchNote)
                             matchNote.remove()
                             if submit_id is not None:
                                 noteBox.disconnect(submit_id)
@@ -1484,7 +1494,7 @@ def ClearGraph(event):
     redRegionList = []
     redStartSet.clear()
     inRangeRegionList = []
-    while len(inRangeRegionAnnotList) > 0:
+    while inRangeRegionAnnotList:
         inRangeItem = inRangeRegionAnnotList.pop(0)
         inRangeItem.remove()
     inRangeRegionAnnotList = []
@@ -2268,6 +2278,7 @@ def ShowOrHideEventsNotes():
     global annRotation
     global annCloseCount
     global evt_annot
+    global noteTimeSet
 
     #=======================================================
     # Annotate the plot with user events
@@ -2509,7 +2520,7 @@ def ShowOrHideEventsNotes():
         evtPlotList.append(evt_annot)
 
         # If we had to reposition the annotation, save the new location in the database
-        if repositioned == True:
+        if repositioned is True:
             saveAnnToDb(evt_annot)
 
         #if args.debug:
@@ -2593,7 +2604,7 @@ def ShowOrHideEventsNotes():
         #print ('ShowOrHideEventsNotes note : X =', noteAnn.xy[0], 'Y =', noteAnn.xy[1], 'datetime =', estime)
 
         # If we had to reposition the annotation, save the new location in the database
-        if repositioned == True:
+        if repositioned is True:
             saveAnnToDb(noteAnn)
 
         # add this to the list of notes which have already been annotated
@@ -2655,6 +2666,7 @@ def plotGraph():
     global curSqlMinTime
     global curSqlMaxTime
     global newRange
+    global noteTimeSet
 
     #print ('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
     if firstPlotGraph == 1:
@@ -2712,11 +2724,11 @@ def plotGraph():
             redmark.remove()
         redRegionList = []
         redStartSet.clear()
-        while len(inRangeRegionAnnotList) > 0:
+        while inRangeRegionAnnotList:
             inRangeItem = inRangeRegionAnnotList.pop(0)
             inRangeItem.remove()
         inRangeRegionAnnotList = []
-        while len(inRangeRegionList) > 0:
+        while inRangeRegionList:
             inRangeRegionList.pop(0).remove()
         inRangeRegionList = []
         inRangeStartSet.clear()
@@ -2786,7 +2798,7 @@ def plotGraph():
         redRegionList = []
         redStartSet.clear()
         inRangeRegionList = []
-        while len(inRangeRegionAnnotList) > 0:
+        while inRangeRegionAnnotList:
             inRangeItem = inRangeRegionAnnotList.pop(0)
             inRangeItem.remove()
         inRangeRegionAnnotList = []
@@ -2798,11 +2810,11 @@ def plotGraph():
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or (dbGluUnits != gluUnits):
 
             # Need to clear in target annotations, since the target size has changed
-            while len(inRangeRegionAnnotList) > 0:
+            while inRangeRegionAnnotList:
                 inRangeItem = inRangeRegionAnnotList.pop(0)
                 inRangeItem.remove()
             inRangeRegionAnnotList = []
-            while len(inRangeRegionList) > 0:
+            while inRangeRegionList:
                 inRangeRegionList.pop(0).remove()
             inRangeRegionList = []
             inRangeStartSet.clear()
@@ -2872,7 +2884,7 @@ def plotGraph():
             if sys.version_info < (3, 0):
                 sys.exc_clear()
 
-    if len(egvList) > 0:
+    if egvList:
         data = np.array(egvList)
         xx = []
         yy = []

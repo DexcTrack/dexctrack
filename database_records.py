@@ -581,3 +581,7 @@ class G5EGVRecord(EGVRecord):
   @property
   def realtime(self):
     return self.data[8]
+
+
+class G6EGVRecord (G5EGVRecord):
+  FORMAT = '<2IHIBIBBHH'

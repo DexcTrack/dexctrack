@@ -38,8 +38,8 @@ class CrcError(Error):
   """Failed to CRC properly."""
 
 
-DEXCOM_G4_USB_VENDOR = 0x22a3
-DEXCOM_G4_USB_PRODUCT = 0x0047
+DEXCOM_USB_VENDOR = 0x22a3
+DEXCOM_USB_PRODUCT = 0x0047
 
 BASE_TIME = datetime.datetime(2009, 1, 1)
 
