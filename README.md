@@ -54,6 +54,11 @@ All data read from your Receiver device is stored locally in a database file on 
 
 >>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
 
+>5. Install udev rules to get access to device
+
+>>***sudo cp dexctrack/etc/udev/rules.d/80-dexcom.rules /etc/udev/rules.d/***
+>>***sudo udevadm control --reload-rules***
+
 </br>
 </br>
 
