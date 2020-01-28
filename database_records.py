@@ -42,6 +42,9 @@
 #
 #########################################################################
 
+# Support python3 print syntax in python2
+from __future__ import print_function
+
 import crc16
 import constants
 import struct
