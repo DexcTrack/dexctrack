@@ -102,7 +102,11 @@ class Dexcom(object):
         else:
           #print ('GetFirmwareHeader =', self.GetFirmwareHeader())
           fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
-          if fw_ver.startswith("4."):   # Not sure about G4 firmware versions
+          if fw_ver.startswith("2."):   # Not sure about G4 firmware versions
+              return 'g4'
+          elif fw_ver.startswith("3."):
+              return 'g4'
+          elif fw_ver.startswith("4."):
               return 'g4'
           elif fw_ver.startswith("5.0."): # 5.0.1.043 = G5 Receiver Firmware
               return 'g5'
