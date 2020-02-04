@@ -541,7 +541,7 @@ class EGVRecord(GenericTimestampedRecord):
 
   @property
   def testNum(self):
-    return self.data[5] & EGV_TESTNUM_MASK
+    return 0
 
   @property
   def trend_arrow(self):
@@ -581,6 +581,10 @@ class G5EGVRecord(EGVRecord):
   @property
   def realtime(self):
     return self.data[8]
+
+  @property
+  def testNum(self):
+    return self.data[5] & EGV_TESTNUM_MASK
 
 
 class G6EGVRecord (G5EGVRecord):
