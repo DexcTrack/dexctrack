@@ -2907,27 +2907,27 @@ def plotGraph():
 
         # create subset of normal (non-calib) data points
         # and a subset of calibration data points
-        xnorm = []
-        xnorm = xx[yy > 12]
-
-        calibdata = np.array(calibList)
-        #print ('sizeof(calibdata) =',len(calibdata))
         cx = []
         cy = []
         cz = []
         cxnorm = []
-        cx = calibdata[:, 0] # sysSeconds
-        cy = calibdata[:, 1] # glucose
-        cz = calibdata[:, 2] # calibration
-        cxnorm = cx[cy > 12]
-        #print ('sizeof(xnorm) =',len(xnorm),'sizeof(cx) =',len(cx),'sizeof(cy) =',len(cy),'sizeof(cxnorm) =',len(cxnorm))
-        ynorm = []
         cynorm = []
-        ynorm = yy[yy > 12] * gluMult
-        cynorm = cy[cy > 12] * gluMult
-        cznorm = cz[cy > 12] * gluMult
+        cznorm = []
 
-        #print ('len(xx) =',len(xx),' len(yy) =',len(yy),' len(cx) =',len(cx),' len(cy) =',len(cy),' len(cxnorm) =',len(cxnorm),' len(cynorm) =',len(cynorm))
+        xnorm = xx[yy > 12]
+        ynorm = yy[yy > 12] * gluMult
+
+        calibdata = np.array(calibList)
+        #print ('sizeof(calibdata) =',len(calibdata))
+        if calibdata.size != 0:
+            cx = calibdata[:, 0] # sysSeconds
+            cy = calibdata[:, 1] # glucose
+            cz = calibdata[:, 2] # calibration
+            cxnorm = cx[cy > 12]
+            #print ('sizeof(xnorm) =',len(xnorm),'sizeof(cx) =',len(cx),'sizeof(cy) =',len(cy),'sizeof(cxnorm) =',len(cxnorm))
+            cynorm = cy[cy > 12] * gluMult
+            cznorm = cz[cy > 12] * gluMult
+            #print ('len(xx) =',len(xx),' len(yy) =',len(yy),' len(cx) =',len(cx),' len(cy) =',len(cy),' len(cxnorm) =',len(cxnorm),' len(cynorm) =',len(cynorm))
 
         #-----------------------------------------------------
         # Find ranges where we're out of calibration.
@@ -3145,40 +3145,41 @@ def plotGraph():
         if calibScatter:
             calibScatter.remove()
 
-        # Get slices of negative and positive calibration offsets
-        negSlice = np.array([-i for i in cznorm.clip(max=0)])
-        posSlice = np.array(cznorm.clip(min=0))
-        # Get a slice of absolute values
-        absSlice = np.array([abs(i) for i in cznorm])
+        if calibdata.size != 0:
+            # Get slices of negative and positive calibration offsets
+            negSlice = np.array([-i for i in cznorm.clip(max=0)])
+            posSlice = np.array(cznorm.clip(min=0))
+            # Get a slice of absolute values
+            absSlice = np.array([abs(i) for i in cznorm])
 
-        # lower & upper limits of the errorbars
-        lowerLims = np.array(posSlice, dtype=bool)
-        upperLims = np.array(negSlice, dtype=bool)
+            # lower & upper limits of the errorbars
+            lowerLims = np.array(posSlice, dtype=bool)
+            upperLims = np.array(negSlice, dtype=bool)
 
-        calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
-                                   yerr=absSlice, lolims=lowerLims, uplims=upperLims,
-                                   marker='D', linestyle='None', color='black',
-                                   elinewidth=2, ecolor='deeppink', picker=True, zorder=10)
+            calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
+                                       yerr=absSlice, lolims=lowerLims, uplims=upperLims,
+                                       marker='D', linestyle='None', color='black',
+                                       elinewidth=2, ecolor='deeppink', picker=True, zorder=10)
 
-        calibZip = zip(cxnorm, cynorm, cznorm)
-        for qq in calibZip:
-            if qq[0] not in calibDict:
-                if qq[2] >= 0:
-                    # plot the calibration value a little above an Up arrow
-                    heightOffset = 6 * gluMult
-                else:
-                    # plot the calibration value a little below a Down arrow
-                    heightOffset = -14 * gluMult
-                # Save the reference to ax.text in a dictionary
-                if gluUnits == 'mmol/L':
-                    calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
-                                               '%5.2f' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
-                else:
-                    calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
-                                               '%d' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
+            calibZip = zip(cxnorm, cynorm, cznorm)
+            for qq in calibZip:
+                if qq[0] not in calibDict:
+                    if qq[2] >= 0:
+                        # plot the calibration value a little above an Up arrow
+                        heightOffset = 6 * gluMult
+                    else:
+                        # plot the calibration value a little below a Down arrow
+                        heightOffset = -14 * gluMult
+                    # Save the reference to ax.text in a dictionary
+                    if gluUnits == 'mmol/L':
+                        calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                                   '%5.2f' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
+                    else:
+                        calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                                   '%d' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
 
-        #if args.debug:
-            #print ('plotGraph() : new size(calibScatter) =', len(muppy.get_objects()))
+            #if args.debug:
+                #print ('plotGraph() : new size(calibScatter) =', len(muppy.get_objects()))
 
         if linePlot:
             linePlot.pop(0).remove()
