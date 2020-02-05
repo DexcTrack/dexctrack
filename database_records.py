@@ -374,12 +374,20 @@ class MeterRecord(GenericTimestampedRecord):
     return self.data[3]
 
   @property
-  def testNum(self):
+  def meter_time(self):
+    return util.ReceiverTimeToTime(self.data[3])
+
+  @property
+  def xx_testNum(self):
     return 0
 
   @property
-  def meter_time(self):
-    return util.ReceiverTimeToTime(self.data[3])
+  def xx(self):
+    return 0
+
+  @property
+  def testNum(self):
+    return 0
 
   def __repr__(self):
     return '%s: Calib BG:%s' % (self.display_time, self.calib_gluc)
@@ -574,6 +582,11 @@ class G5EGVRecord(EGVRecord):
   #    = realtime (non-smoothed) glucose value [for G6] = ushort (2 bytes)
   #  9 = crc = unsigned short (2 bytes)
   FORMAT = '<2IHIBIBBHH'
+
+  @property
+  def testNum(self):
+    return self.data[5] & EGV_TESTNUM_MASK
+
   @property
   def full_trend(self):
     return self.data[6]
@@ -581,10 +594,6 @@ class G5EGVRecord(EGVRecord):
   @property
   def realtime(self):
     return self.data[8]
-
-  @property
-  def testNum(self):
-    return self.data[5] & EGV_TESTNUM_MASK
 
 
 class G6EGVRecord (G5EGVRecord):
