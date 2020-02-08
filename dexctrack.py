@@ -2063,29 +2063,28 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             sqlData = curs.fetchone()
             haveCalib = (sqlData[0] > 0)
 
-            # testNum == 16777215 for calibration events
-            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE testNum = 16777215 AND glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
-            #                          0        1     2       3     4
-            selectCalSql = 'SELECT sysSeconds,type,glucose,testNum,xx FROM Calib WHERE type=1 AND sysSeconds BETWEEN ?-10 AND ?+10'
-            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
-            sqlData = curs.fetchall()
-            #print ('sql calibration results length =',len(sqlData))
+            if haveCalib:
+                #                          0        1
+                selectCalSql = 'SELECT sysSeconds,glucose FROM Calib WHERE type=1 AND sysSeconds >= ? AND sysSeconds <= ?'
+                selectEgvSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds BETWEEN ?-300 AND ?+300 ORDER BY ABS(sysSeconds - ?) LIMIT 1'
+                curs.execute(selectCalSql, (sqlMinTime, sqlMaxTime))
+                sqlData = curs.fetchall()
+                #print ('sql calibration results length =',len(sqlData))
 
-            for row in sqlData:
-                if haveCalib:
-                    # Search for a User Calibration entry close to this EGV record
-                    curs.execute(selectCalSql, (row[0], row[0]))
-                    calRow = curs.fetchone()
-                else:
-                    calRow = None
-                if calRow:
-                    #ctime = ReceiverTimeToUtcTime(row[0])
-                    #print ('--> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calRow[2], ' xx =', calRow[4], ', timeDiff =', calRow[0] - row[0], ', cgmGluc =', row[1], ', calibDiff =', calRow[2] - row[1])
-                    # calRow[2] is used to calculate an errorbar offset
-                    calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], calRow[2] - row[1], None])
-                else:
-                    # No calRow found so specify a 0 distance offset
-                    calibList.append([ReceiverTimeToUtcTime(row[0]), row[1], 0, None])
+                for calibRow in sqlData:
+                    # Search for the closest EGV record within 5 minutes of the User Calibration entry
+                    curs.execute(selectEgvSql, (calibRow[0], calibRow[0], calibRow[0]))
+                    egvRow = curs.fetchone()
+                    if egvRow:
+                        #ctime = ReceiverTimeToUtcTime(egvRow[0])
+                        #print ('New --> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calibRow[1], ', timeDiff =', calibRow[0] - egvRow[0], ', cgmGluc =', egvRow[1], ', calibDiff =', calibRow[1] - egvRow[1])
+                        # calculate an errorbar offset
+                        calibList.append([ReceiverTimeToUtcTime(egvRow[0]), egvRow[1], calibRow[1] - egvRow[1], None])
+                    else:
+                        # No egvRow was found (possibly due to this Calibration happening
+                        # within a Sensor Calibration period), so specify a 0 distance offset.
+                        # We'll end up plotting the User Calibration without an errorbar.
+                        calibList.append([ReceiverTimeToUtcTime(calibRow[0]), calibRow[1], 0, None])
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserEvent'"

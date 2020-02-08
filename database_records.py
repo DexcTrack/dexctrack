@@ -378,6 +378,10 @@ class MeterRecord(GenericTimestampedRecord):
     return util.ReceiverTimeToTime(self.data[3])
 
   @property
+  def record_type(self):
+    return 1
+
+  @property
   def xx_testNum(self):
     return 0
 
