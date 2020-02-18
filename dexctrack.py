@@ -46,7 +46,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.1
+dexctrackVersion = 3.2
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -2343,7 +2343,7 @@ def ShowOrHideEventsNotes():
 
         elif etype == 2:
             evt_color = 'blue'
-            evtStr = '%0.2f Insulin'%(evalue / 100.0)
+            evtStr = '%g Insulin'%(evalue / 100.0)
 
         elif etype == 3: # Health
             evt_color = 'purple'
