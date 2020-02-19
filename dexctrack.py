@@ -2343,7 +2343,12 @@ def ShowOrHideEventsNotes():
 
         elif etype == 2:
             evt_color = 'blue'
-            evtStr = '%g Insulin'%(evalue / 100.0)
+            if esubtype == 1:
+                evtStr = '%g Fast Insulin'%(evalue / 100.0)
+            elif esubtype == 2:
+                evtStr = '%g Long Insulin'%(evalue / 100.0)
+            else:
+                evtStr = '%g Insulin'%(evalue / 100.0)
 
         elif etype == 3: # Health
             evt_color = 'purple'

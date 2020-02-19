@@ -458,7 +458,8 @@ class EventRecord(GenericTimestampedRecord):
 
   @property
   def event_sub_type(self):
-    subtypes = {'HEALTH': [None, 'ILLNESS', 'STRESS', 'HIGH_SYMPTOMS',
+    subtypes = {'INSULIN': [None, 'FAST', 'LONG'],
+                'HEALTH': [None, 'ILLNESS', 'STRESS', 'HIGH_SYMPTOMS',
                             'LOW_SYMTOMS', 'CYCLE', 'ALCOHOL'],
                 'EXCERCISE': [None, 'LIGHT', 'MEDIUM', 'HEAVY',
                               'MAX_VALUE']}
