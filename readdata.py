@@ -147,26 +147,41 @@ class Dexcom(object):
       # Uncomment out any record types you want to display
 
       #print ('\nEGV_DATA\n======================================================')
-      #maxrec = 300
+      #print ('           +--------------+---------------+-------+---------------+----+----------+---+---+---+--------+------+')
+      #print ('           |  systemTime  |  displayTime  | Gluc  |   meterTime   | ?  | testNum  |Rat|Arw| ? | RealGlu| crc  |')
+      #print ('           +--------------+---------------+-------+---------------+----+----------+---+---+---+--------+------+')
+      #maxrec = 100
       #for egv_rec in dex.ReadRecords('EGV_DATA'):
           #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
       #print ('\nUSER_EVENT_DATA\n======================================================')
-      #maxrec = 300
+      #print ('           +--------------+---------------+----+---+--------------+---------------+--------+')
+      #print ('           |  systemTime  |  displayTime  |Type|Sub|  eventTime   |    Value      |  crc   |')
+      #print ('           +--------------+---------------+----+---+--------------+---------------+--------+')
+      #maxrec = 100
       #for evt_rec in dex.ReadRecords('USER_EVENT_DATA'):
           #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
       #print ('SENSOR_DATA\n======================================================')
+      #print ('           +--------------+---------------+-------------+-------------+-----------+--------+')
+      #print ('           |  systemTime  |  displayTime  | Unfiltered  |   Filtered  |  Rssi     |  crc   |')
+      #print ('           +--------------+---------------+-------------+-------------+-----------+--------+')
       #for sen_rec in dex.ReadRecords('SENSOR_DATA'):
           #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
       #print ('\nINSERTION_TIME\n======================================================')
+      #print ('           +--------------+---------------+---------------+----+--------------+-----------------------+--------+')
+      #print ('           |  systemTime  |  displayTime  | insertionTime |Stat|   unknown    |Transmitter Serial Num |  crc   |')
+      #print ('           +--------------+---------------+---------------+----+--------------+-----------------------+--------+')
       #for ins_rec in dex.ReadRecords('INSERTION_TIME'):
           #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
       #print ('\nMETER_DATA\n======================================================')
+      #print ('           +--------------+---------------+-------+----+---------------+----------+---+--------+')
+      #print ('           |  systemTime  |  displayTime  | Gluc  |Type|   meterTime   | testNum  |xx |  crc   |')
+      #print ('           +--------------+---------------+-------+----+---------------+----------+---+--------+')
       #for met_rec in dex.ReadRecords('METER_DATA'):
           #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data))
           #print ('            record_type =', met_rec.record_type, ', calib_gluc =', met_rec.calib_gluc, ', testNum =', met_rec.testNum, ' xx =', met_rec.xx)

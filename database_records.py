@@ -525,7 +525,7 @@ class EGVRecord(GenericTimestampedRecord):
   # uint, uint, ushort, byte, ushort
   # (system_seconds, display_seconds, glucose, trend_arrow, crc)
   FIELDS = ['glucose', 'trend_arrow']
-  FORMAT = '<2IHcH'
+  FORMAT = '<2IHBH'
 
   @property
   def full_glucose(self):
