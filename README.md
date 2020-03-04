@@ -65,7 +65,7 @@ All data read from your Receiver device is stored locally in a database file on 
 
 >>>>>***sudo usermod -a -G <username> dialout***
 
->>>You may need to log out and back in to make sure the group membership is updated.
+>>>>You may need to log out and back in to make sure the group membership is updated.
 
 >>>b) Install ***udev*** rules to get access to device.
 
