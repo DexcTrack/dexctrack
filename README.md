@@ -50,9 +50,28 @@ All data read from your Receiver device is stored locally in a database file on 
 
 >4. Install required python libraries, using 'pip'
 
->>***sudo pip install --upgrade setuptools***
+>>>***sudo pip install --upgrade setuptools***
 
->>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
+>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
+
+>5. Set up permissions to provide the user serial port access to a connected USB device. Implement one of the following options to accomplish this.
+
+>>>a) Add the user account to the ***dialout*** group.
+
+>>>>On Debian-based or Ubuntu-based Linux systems:
+>>>>>***sudo addgroup <username> dialout***
+
+>>>>On Fedora-based Linux systems:
+
+>>>>>***sudo usermod -a -G <username> dialout***
+
+>>>You may need to log out and back in to make sure the group membership is updated.
+
+>>>b) Install ***udev*** rules to get access to device.
+
+>>>>>***sudo cp dexctrack/etc/udev/rules.d/80-dexcom.rules /etc/udev/rules.d/***
+
+>>>>>***sudo udevadm control --reload-rules***
 
 </br>
 </br>
