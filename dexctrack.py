@@ -60,6 +60,8 @@ parser.add_argument("-y", "--ysize", help="specify height in pixels", type=int)
 parser.add_argument("databaseFile", nargs='?', help="optionally specified database file", type=str)
 args = parser.parse_args()
 
+mytz = tzlocal.get_localzone()
+
 #==========================================================================================
 #
 # The matplotlib library has a bug which causes problems when trying to drag objects.
@@ -208,18 +210,28 @@ def draggable_anot_picker(self, artist, mouse_evt):
         #                | Annotation Text |
         #  textX0,textY0 +-----------------+
         textX0, textY0 = ann._get_xy_display()
-        textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
-        textY1 = textY0 + ann.get_size()
+        try:
+            textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
+        except TypeError:
+            textX1 = textX0
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
 
-        # Test whether the mouse is within the Annotation Text area
-        if (textX0 <= mouse_evt.x <= textX1) and \
-           (textY0 <= mouse_evt.y <= textY1):
+        if textX1 == textX0:
+            # Annotation Text is empty, so don't require the mouse position
+            # to be within the text area.
             pass
         else:
-            return False, {}
+            textY1 = textY0 + ann.get_size()
+            # Test whether the mouse is within the Annotation Text area
+            if (textX0 <= mouse_evt.x <= textX1) and \
+               (textY0 <= mouse_evt.y <= textY1):
+                pass
+            else:
+                return False, {}
+        return self.ref_artist.contains(mouse_evt)
     else:
         return False, {}
-    return self.ref_artist.contains(mouse_evt)
 
 # For annotations, replace the default artist_picker method with a better one
 mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
@@ -289,7 +301,7 @@ except IOError as e:
         sys.exc_clear()
 
 #####################################################################################################################
-# The following variables are set for G4 or G5 devices. They might need to be altered for others.
+# The following variables are set for G4, G5, or G6 devices. They might need to be altered for others.
 #####################################################################################################################
 meterSamplingPeriod = 60.0*5    # Dexcom will take a reading every 5 minutes, so we'll read from
                                 # the receiver at this same rate.
@@ -392,7 +404,8 @@ legPosX = -1.0
 legPosY = -1.0
 restart = False
 bread = None
-sqlMinGluc = 0
+sqlEarliestGluc = 0
+sqlMaximumGluc = 0
 avgGlu = 0
 axNote = None
 noteBoxPos = None
@@ -479,7 +492,6 @@ plt.rcParams['keymap.zoom'] = ''
 home_folder = os.path.expanduser('~')
 sqlprefix = os.path.join(home_folder, 'dexc_')
 
-mytz = tzlocal.get_localzone()
 displayStartDate = datetime.datetime.now(mytz)
 
 # We want to display dates in the local timezone
@@ -815,7 +827,8 @@ class deviceReadThread(threading.Thread):
                         # We probably have new records to add to the database
                         self.readIntoDbFunc(sqlite_file)
                     else:
-                        readDataInstance = getReadDataInstance()
+                        if readDataInstance is None:
+                            readDataInstance = getReadDataInstance()
                         if readDataInstance:
                             curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
                             if curGluc and curFullTrend:
@@ -1305,6 +1318,7 @@ def onpick(event):
                                     sys.exc_clear()
                             noteSet.discard(matchNote)
                             matchNote.remove()
+                            matchNote = None
                             if submit_id is not None:
                                 noteBox.disconnect(submit_id)
                             noteBox.set_val(noteText)
@@ -1967,7 +1981,8 @@ def readRangeFromSql():
 
 #---------------------------------------------------------
 def readDataFromSql(sqlMinTime, sqlMaxTime):
-    global sqlMinGluc
+    global sqlEarliestGluc
+    global sqlMaximumGluc
     global lastRealGluc
     global egvList
     global calibList
@@ -2015,7 +2030,13 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
-                sqlMinGluc = row[1]
+                sqlEarliestGluc = row[1]
+
+            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? AND glucose > 12 ORDER BY glucose DESC LIMIT 1'
+            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
+            sqlData = curs.fetchall()
+            for row in sqlData:
+                sqlMaximumGluc = row[1]
 
             if appendable_db:
                 # get the last real glucose reading
@@ -2941,7 +2962,7 @@ def plotGraph():
         #-----------------------------------------------------
         calibZoneList = []
         lastx = ReceiverTimeToUtcTime(curSqlMinTime)
-        lasty = sqlMinGluc
+        lasty = sqlEarliestGluc
         startOfZone = lastx
         tempRangeEnd = startOfZone
         for pointx, pointy in zip(xx, yy):
@@ -3053,7 +3074,7 @@ def plotGraph():
         #-----------------------------------------------------------
         inRangeList = []
         lastx = ReceiverTimeToUtcTime(curSqlMinTime)
-        lasty = sqlMinGluc
+        lasty = sqlEarliestGluc
         startOfZone = lastx
         tempRangeEnd = startOfZone
         for pointx, pointy in zip(xnorm, ynorm):
@@ -3081,7 +3102,6 @@ def plotGraph():
         for specRange in inRangegen:
             if temp_inRange_patch:
                 temp_inRange_patch.remove()
-                temp_inRange_patch = None
                 temp_inRange_Arrow1.remove()
                 temp_inRange_Arrow2.remove()
                 temp_inRange_Arrow3.remove()
@@ -3091,13 +3111,13 @@ def plotGraph():
                                        0.0, 1.0, color='lightsteelblue',
                                        alpha=1.0, zorder=0)
 
-            inRangeArrow1 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * 325),
-                                        xytext=(mdates.date2num(specRange[1]), gluMult * 325),
+            inRangeArrow1 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * sqlMaximumGluc * 0.9),
+                                        xytext=(mdates.date2num(specRange[1]), gluMult * sqlMaximumGluc * 0.9),
                                         xycoords='data', textcoords='data',
                                         arrowprops=dict(arrowstyle='|-|', color='red', linewidth=4),
                                         annotation_clip=False)
-            inRangeArrow2 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * 325),
-                                        xytext=(mdates.date2num(specRange[1]), gluMult * 325),
+            inRangeArrow2 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * sqlMaximumGluc * 0.9),
+                                        xytext=(mdates.date2num(specRange[1]), gluMult * sqlMaximumGluc * 0.9),
                                         xycoords='data', textcoords='data',
                                         arrowprops=dict(arrowstyle='<->', color='red', linewidth=4),
                                         annotation_clip=False)
@@ -3106,7 +3126,7 @@ def plotGraph():
             inRangeDelta = specRange[1] - specRange[0]
             inRangeHours = inRangeDelta.days * 24 + inRangeDelta.seconds // 3600
             inRangeArrow3 = ax.annotate('%u hours in Target Range!' % inRangeHours,
-                                        xy=(xcenter, gluMult * 340), ha='center',
+                                        xy=(xcenter, gluMult * sqlMaximumGluc * 0.94), ha='center',
                                         va='center', fontsize=22, annotation_clip=False)
 
             if tempRangeEnd == lastx == specRange[1]:
@@ -3148,6 +3168,7 @@ def plotGraph():
         # Plot the calibration settings with a diamond marker and an errorbar
         if calibScatter:
             calibScatter.remove()
+            calibScatter = None
 
         if calibdata.size != 0:
             # Get slices of negative and positive calibration offsets
@@ -3316,8 +3337,13 @@ def plotGraph():
                 # an alternate, powered port  to charge their Receiver.
                 if powerLevel < lastPowerLevel:
                     # we're losing charge
-                    batt_text.set_backgroundcolor('crimson')
                     batt_text.set_text('Draining\n%d%%' % powerLevel)
+                    if powerLevel < 30:
+                        batt_text.set_backgroundcolor('crimson')
+                    elif powerLevel < 70:
+                        batt_text.set_backgroundcolor('hotpink')
+                    else:
+                        batt_text.set_backgroundcolor('deeppink')
                 else:
 
                     batt_text.set_text('%s\n%d%%' % (powerStateString, powerLevel))
