@@ -37,12 +37,47 @@ def get_screen_size():
         dx, dy, width, height = screen.get_monitor_geometry(curmon)  # get geometry of current monitor
 
     elif 'Tk' in backend:
-        # Modified version of implementation by FogleBird at
-        # https://stackoverflow.com/questions/8762536/how-can-i-choose-the-default-wx-display-in-wxpython
-        import wx
-        MyApp = wx.App(False)   # the wx.App object must be created first.
-        display = wx.Display(0) # find the size of the first display screen
-        dx, dy, width, height = display.GetGeometry()
+        # We can find the fullscreen size using just Tkinter, but there is an ugly
+        # side-effect. To get the size of a full screen, we need to draw a window,
+        # expand it to fullscreen, retrieve the size of that window, and then remove
+        # it. This works, but drawing the window and then clearing it causes a flash on
+        # screen, which is annoying. So, we'll first check to see if we have WX
+        # available. Using that package, we can find the fullscreen size without
+        # having to draw anything.
+        try:
+            # Modified version of implementation by FogleBird at
+            # https://stackoverflow.com/questions/8762536/how-can-i-choose-the-default-wx-display-in-wxpython
+            import wx
+
+            MyApp = wx.App(False)   # the wx.App object must be created first.
+            display = wx.Display(0) # find the size of the first display screen
+            dx, dy, width, height = display.GetGeometry()
+        except ImportError:
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+            # Modified version of implementation by norok2 at
+            # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python/56913005#56913005
+            # Modification parses the geometry string to extract width and height.
+            try:
+                # for Python 3
+                import tkinter as tk
+            except ImportError:
+                if sys.version_info < (3, 0):
+                    sys.exc_clear()
+                # for Python 2
+                import Tkinter as tk
+
+            root = tk.Tk()
+            root.update_idletasks()
+            root.attributes('-fullscreen', True)
+            root.state('iconic')
+            geometry = root.winfo_geometry()
+            # geometry format = Width'x'Height'+'Xoffset'+'Yoffset
+            # For example, if run on the second screen of a double
+            # monitor system: 1920x1080+1920+0
+            width_s, height_s = (geometry.split('+'))[0].split('x')
+            width, height = int(width_s), int(height_s)
+            root.destroy()
 
     elif 'MacOSX' in backend:
         # Implementation by Koen Bok and kenorb

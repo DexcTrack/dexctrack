@@ -77,6 +77,21 @@ class readReceiverBase(readdata.Dexcom):
             self._lock.release()
             return (None, None)
 
+    def GetCurrentUserSettings(self):
+        self._lock.acquire()
+        if not self._port_name:
+            dport = self.FindDevice()
+            self._port_name = dport
+        respList = self.ReadRecords('USER_SETTING_DATA')
+        if respList:
+            # The current User Settings are held in the last list element
+            currentUserSettings = respList[-1]
+            self._lock.release()
+            return (currentUserSettings.transmitterPaired, currentUserSettings.highAlert, currentUserSettings.lowAlert, currentUserSettings.riseRate, currentUserSettings.fallRate, currentUserSettings.outOfRangeAlert)
+        else:
+            self._lock.release()
+            return (None, None, None, None, None, None)
+
     def GetPowerInfo(self):
         #print ('readReceiverBase() GetPowerInfo running')
         self._lock.acquire()
