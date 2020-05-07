@@ -452,9 +452,12 @@ curSqlMaxTime = 0
 # Can we append new readings to the database?
 # We'll only allow appending to a db matching a currently attached device.
 appendable_db = True
+disconTimerEnabled = True
 unitRead = None
 #unitButton = None
 newRange = True
+disconUtcTime = datetime.datetime.min
+disconText = None
 
 
 # Sometimes there's a failure running under Windows. If this happens before
@@ -741,6 +744,8 @@ def displayCurrentRange():
 def getSqlFileName(sNum):
     global serialNum
     global appendable_db
+    global disconTimerEnabled
+
     #=======================================================================
     # The database files are of the form dexc_<SERIAL_NUMBER>.sqlite
     # This naming scheme allows handling of multiple receiver
@@ -772,6 +777,9 @@ def getSqlFileName(sNum):
     if specDatabase:
         if appendable_db and my_sqlite_file and (specDatabase != my_sqlite_file):
             appendable_db = False
+
+        disconTimerEnabled = my_sqlite_file and (specDatabase == my_sqlite_file)
+
         my_sqlite_file = specDatabase
         serialNum = string.replace(string.replace(specDatabase, sqlprefix, ''), '.sqlite', '')
 
@@ -909,6 +917,8 @@ class deviceSeekThread(threading.Thread):
             global lastPowerState
             global lastPowerLevel
             global batt_text
+            global disconUtcTime
+            global disconText
 
             prior_sqlite_file = sqlite_file
             prior_connected_state = self.connected_state
@@ -934,6 +944,23 @@ class deviceSeekThread(threading.Thread):
             else:
                 (powerState, powerLevel) = (None, 0)
 
+            if disconTimerEnabled is True:
+                if disconUtcTime != datetime.datetime.min:
+                    disconDelta = datetime.datetime.utcnow() - disconUtcTime
+                    disconMinutes = disconDelta.total_seconds() // 60
+                    if disconMinutes > 0:
+                        # Show how long the Receiver has been disconnected
+                        if disconText:
+                            disconText.set_text('%d minutes' % disconMinutes)
+                        else:
+                            disconText = plt.figtext(.10, .10, '%d minutes' % disconMinutes,
+                                                     size=largeFontSize, weight='bold')
+                        plt.draw()
+                else:
+                    if disconText:
+                        disconText.remove()
+                        disconText = None
+
             #if args.debug:
                 #print ('deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
@@ -942,6 +969,7 @@ class deviceSeekThread(threading.Thread):
                 #if args.debug:
                     #print ('Connected state :', prior_connected_state,' -> ',self.connected_state)
                 if not sNum:
+                    disconUtcTime = datetime.datetime.utcnow()
                     if rthread is not None:
                         # stop trying to read the missing device
                         rthread.stop()
@@ -959,6 +987,11 @@ class deviceSeekThread(threading.Thread):
                     plt.draw()
                 else:
                     # A different device has been connected
+                    disconUtcTime = datetime.datetime.min
+                    if disconText:
+                        # Fade the text before complete removal
+                        disconText.set_alpha(0.5)
+
                     if rthread is not None:
                         rthread.stop()
                         rthread.join()
