@@ -36,9 +36,7 @@ import matplotlib.pyplot as plt
 import matplotlib.style as style
 import matplotlib.dates as mdates
 from matplotlib.widgets import Slider
-from matplotlib.widgets import Button
 from matplotlib.widgets import TextBox
-from matplotlib.widgets import SpanSelector
 import numpy as np
 
 import readReceiver
@@ -46,7 +44,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.2
+dexctrackVersion = 3.3
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -403,20 +401,25 @@ leg = None
 legPosX = -1.0
 legPosY = -1.0
 restart = False
-bread = None
 sqlEarliestGluc = 0
 sqlMaximumGluc = 0
 avgGlu = 0
 axNote = None
-noteBoxPos = None
 noteBox = None
+noteBoxPos = None
+axTgtLow = None
+tgtLowBox = None
+axTgtHigh = None
+tgtHighBox = None
 noteArrow = None
 noteText = ''
 oldNoteText = ''
 oldNoteXoff = 0.0
 oldNoteYoff = 0.0
 noteLoc = None
-submit_id = None
+submit_note_id = None
+submit_tgtLow_id = None
+submit_tgtHigh_id = None
 trendChar = '-'
 gluMult = 1.0
 axPos = None
@@ -424,8 +427,6 @@ posText = None
 axScale = None
 scaleText = None
 sScale = None
-dspan = None
-setRangeButton = None
 sensorWarmupCountDown = None
 latestSensorInsertTime = 0
 minorTickSequence = range(24)
@@ -458,6 +459,8 @@ unitRead = None
 newRange = True
 disconUtcTime = datetime.datetime.min
 disconText = None
+# Number of digits to display after the decimal point for Target Range values
+tgtDecDigits = 0
 
 
 # Sometimes there's a failure running under Windows. If this happens before
@@ -518,10 +521,6 @@ else:
 # or the default for a 15 inch laptop.
 # Note that this will be overridden below, for most backends, by
 # instructions to maximize the window size on a monitor.
-#fig = plt.figure("DexcTrack",figsize=(14.5, 8.5))    # size, in inches  for 1440 x 900
-#fig = plt.figure("DexcTrack",figsize=(19.2, 10.8))   # size, in inches for 1920 x 1080
-#fig = plt.figure("DexcTrack",figsize=(14.23, 8))     # size, in inches for 1366 x 768
-#fig = plt.figure("DexcTrack",figsize=(13.3, 10.6))   # size, in inches for 1280 x 1024
 fig = plt.figure("DexcTrack", figsize=(xinches, yinches))
 figManager = plt.get_current_fig_manager()
 
@@ -1175,6 +1174,14 @@ def press(event):
         # When we're in the Note entry box, 'left' and 'right' are to be used for
         # editing purposes. We don't want those keys to cause data display adjustments.
         pass
+    elif event.inaxes is axTgtLow:
+        # When we're in the Target Low entry box, 'left' and 'right' are to be used for
+        # editing purposes. We don't want those keys to cause data display adjustments.
+        pass
+    elif event.inaxes is axTgtHigh:
+        # When we're in the Target Low entry box, 'left' and 'right' are to be used for
+        # editing purposes. We don't want those keys to cause data display adjustments.
+        pass
     else:
         if event.key == 'left':         # shift one screen left
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - displayRange)
@@ -1224,11 +1231,75 @@ def submitNote(text):
         oldNoteYoff = 0.0
 
 #---------------------------------------------------------
+def submitTgtLow(text):
+    global displayLow
+    global displayHigh
+    global tgtLowBox
+    global tgtHighBox
+
+    try:
+        # convert input to Float
+        newLow = float(text)
+        newLowConv = round(newLow / gluMult, 0)
+        if minDisplayLow <= newLowConv <= maxDisplayHigh:
+            # Handle case where user entered a Low value greater than the current High
+            if newLowConv > displayHigh:
+                displayLow = displayHigh
+                displayHigh = newLowConv
+                tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
+                tgtHighBox.set_val('%g' % round((displayHigh * gluMult), tgtDecDigits))
+            else:
+                displayLow = newLowConv
+                tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
+        else:
+            # Replace the illegal value with the original one
+            tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
+
+        if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
+            saveConfigToDb()
+            plotGraph()
+    except ValueError:
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+
+#---------------------------------------------------------
+def submitTgtHigh(text):
+    global displayLow
+    global displayHigh
+    global tgtLowBox
+    global tgtHighBox
+
+    try:
+        # convert input to Float
+        newHigh = float(text)
+        newHighConv = round(newHigh / gluMult, 0)
+        if minDisplayLow <= newHighConv <= maxDisplayHigh:
+            # Handle case where user entered a High value less than the current Low
+            if newHighConv < displayLow:
+                displayHigh = displayLow
+                displayLow = newHighConv
+                tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
+                tgtHighBox.set_val('%g' % round((displayHigh * gluMult), tgtDecDigits))
+            else:
+                displayHigh = newHighConv
+                tgtHighBox.set_val('%g' % round((displayHigh * gluMult), tgtDecDigits))
+        else:
+            # Replace the illegal value with the original one
+            tgtHighBox.set_val('%g' % round((displayHigh * gluMult), tgtDecDigits))
+
+        if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
+            saveConfigToDb()
+            plotGraph()
+    except ValueError:
+        if sys.version_info < (3, 0):
+            sys.exc_clear()
+
+#---------------------------------------------------------
 def writeNote(xoff=0.0, yoff=0.0):
     global noteText
     global oldNoteText
     global noteArrow
-    global submit_id
+    global submit_note_id
     global noteTimeSet
     global noteSet
     global notePlotList
@@ -1268,10 +1339,10 @@ def writeNote(xoff=0.0, yoff=0.0):
             saveAnnToDb(noteAnn)
             noteText = ''
             oldNoteText = ''
-            if submit_id is not None:
-                noteBox.disconnect(submit_id)
+            if submit_note_id is not None:
+                noteBox.disconnect(submit_note_id)
             noteBox.set_val('')
-            submit_id = noteBox.on_submit(submitNote)
+            submit_note_id = noteBox.on_submit(submitNote)
         #else:
             #print ('writetNote() : noteText = \'\'')
         #print ('writetNote() : calling noteArrow.remove()')
@@ -1291,7 +1362,7 @@ def onpick(event):
     global oldNoteText
     global oldNoteXoff
     global oldNoteYoff
-    global submit_id
+    global submit_note_id
 
     mouseevent = event.mouseevent
     if mouseevent:
@@ -1352,10 +1423,10 @@ def onpick(event):
                             noteSet.discard(matchNote)
                             matchNote.remove()
                             matchNote = None
-                            if submit_id is not None:
-                                noteBox.disconnect(submit_id)
+                            if submit_note_id is not None:
+                                noteBox.disconnect(submit_note_id)
                             noteBox.set_val(noteText)
-                            submit_id = noteBox.on_submit(submitNote)
+                            submit_note_id = noteBox.on_submit(submitNote)
                         else:
                             # replace the old note with the new one
                             oldNoteText = matchNote.get_text()
@@ -1475,32 +1546,6 @@ def hover(event):
                 if vis:
                     dis_annot.set_visible(False)
                     fig.canvas.draw_idle()
-#---------------------------------------------------------
-def onselect(ymin, ymax):
-    global displayLow
-    global displayHigh
-    #print ('onselect: min =',ymin,', max =',ymax)
-    displayLow = round(ymin / gluMult, 0)
-    displayHigh = round(ymax / gluMult, 0)
-    dspan.active = False
-    #print ('onselect: displayLow =', gluMult * displayLow, ', displayHigh =', gluMult * displayHigh)
-    if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
-        saveConfigToDb()
-        if rthread is not None:
-            rthread.restartDelay()
-        plotGraph()
-
-#---------------------------------------------------------
-def ReadButtonCallback(event):
-    #global bread
-    #print ('Button pressed')
-    if dspan:
-        if dspan.active:
-            dspan.active = False
-            #bread.label.set_text('Click to Set\nDesirable\nRange')
-        else:
-            dspan.active = True
-            #bread.label.set_text('Use Left mouse button\nto select range')
 
 #---------------------------------------------------------
 def UnitButtonCallback(event):
@@ -1580,13 +1625,17 @@ def plotInit():
     global majorFormatter
     global minorFormatter
     global axNote
+    global axTgtLow
+    global axTgtHigh
     global noteBox
     global noteBoxPos
-    global submit_id
+    global tgtLowBox
+    global tgtHighBox
+    global submit_note_id
+    global submit_tgtLow_id
+    global submit_tgtHigh_id
     global axPos
     global axScale
-    global setRangeButton
-    global bread
     global legDefaultPosX
     global legDefaultPosY
     global highPercentText
@@ -1599,6 +1648,7 @@ def plotInit():
     global percentFontSize
     global battX
     global battY
+    global gluMult
     #global unitRead
     #global unitButton
     #global axtest
@@ -1613,13 +1663,13 @@ def plotInit():
     axcolor = 'lightsteelblue'
 
     #                [Left, Bottom, Width, Height]
-    axPos = plt.axes([0.20, 0.05, 0.70, 0.03], facecolor=axcolor)
+    axPos = plt.axes([0.20, 0.05, 0.69, 0.03], facecolor=axcolor)
     sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
     # We don't want to display the numerical value, since we're going to
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    axScale = plt.axes([0.20, 0.01, 0.70, 0.03], facecolor=axcolor)
+    axScale = plt.axes([0.20, 0.01, 0.69, 0.03], facecolor=axcolor)
     sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
@@ -1628,7 +1678,6 @@ def plotInit():
     #print ('pixels per inch =',fig.canvas.winfo_fpixels( '1i' ))
     #print ('axPos : Rect =', axPos.get_position().bounds)
     #print ('axPos : Rect.bottom =', axPos.get_position().bounds[1])
-    #print ('axScale : Rect.bottom =', axScale.get_position().bounds[1])
 
     ########################################################
     # hd terminal = 1920 x 1080 -> 1920/1080 = 1.78
@@ -1638,10 +1687,17 @@ def plotInit():
     ########################################################
     if 1.0 < dispRatio <= 1.4:   # 1.25 ratio for 1280 x 1024
                                  # 1.30 ratio for 1024 x 768
-        rangeX = 0.901
-        rangeY = 0.004
-        rangeW = 0.089
-        rangeH = 0.080
+        rangeX = 0.947
+        rangeY = 0.038
+        tgtLowX = 0.893
+        tgtLowY = 0.005
+        tgtLowW = 0.039
+        tgtLowH = 0.035
+        tgtHighX = 0.957
+        tgtHighY = 0.005
+        tgtHighW = 0.048
+        tgtHighH = 0.035
+
         trendX = 0.955
         trendY = 0.945
         battX = 0.946
@@ -1652,11 +1708,10 @@ def plotInit():
         noteH = 0.04
         logoX = 0.043
         logoY = 0.952
-        avgTextX = 0.73
+        avgTextX = 0.68
         avgTextY = 0.89
         verX = 0.003
-        verY = 0.875
-        if height < 1080:
+        if height < 1024:
             largeFontSize = 'medium'
             mediumFontSize = 'small'
             smallFontSize = 'x-small'
@@ -1666,6 +1721,7 @@ def plotInit():
             trendArrowSize = 13
             sPos.label.set_size('small')
             sScale.label.set_size('small')
+            verY = 0.870
         else:
             largeFontSize = 'large'
             mediumFontSize = 'medium'
@@ -1674,12 +1730,20 @@ def plotInit():
             legDefaultPosY = 0.879
             avgFontSz = 'large'
             trendArrowSize = 15
+            verY = 0.880
         percentFontSize = mediumFontSize
     elif 1.4 < dispRatio <= 1.7:  # 1.6 ration for 1440 x 900, 1680 x 1050, 1920 x 1200
-        rangeX = 0.901
-        rangeY = 0.004
-        rangeW = 0.089
-        rangeH = 0.099
+        rangeX = 0.950
+        rangeY = 0.045
+        tgtLowX = 0.910
+        tgtLowY = 0.005
+        tgtLowW = 0.030
+        tgtLowH = 0.040
+        tgtHighX = 0.959
+        tgtHighY = 0.005
+        tgtHighW = 0.03
+        tgtHighH = 0.04
+
         trendX = 0.965
         trendY = 0.945
         battX = 0.946
@@ -1709,10 +1773,17 @@ def plotInit():
             percentFontSize = largeFontSize
     else:  # 1.78 ratio for 1920 x 1080, 1366 x 768, 1280 x 720, 1536 x 864,
            #                1600 x 900, 2560 x 1440, 3840 x 2160, 7680 x 4320
-        rangeX = 0.905
-        rangeY = 0.005
-        rangeW = 0.085
-        rangeH = 0.075
+        rangeX = 0.950
+        rangeY = 0.045
+        tgtLowX = 0.912
+        tgtLowY = 0.005
+        tgtLowW = 0.032
+        tgtLowH = 0.040
+        tgtHighX = 0.959
+        tgtHighY = 0.005
+        tgtHighW = 0.030
+        tgtHighH = 0.04
+
         trendX = 0.965
         trendY = 0.945
         battX = 0.946
@@ -1793,6 +1864,13 @@ def plotInit():
         minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
+    cfgTargetLow, cfgTargetHigh, cfgGluUnits = readConfigFromSql()
+    if cfgGluUnits == 'mmol/L':
+        # mmol/L = mg/dL x 0.0555
+        gluMult = 0.0555
+    else:
+        gluMult = 1.0
+
     plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
 
     fig.canvas.mpl_connect('key_press_event', press)
@@ -1802,14 +1880,25 @@ def plotInit():
 
     axNote = plt.axes([noteX, noteY, noteW, noteH], frameon=True, zorder=10)
     noteBox = TextBox(axNote, 'Note', color='wheat', hovercolor='lightsalmon')
-    submit_id = noteBox.on_submit(submitNote)
+    submit_note_id = noteBox.on_submit(submitNote)
     noteBoxPos = axNote.get_position()
     #print ('noteBoxPos.x0 =',noteBoxPos.x0,'noteBoxPos.y0 =',noteBoxPos.y0,'noteBoxPos =',noteBoxPos)
 
-    setRangeButton = plt.axes([rangeX, rangeY, rangeW, rangeH], zorder=13)   # X, Y, X-width, Y-height
-    bread = Button(setRangeButton, 'Set\nNew Target\nRange', color='gold', hovercolor='red')
-    bread.label.set_fontsize(mediumFontSize)
-    bread.on_clicked(ReadButtonCallback)
+    ####################################################################################
+    axTgtLow = plt.axes([tgtLowX, tgtLowY, tgtLowW, tgtLowH], frameon=True, zorder=10)
+    axTgtHigh = plt.axes([tgtHighX, tgtHighY, tgtHighW, tgtHighH], frameon=True, zorder=10)
+
+    tgtLowBox = TextBox(axTgtLow, '', initial='%g' % round((cfgTargetLow * gluMult), tgtDecDigits),
+                        color='gold', hovercolor='lightsalmon')
+    tgtHighBox = TextBox(axTgtHigh, '', initial='%g' % round((cfgTargetHigh * gluMult), tgtDecDigits),
+                         color='gold', hovercolor='lightsalmon')
+
+    submit_tgtLow_id = tgtLowBox.on_submit(submitTgtLow)
+    submit_tgtHigh_id = tgtHighBox.on_submit(submitTgtHigh)
+
+    plt.gcf().text(rangeX, rangeY, 'Target Range\n\n-', size=mediumFontSize, color='black',
+                   backgroundcolor='gold', ha='center', va='center')
+    ####################################################################################
 
     #axtest = plt.axes([0, 0.15, 0.1, 0.075])
     #testRead = Button(axtest, 'Jump', color='pink')
@@ -1980,6 +2069,38 @@ def calcStats():
             lowPercentText.set_text('%4.1f%%' %lowPercent)
 
 #---------------------------------------------------------
+def readConfigFromSql():
+    global tgtDecDigits
+
+    if sqlite_file:
+        conn = sqlite3.connect(sqlite_file)
+        curs = conn.cursor()
+
+        selectSql = "SELECT count(*) from sqlite_master where type='table' and name='Config'"
+        curs.execute(selectSql)
+        sqlData = curs.fetchone()
+        if sqlData[0] > 0:
+            selectSql = "SELECT displayLow, displayHigh, glUnits FROM Config"
+            curs.execute(selectSql)
+            sqlData = curs.fetchone()
+            if sqlData is not None:
+                myDisplayLow = sqlData[0]
+                myDisplayHigh = sqlData[1]
+                myGluUnits = sqlData[2]
+                if myGluUnits == 'mmol/L':
+                    tgtDecDigits = 1
+                else:
+                    tgtDecDigits = 0
+                curs.close()
+                conn.close()
+                return myDisplayLow, myDisplayHigh, myGluUnits
+
+        curs.close()
+        conn.close()
+    # Couldn't read from database, so return default values
+    return displayLow, displayHigh, gluUnits
+
+#---------------------------------------------------------
 def readRangeFromSql():
     global firstTestSysSecs
     global lastTestSysSecs
@@ -2030,6 +2151,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
     global legPosY
     global dbGluUnits
     global readDataInstance
+    global tgtDecDigits
 
     #if args.debug:
         #print ('readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz)))
@@ -2211,6 +2333,11 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 legPosY = legDefaultPosY
                 dbGluUnits = 'mg/dL'
 
+            if dbGluUnits == 'mmol/L':
+                tgtDecDigits = 1
+            else:
+                tgtDecDigits = 0
+
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         del sqlData
@@ -2380,6 +2507,9 @@ def ShowOrHideEventsNotes():
         notePlotList = []
         return
 
+    # Note: 'pylint' complains about the following line,
+    #   Do not use `len(SEQUENCE)` to determine if a sequence is empty (len-as-condition)
+    # but it is WRONG because 'xnorm' is a numpy.array.
     if len(xnorm) == 0:
         return
 
@@ -2709,7 +2839,6 @@ def plotGraph():
     global displayHigh
     global cfgDisplayLow
     global cfgDisplayHigh
-    global dspan
     global sensorWarmupCountDown
     global gluUnits
     global gluMult
@@ -2759,14 +2888,11 @@ def plotGraph():
         sScale.set_val(100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin))
 
         dispDate = displayStartDate.strftime("%Y-%m-%d")
-        posText = axPos.text(50.0, 0.15, dispDate, horizontalalignment='center', verticalalignment='bottom', weight='bold')
-        scaleText = axScale.text(50.00, 100.0, SecondsToGeneralTimeString(displayRange), horizontalalignment='center', verticalalignment='bottom', weight='bold')
-
-        dspan = SpanSelector(ax, onselect, 'vertical', useblit=True,
-                             rectprops=dict(alpha=0.5, facecolor='red'),
-                             minspan=3.0 * gluMult, button=1)
-        # The span selector will not be activated until the setRangeButton is clicked
-        dspan.active = False
+        posText = axPos.text(0.50, 0.20, dispDate, horizontalalignment='center',
+                             verticalalignment='bottom', weight='bold', transform=axPos.transAxes)
+        scaleText = axScale.text(0.50, 0.20, SecondsToGeneralTimeString(displayRange),
+                                 horizontalalignment='center', verticalalignment='bottom',
+                                 weight='bold', transform=axScale.transAxes)
 
         readRangeFromSql()
         curSqlMaxTime = lastTestSysSecs
@@ -2829,6 +2955,8 @@ def plotGraph():
             gluMult = 1.0
             scaleText.y = 70.0
         ax.set_ylabel('Glucose (%s)'%dbGluUnits)
+        tgtLowBox.set_val('%g' % round(displayLow * gluMult, tgtDecDigits))
+        tgtHighBox.set_val('%g' % round(displayHigh * gluMult, tgtDecDigits))
         # erase all previously plotted event annotations
         for evtP in evtPlotList:
             evtP.remove()
