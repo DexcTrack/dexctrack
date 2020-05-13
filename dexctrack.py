@@ -1649,6 +1649,9 @@ def plotInit():
     global battX
     global battY
     global gluMult
+    global cfgDisplayLow
+    global cfgDisplayHigh
+    global dbGluUnits
     #global unitRead
     #global unitButton
     #global axtest
@@ -1864,8 +1867,8 @@ def plotInit():
         minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
-    cfgTargetLow, cfgTargetHigh, cfgGluUnits = readConfigFromSql()
-    if cfgGluUnits == 'mmol/L':
+    cfgDisplayLow, cfgDisplayHigh, dbGluUnits = readConfigFromSql()
+    if dbGluUnits == 'mmol/L':
         # mmol/L = mg/dL x 0.0555
         gluMult = 0.0555
     else:
@@ -1888,9 +1891,9 @@ def plotInit():
     axTgtLow = plt.axes([tgtLowX, tgtLowY, tgtLowW, tgtLowH], frameon=True, zorder=10)
     axTgtHigh = plt.axes([tgtHighX, tgtHighY, tgtHighW, tgtHighH], frameon=True, zorder=10)
 
-    tgtLowBox = TextBox(axTgtLow, '', initial='%g' % round((cfgTargetLow * gluMult), tgtDecDigits),
+    tgtLowBox = TextBox(axTgtLow, '', initial='%g' % round((cfgDisplayLow * gluMult), tgtDecDigits),
                         color='gold', hovercolor='lightsalmon')
-    tgtHighBox = TextBox(axTgtHigh, '', initial='%g' % round((cfgTargetHigh * gluMult), tgtDecDigits),
+    tgtHighBox = TextBox(axTgtHigh, '', initial='%g' % round((cfgDisplayHigh * gluMult), tgtDecDigits),
                          color='gold', hovercolor='lightsalmon')
 
     submit_tgtLow_id = tgtLowBox.on_submit(submitTgtLow)
