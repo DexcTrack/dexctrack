@@ -477,6 +477,8 @@ if sys.platform == "win32":
     import signal
     signal.signal(signal.SIGINT, CtrlCHandler)
 
+# Disable toolbar which appears in some backends
+plt.rcParams['toolbar'] = 'None'
 
 # Disable default keyboard shortcuts so that a user
 # accidentally hitting 'q' won't kill the application.
