@@ -1257,6 +1257,15 @@ def submitTgtLow(text):
 
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
             saveConfigToDb()
+
+            # If the user increases the Low end of Target Range, we may be able to
+            # reduce the scale of the Y axis, depending on the minimum data value in
+            # that axis. The lines below allow us to possibly zoom in on the Y axis.
+            ax.ignore_existing_data_limits = True
+            ax.update_datalim(egvScatter.get_datalim(ax.transData))
+            ax.autoscale_view()
+            ax.ignore_existing_data_limits = False
+
             plotGraph()
     except ValueError:
         if sys.version_info < (3, 0):
@@ -1289,6 +1298,15 @@ def submitTgtHigh(text):
 
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh):
             saveConfigToDb()
+
+            # If the user reduces the High end of Target Range, we may be able to
+            # reduce the scale of the Y axis, depending on the maximum data value in
+            # that axis. The lines below allow us to possibly zoom in on the Y axis.
+            ax.ignore_existing_data_limits = True
+            ax.update_datalim(egvScatter.get_datalim(ax.transData))
+            ax.autoscale_view()
+            ax.ignore_existing_data_limits = False
+
             plotGraph()
     except ValueError:
         if sys.version_info < (3, 0):
