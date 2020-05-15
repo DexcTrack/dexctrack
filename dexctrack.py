@@ -461,6 +461,7 @@ disconUtcTime = datetime.datetime.min
 disconText = None
 # Number of digits to display after the decimal point for Target Range values
 tgtDecDigits = 0
+dayRotation = 30
 
 
 # Sometimes there's a failure running under Windows. If this happens before
@@ -1676,6 +1677,7 @@ def plotInit():
     global cfgDisplayLow
     global cfgDisplayHigh
     global dbGluUnits
+    global dayRotation
     #global unitRead
     #global unitButton
     #global axtest
@@ -1849,6 +1851,13 @@ def plotInit():
             verY = 0.880
             trendArrowSize = 15
             percentFontSize = largeFontSize
+
+    # If we're squeezed for vertical space, rotate the date and day name less so
+    # that "Date & Time" string won't be pushed down to collide with Start Date.
+    if height < 800:
+        dayRotation = 20
+    else:
+        dayRotation = 30
 
     stat_text = plt.figtext(.05, .04, 'Search\nReceiver\nDevice',
                             backgroundcolor='y', size=largeFontSize, weight='bold',
@@ -2889,7 +2898,7 @@ def plotGraph():
 
         ax = fig.add_subplot(1, 1, 1)
         # rotate labels a bit to use less vertical space
-        plt.xticks(rotation=30)
+        plt.xticks(rotation=dayRotation)
 
         # mpl.dates.MinuteLocator(interval=15)
         ax.xaxis.set_major_locator(mpl.dates.DayLocator())
@@ -2915,9 +2924,9 @@ def plotGraph():
         sScale.set_val(100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin))
 
         dispDate = displayStartDate.strftime("%Y-%m-%d")
-        posText = axPos.text(0.50, 0.20, dispDate, horizontalalignment='center',
+        posText = axPos.text(0.50, 0.10, dispDate, horizontalalignment='center',
                              verticalalignment='bottom', weight='bold', transform=axPos.transAxes)
-        scaleText = axScale.text(0.50, 0.20, SecondsToGeneralTimeString(displayRange),
+        scaleText = axScale.text(0.50, 0.10, SecondsToGeneralTimeString(displayRange),
                                  horizontalalignment='center', verticalalignment='bottom',
                                  weight='bold', transform=axScale.transAxes)
 
