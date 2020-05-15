@@ -534,7 +534,11 @@ if args.xsize and args.ysize:
     pass
 else:
     if 'Tk' in backend:
-        figManager.resize(*figManager.window.maxsize())
+        if sys.platform == "win32":
+            # On Windows, we can get max size, without the taskbar, by zooming
+            figManager.window.state('zoomed')
+        else:
+            figManager.resize(*figManager.window.maxsize())
     elif ('Qt' in backend) or ('QT' in backend):
         figManager.window.showMaximized()
     elif 'WX' in backend:
