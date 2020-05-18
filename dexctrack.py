@@ -737,7 +737,7 @@ def displayCurrentRange():
                         mdates.date2num(ReceiverTimeToUtcTime(displayEndSecs)))
             #if args.debug:
                 #print ('displayCurrentRange() before fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
-            fig.canvas.draw_idle()   # each call generates new references to 120 - 300 objectss
+            fig.canvas.draw_idle()   # each call generates new references to 120 - 300 objects
             #if args.debug:
                 #print ('displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
                 #tr.print_diff()
@@ -1268,10 +1268,11 @@ def submitTgtLow(text):
             # If the user increases the Low end of Target Range, we may be able to
             # reduce the scale of the Y axis, depending on the minimum data value in
             # that axis. The lines below allow us to possibly zoom in on the Y axis.
-            ax.ignore_existing_data_limits = True
-            ax.update_datalim(egvScatter.get_datalim(ax.transData))
-            ax.autoscale_view()
-            ax.ignore_existing_data_limits = False
+            if egvScatter is not None:
+                ax.ignore_existing_data_limits = True
+                ax.update_datalim(egvScatter.get_datalim(ax.transData))
+                ax.autoscale_view()
+                ax.ignore_existing_data_limits = False
 
             plotGraph()
     except ValueError:
@@ -1309,10 +1310,11 @@ def submitTgtHigh(text):
             # If the user reduces the High end of Target Range, we may be able to
             # reduce the scale of the Y axis, depending on the maximum data value in
             # that axis. The lines below allow us to possibly zoom in on the Y axis.
-            ax.ignore_existing_data_limits = True
-            ax.update_datalim(egvScatter.get_datalim(ax.transData))
-            ax.autoscale_view()
-            ax.ignore_existing_data_limits = False
+            if egvScatter is not None:
+                ax.ignore_existing_data_limits = True
+                ax.update_datalim(egvScatter.get_datalim(ax.transData))
+                ax.autoscale_view()
+                ax.ignore_existing_data_limits = False
 
             plotGraph()
     except ValueError:
@@ -1605,38 +1607,49 @@ def ClearGraph(event):
     global curSqlMinTime
     global curSqlMaxTime
 
-    # erase all previously plotted red calibration regions
+    # erase all previously plotted regions
     for redmark in redRegionList:
         redmark.remove()
     redRegionList = []
     redStartSet.clear()
-    inRangeRegionList = []
     while inRangeRegionAnnotList:
         inRangeItem = inRangeRegionAnnotList.pop(0)
         inRangeItem.remove()
     inRangeRegionAnnotList = []
+    while inRangeRegionList:
+        inRangeRegionList.pop(0).remove()
+    inRangeRegionList = []
     inRangeStartSet.clear()
 
     # erase all previously plotted events
     for evtP in evtPlotList:
         evtP.remove()
     evtPlotList = []
+    etimeSet.clear()
+
     # erase all previously plotted notes
+    noteTimeSet.clear()
     for noteP in notePlotList:
         noteP.remove()
     notePlotList = []
-    etimeSet.clear()
     noteSet.clear()
-    if egvScatter:
-        egvScatter.remove()
-        egvScatter = None
+
+    # erase calibration numbers
+    for calTextRef in calibDict:
+        calibDict[calTextRef].remove()
+    calibDict.clear()
+
+    # erase scatter & line plots
     if calibScatter:
         calibScatter.remove()
         calibScatter = None
-    calibDict.clear()
+    if egvScatter:
+        egvScatter.remove()
+        egvScatter = None
     if linePlot:
         linePlot.pop(0).remove()
         linePlot = None
+
     curSqlMinTime = 0
     curSqlMaxTime = 0
 
@@ -2939,7 +2952,22 @@ def plotGraph():
     if restart is True:
         if args.debug:
             print ('Erasing plot data from previous device')
-        # erase all previously plotted red calibration regions
+        # erase all previously plotted event annotations
+        for evtP in evtPlotList:
+            evtP.remove()
+        evtPlotList = []
+        etimeSet.clear()
+        # erase all previously plotted notes
+        noteTimeSet.clear()
+        for noteP in notePlotList:
+            noteP.remove()
+        notePlotList = []
+        noteSet.clear()
+        # erase all previously plotted calibrations
+        for calTextRef in calibDict:
+            calibDict[calTextRef].remove()
+        calibDict.clear()
+        # erase all previously plotted regions
         for redmark in redRegionList:
             redmark.remove()
         redRegionList = []
@@ -2952,19 +2980,6 @@ def plotGraph():
             inRangeRegionList.pop(0).remove()
         inRangeRegionList = []
         inRangeStartSet.clear()
-
-        # erase all previously plotted event annotations
-        for evtP in evtPlotList:
-            evtP.remove()
-        evtPlotList = []
-        etimeSet.clear()
-        # erase all previously plotted notes
-        noteTimeSet.clear()
-        for noteP in notePlotList:
-            noteP.remove()
-        notePlotList = []
-        del runningMean[:]
-        runningMean = []
         cfgDisplayLow = None
         cfgDisplayHigh = None
         restart = False
@@ -2993,18 +3008,13 @@ def plotGraph():
         ax.set_ylabel('Glucose (%s)'%dbGluUnits)
         tgtLowBox.set_val('%g' % round(displayLow * gluMult, tgtDecDigits))
         tgtHighBox.set_val('%g' % round(displayHigh * gluMult, tgtDecDigits))
-        # erase all previously plotted event annotations
-        for evtP in evtPlotList:
-            evtP.remove()
-        evtPlotList = []
-        etimeSet.clear()
-        # erase all previously plotted notes
-        noteTimeSet.clear()
-        for noteP in notePlotList:
-            noteP.remove()
-        notePlotList = []
+        # erase plotted calibration numbers because their units have changed
+        for calTextRef in calibDict:
+            calibDict[calTextRef].remove()
+        calibDict.clear()
 
     if newRange is True:
+        #---------------------------------------------------------
         # erase all previously plotted event annotations
         for evtP in evtPlotList:
             evtP.remove()
@@ -3015,6 +3025,11 @@ def plotGraph():
         for noteP in notePlotList:
             noteP.remove()
         notePlotList = []
+        # erase all previously plotted calibration numbers
+        for calTextRef in calibDict:
+            calibDict[calTextRef].remove()
+        calibDict.clear()
+        # erase all previously plotted regions
         for redmark in redRegionList:
             redmark.remove()
         redRegionList = []
