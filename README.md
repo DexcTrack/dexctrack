@@ -11,7 +11,14 @@ All data read from your Receiver device is stored locally in a database file on 
 
 </br>
 
-![image](https://user-images.githubusercontent.com/39347592/50038042-e08d9d80-ffde-11e8-8805-f28195183766.png)
+![image](https://user-images.githubusercontent.com/39347592/82265687-35001f80-992d-11ea-97d4-85625f1935d5.png)
+
+---
+This application supports use of both mg/dL and mmol/L units. It displays using to the units configured on your receiver.
+
+![image](https://user-images.githubusercontent.com/39347592/82266049-3716ae00-992e-11ea-8469-7dfddb3b7ac3.png)
+
+---
 
 ## Installing
 
@@ -180,7 +187,7 @@ The Scale slider (in green at the bottom of the screen) can be used to zoom the 
 
 When you scale out to a large time period, the graph could get cluttered with a large number of Event or Note strings. When the number of such strings gets too large (> 30), they get dropped from the display.
 
-![image](https://user-images.githubusercontent.com/39347592/50038172-cc4aa000-ffe0-11e8-9044-82ba09e01717.png)
+![image](https://user-images.githubusercontent.com/39347592/82265795-7e506f00-992d-11ea-84b9-0b44f17562b8.png)
 
 With a smaller time period, user added Events get plotted onto the graph. Some effort is taken to avoid collisions between multiple Events, but there will still be collisions fairly often. Each of the Event strings is draggable, so the user can click on a string with the left mouse button to grab a string, drag it to a better location, and then release the mouse button. For example, here you can see that the plotting position for "10 min light exercise" intersects with the plotted line.
 
@@ -196,17 +203,17 @@ This gives a cleaner image. The new position will get stored in the database, so
 
 Usually, when the Receiver is connected to a USB port, its battery gets recharged. On rare occasions, a computer may stop providing power to a particular USB port. I had mine connected for many hours, but when I detached it to depart from home, I found it had no charge. That was frustrating, so I added a display of the current battery status in the lower right corner, above the "Set New Target Range" button. When the battery is currently charging, the percentage of full charge is displayed in a light green color.
 
-![image](https://user-images.githubusercontent.com/39347592/50038105-c7392100-ffdf-11e8-825c-18e44f63b399.png)
+![image](https://user-images.githubusercontent.com/39347592/82259282-e9e00f80-9920-11ea-836d-acf33546fd06.jpg)
 
 When fully charged, this switches to a darker green.
 
-![image](https://user-images.githubusercontent.com/39347592/50038108-cbfdd500-ffdf-11e8-8725-fb47a304aa24.png)
+![image](https://user-images.githubusercontent.com/39347592/82259295-f06e8700-9920-11ea-81b2-93bd006d27f6.jpg)
 
 If no power is being provided, and battery charge is decreasing, the status will be labeled "Draining" with a red color.
 
-![image](https://user-images.githubusercontent.com/39347592/50038110-d15b1f80-ffdf-11e8-834c-13358d9c9229.png)
+![image](https://user-images.githubusercontent.com/39347592/82259271-e64c8880-9920-11ea-9ec4-737e04000270.jpg)
 
-If you see such a condition, try disconnecting and reconnecting the USB cable. You may want to try switching to a different USB port, if available.
+If you see such a condition, try disconnecting and reconnecting the USB cable. This usually fixes the problem. If not, you may want to try switching to a different USB port, if available.
 
 ---
 
@@ -242,17 +249,31 @@ Like Events, Notes are draggable, so you can click on the string with your left 
 
 ![image](https://user-images.githubusercontent.com/39347592/40762389-5cc3f954-6466-11e8-81bd-1d7af4715751.png)
 
-By default, the Target range is 75 - 200 mg/dL. If you want to set a different target range, use the left mouse button to click the 'Set New Target Range' button in the bottom right corner of the screen. This will switch the color of that button from yellow to red.
+By default, the Target range is 75 - 200 mg/dL. This range is displayed in the lower right corner of the screen. If you hover the mouse pointer over the low end or high end of the displayed range, the background color will switch to light salmon. This is a hint that the text value can be edited. If you want to set a different target range, use the left mouse button to click in the box showing the low end of the range. This will give you a text cursor which can be used to set a different value. For example, you can switch 75 to 95,
 
-![image](https://user-images.githubusercontent.com/39347592/40806452-1fcbb222-64e7-11e8-8102-e3a5297ab7d3.png)
+![image](https://user-images.githubusercontent.com/39347592/82259310-f5cbd180-9920-11ea-8e0e-0ea13e77dee6.jpg)
 
-Next, use the left mouse button to select a new range. Move the mouse into the plotting area and press the mouse button at the start of the desired vertical range. Hold that button down while moving vertically up or down. Release the button at the end of the desired range. In the example below, the new range is set from 97 to 205 mg/dL.
+and then either click outside of that text box or hit the Enter key on your keyboard. After doing so, the horizontal gold bar showing the Target range will be adjusted to display the new low end of the range.
 
-![image](https://user-images.githubusercontent.com/39347592/40806464-26598006-64e7-11e8-93f8-2540b9b26c4c.png)
+![image](https://user-images.githubusercontent.com/39347592/82266143-82c95780-992e-11ea-8e1e-e4a9e7d2d202.png)
 
-The Target range (highlighted in gold color) will then move to the new range. Glucose values higher than this range will be colored red and glucose values lower than this range will be colored magenta.
+Next, you can click within the box showing the high end of the Target Range, and switch that from 200 to 180.
 
-![image](https://user-images.githubusercontent.com/39347592/40806472-2c8f2ec6-64e7-11e8-9fa0-3201445c371f.png)
+![image](https://user-images.githubusercontent.com/39347592/82259325-fc5a4900-9920-11ea-9fab-dd31d866f38b.jpg)
+
+Click outside of that text box or hit the Enter key on your keyboard. After doing so, the horizontal gold bar showing the Target range will be adjusted to display the new high end of the range.
+
+![image](https://user-images.githubusercontent.com/39347592/82266174-98d71800-992e-11ea-8ea9-5529945c1d29.png)
+
+Glucose values higher than the new range will be colored red and glucose values lower than the new range will be colored magenta.
+
+The Target Range values are saved in your database, so if you quit, and relaunch later, your new Target Range values will remain active. If your Dexcom Receiver shows glucose values in mg/dL units, the minimum range value is 40, and the maximum is 400.
+
+![image](https://user-images.githubusercontent.com/39347592/82266191-a4c2da00-992e-11ea-918c-b5beeb7b3468.png)
+
+If your glucose values are in mmol/L units, the minimum range value is 4.2, and the maximum is 22.2.
+
+![image](https://user-images.githubusercontent.com/39347592/82266207-ae4c4200-992e-11ea-8a13-002af5260fc0.png)
 
 ---
 
@@ -266,12 +287,8 @@ The upper one, colored red shows the percentage of glucose values (in the last 9
 
 Your goal is to stay within your Target Range. If you can do so for at least one day, this accomplishment will be highlighted with a light blue background above and below the Target Range, and a display of the number of hours you've been in range.
 
-![image](https://user-images.githubusercontent.com/39347592/50038294-e6857d80-ffe2-11e8-9c9c-5a1e68d4f589.png)
+![image](https://user-images.githubusercontent.com/39347592/82265888-c8d1eb80-992d-11ea-88ea-8621ff38d54f.png)
 
----
-This application supports use of mmol/L units. If your receiver is configured to use those units, that's the way the information will be displayed.
-
-![image](https://user-images.githubusercontent.com/39347592/42004458-8781a38c-7a35-11e8-8adf-f3363759d903.png)
 
 ---
 
