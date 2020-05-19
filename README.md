@@ -287,7 +287,17 @@ The upper one, colored red shows the percentage of glucose values (in the last 9
 
 Your goal is to stay within your Target Range. If you can do so for at least one day, this accomplishment will be highlighted with a light blue background above and below the Target Range, and a display of the number of hours you've been in range.
 
-![image](https://user-images.githubusercontent.com/39347592/82265888-c8d1eb80-992d-11ea-88ea-8621ff38d54f.png)
+![image](https://user-images.githubusercontent.com/39347592/82280040-9804ad00-9953-11ea-807f-54c8a09af202.png)
+
+---
+
+When you disconnect your Receiver device from the computer, say to go exercise, a display of the number of minutes disconnected will be displayed.
+
+![image](https://user-images.githubusercontent.com/39347592/82259226-d765d600-9920-11ea-8a7b-61127050233b.jpg)
+
+When you reconnect, this time will be switched from black to grey for a short while, before disappearing.
+
+![image](https://user-images.githubusercontent.com/39347592/82259248-de8ce400-9920-11ea-9751-988d980d23d4.jpg)
 
 
 ---
