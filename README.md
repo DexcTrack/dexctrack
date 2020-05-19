@@ -267,11 +267,11 @@ Click outside of that text box or hit the Enter key on your keyboard. After doin
 
 Glucose values higher than the new range will be colored red and glucose values lower than the new range will be colored magenta.
 
-The Target Range values are saved in your database, so if you quit, and relaunch later, your new Target Range values will remain active. If your Dexcom Receiver shows glucose values in mg/dL units, the minimum range value is 40, and the maximum is 400.
+The Target Range values are saved in your database, so if you quit, and relaunch later, your new Target Range values will be restored. For Receivers with glucose values in mg/dL units, the allowable range values are (40 - 400).
 
 ![image](https://user-images.githubusercontent.com/39347592/82266191-a4c2da00-992e-11ea-918c-b5beeb7b3468.png)
 
-If your glucose values are in mmol/L units, the minimum range value is 4.2, and the maximum is 22.2.
+For Receivers with glucose values in mmol/L units, the allowable range values are (4.2 - 22.2).
 
 ![image](https://user-images.githubusercontent.com/39347592/82266207-ae4c4200-992e-11ea-8a13-002af5260fc0.png)
 
@@ -291,14 +291,13 @@ Your goal is to stay within your Target Range. If you can do so for at least one
 
 ---
 
-When you disconnect your Receiver device from the computer, say to go exercise, a display of the number of minutes disconnected will be displayed.
+When you disconnect your Receiver device from the computer, say to go exercise, a display of the number of minutes disconnected will be shown.
 
 ![image](https://user-images.githubusercontent.com/39347592/82259226-d765d600-9920-11ea-8a7b-61127050233b.jpg)
 
 When you reconnect, this time will be switched from black to grey for a short while, before disappearing.
 
 ![image](https://user-images.githubusercontent.com/39347592/82259248-de8ce400-9920-11ea-9751-988d980d23d4.jpg)
-
 
 ---
 
