@@ -937,18 +937,24 @@ class deviceSeekThread(threading.Thread):
 
             if readSerialNumInstance is not None:
                 (powerState, powerLevel) = readSerialNumInstance.GetPowerInfo()
+                if powerState is None:
+                    retryTime = 3.0
+                else:
+                    retryTime = 21.0
                 sNum = readSerialNumInstance.GetSerialNumber()
                 if not sNum:
                     self.connected_state = False
                     del readSerialNumInstance
                     readSerialNumInstance = None
                     (powerState, powerLevel) = (None, 0)
+                    retryTime = 3.0
                 else:
                     self.connected_state = True
 
                 sqlite_file = getSqlFileName(sNum)
             else:
                 (powerState, powerLevel) = (None, 0)
+                retryTime = 3.0
 
             if disconTimerEnabled is True:
                 if disconUtcTime != datetime.datetime.min:
@@ -1006,7 +1012,7 @@ class deviceSeekThread(threading.Thread):
                     restart = True
                     # launch a thread to read this device periodically
                     PeriodicReadData()
-            waitStatus = self.evobj.wait(timeout=21.0)   # wait up to 21 seconds
+            waitStatus = self.evobj.wait(timeout=retryTime)  # wait up to retryTime seconds
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
                 if args.debug:
@@ -1595,7 +1601,7 @@ def TestButtonCallback(event):
         print ('rthread is NULL')
 
 #---------------------------------------------------------
-def ClearGraph(event):
+def ClearGraph():
     global redRegionList
     global evtPlotList
     global notePlotList
