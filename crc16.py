@@ -26,6 +26,7 @@
 #    OTHER DEALINGS IN THE SOFTWARE.
 #
 #########################################################################
+import sys
 
 TABLE = [
   0, 4129, 8258, 12387, 16516, 20645, 24774, 28903, 33032, 37161, 41290, 
@@ -61,6 +62,12 @@ def crc16(buf, start=None, end=None):
   if end is None:
     end = len(buf)
   num = 0
-  for i in range(start, end):
-    num = ((num<<8)&0xff00) ^ TABLE[((num>>8)&0xff)^ord(buf[i])]
+  if sys.version_info.major > 2:
+      # For python3 or newer
+      for i in range(start, end):
+        num = ((num<<8)&0xff00) ^ TABLE[((num>>8)&0xff)^(buf[i])]
+  else:
+      # For python2
+      for i in range(start, end):
+        num = ((num<<8)&0xff00) ^ TABLE[((num>>8)&0xff)^ord(buf[i])]
   return num & 0xffff

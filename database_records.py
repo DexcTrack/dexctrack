@@ -47,8 +47,13 @@ import constants
 import struct
 import util
 import binascii
+import sys
 
 EGV_TESTNUM_MASK = 0x00ffffff
+
+# xrange is replaced by range in python3
+if sys.version_info.major > 2:
+    xrange = range
 
 class BaseDatabaseRecord(object):
   FORMAT = None
@@ -138,7 +143,7 @@ class GenericXMLRecord(GenericTimestampedRecord):
 
   @property
   def xmldata(self):
-    data = self.data[2].replace("\x00", "")
+    data = self.data[2].strip(b"\x00")
     return data
 
 

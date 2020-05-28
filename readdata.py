@@ -64,6 +64,10 @@ if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwi
     import pwd
     import os
 
+# xrange is replaced by range in python3
+if sys.version_info.major > 2:
+    xrange = range
+
 
 class ReadPacket(object):
 
@@ -100,8 +104,11 @@ class Dexcom(object):
           sys.stderr.write('Could not find Dexcom Receiver!\n')
           return None
         else:
-          #print ('GetFirmwareHeader =', self.GetFirmwareHeader())
-          fw_ver = self.GetFirmwareHeader().get('FirmwareVersion')
+          fwh = self.GetFirmwareHeader()
+          #print ('GetFirmwareHeader =', fwh)
+          if fwh is None:
+              return None
+          fw_ver = fwh.get('FirmwareVersion')
           if fw_ver.startswith("2."):   # G4 firmware versions
               return 'g4'
           elif fw_ver.startswith("3."):
@@ -132,6 +139,8 @@ class Dexcom(object):
       # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
           #print (item.attrib)
+      #print ('Ping =', dex.Ping())
+      #print ('ReadClockMode =', dex.ReadClockMode())
       print ('Firmware.ProductId =', dex.GetFirmwareHeader().get('ProductId'))
       print ('Found %s S/N: %s'
              % (dex.GetFirmwareHeader().get('ProductName'),
@@ -156,7 +165,10 @@ class Dexcom(object):
       #print ('           +--------------+---------------+-------+---------------+----+----------+---+---+---+--------+------+')
       #maxrec = 100
       #for egv_rec in dex.ReadRecords('EGV_DATA'):
-          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data))
+          #if sys.version_info.major > 2:
+              #print ('raw_data =', ' '.join(' %02x' % c for c in egv_rec.raw_data))
+          #else:
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in egv_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
@@ -166,7 +178,10 @@ class Dexcom(object):
       #print ('           +--------------+---------------+----+---+--------------+---------------+--------+')
       #maxrec = 100
       #for evt_rec in dex.ReadRecords('USER_EVENT_DATA'):
-          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data))
+          #if sys.version_info.major > 2:
+              #print ('raw_data =', ' '.join(' %02x' % c for c in evt_rec.raw_data))
+          #else:
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in evt_rec.raw_data))
           #maxrec -= 1
           #if maxrec <= 0:
               #break
@@ -175,19 +190,28 @@ class Dexcom(object):
       #print ('           |  systemTime  |  displayTime  | Unfiltered  |   Filtered  |  Rssi     |  crc   |')
       #print ('           +--------------+---------------+-------------+-------------+-----------+--------+')
       #for sen_rec in dex.ReadRecords('SENSOR_DATA'):
-          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
+          #if sys.version_info.major > 2:
+              #print ('raw_data =', ' '.join(' %02x' % c for c in sen_rec.raw_data))
+          #else:
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
       #print ('\nINSERTION_TIME\n======================================================')
       #print ('           +--------------+---------------+---------------+----+--------------+-----------------------+--------+')
       #print ('           |  systemTime  |  displayTime  | insertionTime |Stat|   unknown    |Transmitter Serial Num |  crc   |')
       #print ('           +--------------+---------------+---------------+----+--------------+-----------------------+--------+')
       #for ins_rec in dex.ReadRecords('INSERTION_TIME'):
-          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
+          #if sys.version_info.major > 2:
+              #print ('raw_data =', ' '.join(' %02x' % c for c in ins_rec.raw_data))
+          #else:
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
       #print ('\nMETER_DATA\n======================================================')
       #print ('           +--------------+---------------+-------+----+---------------+----------+---+--------+')
       #print ('           |  systemTime  |  displayTime  | Gluc  |Type|   meterTime   | testNum  |xx |  crc   |')
       #print ('           +--------------+---------------+-------+----+---------------+----------+---+--------+')
       #for met_rec in dex.ReadRecords('METER_DATA'):
-          #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data))
+          #if sys.version_info.major > 2:
+              #print ('raw_data =', ' '.join(' %02x' % c for c in met_rec.raw_data))
+          #else:
+              #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in met_rec.raw_data))
           #print ('            record_type =', met_rec.record_type, ', calib_gluc =', met_rec.calib_gluc, ', testNum =', met_rec.testNum, ' xx =', met_rec.xx)
       #print ('\nMANUFACTURING_DATA\n======================================================')
       #mfg_data = dex.ReadAllManufacturingData()
@@ -206,7 +230,10 @@ class Dexcom(object):
               #################################################################################
               #print ('USER_SETTING_DATA\n======================================================')
               #for sen_rec in dex.ReadRecords('USER_SETTING_DATA'):
-                  #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
+                  #if sys.version_info.major > 2:
+                      #print ('raw_data =', ' '.join(' %02x' % c for c in sen_rec.raw_data))
+                  #else:
+                      #print ('raw_data =', ' '.join(' %02x' % ord(c) for c in sen_rec.raw_data))
                   #print ('transmitterPaired =', sen_rec.transmitterPaired)
                   #print ('highAlert =', sen_rec.highAlert)
                   #print ('highRepeat =', sen_rec.highRepeat)
@@ -341,7 +368,8 @@ class Dexcom(object):
         return None
     if initial_read != []:
         all_data = initial_read
-        if ord(initial_read[0]) == 1:
+        if ((sys.version_info.major > 2) and (initial_read[0] == 1)) or \
+           ((sys.version_info.major <= 2) and ord(initial_read[0]) == 1):
           command = initial_read[3]
           data_number = struct.unpack('<H', initial_read[1:3])[0]
           if data_number > 6:
@@ -374,7 +402,10 @@ class Dexcom(object):
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
-    return ord(packet.command) == constants.ACK
+    if sys.version_info.major > 2:
+        return packet.command == constants.ACK
+    else:
+        return ord(packet.command) == constants.ACK
 
   def WritePacket(self, packet):
     if not packet:
@@ -386,9 +417,10 @@ class Dexcom(object):
     self.write(packet)
 
   def WriteCommand(self, command_id, *args, **kwargs):
+    #print ('WriteCommand() : command_id =', command_id, ', args =', args, ', kwargs =', kwargs)
     p = packetwriter.PacketWriter()
     p.ComposePacket(command_id, *args, **kwargs)
-    self.WritePacket(p.PacketString())
+    self.WritePacket(p.PacketBytes())
 
   def GenericReadCommand(self, command_id):
     try:
@@ -484,7 +516,10 @@ class Dexcom(object):
     if result is None:
         return None
     gu = result.data
-    return UNIT_TYPE[ord(gu[0])]
+    if sys.version_info.major > 2:
+        return UNIT_TYPE[gu[0]]
+    else:
+        return UNIT_TYPE[ord(gu[0])]
 
   def ReadClockMode(self):
     CLOCK_MODE = (24, 12)
@@ -492,7 +527,10 @@ class Dexcom(object):
     if result is None:
         return None
     cm = result.data
-    return CLOCK_MODE[ord(cm[0])]
+    if sys.version_info.major > 2:
+        return CLOCK_MODE[cm[0]]
+    else:
+        return CLOCK_MODE[ord(cm[0])]
 
   def ReadDeviceMode(self):
     # ???
@@ -556,8 +594,13 @@ class Dexcom(object):
 
   # ManufacturingParameters: SerialNumber, HardwarePartNumber, HardwareRevision, DateTimeCreated, HardwareId
   def ReadManufacturingData(self):
-    data = self.ReadRecords('MANUFACTURING_DATA')[0].xmldata
-    return ET.fromstring(data)
+    md = self.ReadRecords('MANUFACTURING_DATA')
+    if md:
+        #print ('ReadManufacturingData() : MANUFACTURING_DATA =', md[0].xmldata)
+        data = md[0].xmldata
+        return ET.fromstring(data)
+    else:
+        return None
 
   def ReadAllManufacturingData(self):
     data = self.ReadRecords('MANUFACTURING_DATA')[0].xmldata
@@ -597,6 +640,7 @@ class Dexcom(object):
         packet = self.readpacket()
     except Exception as e:
         #print ('ReadDatabasePageRange() Exception =', e)
+        #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
@@ -612,12 +656,16 @@ class Dexcom(object):
         packet = self.readpacket()
     except Exception as e:
         #print ('ReadDatabasePage() Exception =', e)
+        #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
     if packet is None:
         return []
-    assert ord(packet.command) == 1
+    if sys.version_info.major > 2:
+        assert packet.command == 1
+    else:
+        assert ord(packet.command) == 1
     # first index (uint), numrec (uint), record_type (byte), revision (byte),
     # page# (uint), r1 (uint), r2 (uint), r3 (uint), ushort (Crc)
     header_format = '<2IcB4IH'
