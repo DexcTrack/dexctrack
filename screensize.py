@@ -25,7 +25,21 @@ def get_screen_size():
     backend = plt.get_backend()
 
 
-    if 'GTK' in backend:
+    if 'GTK3' in backend:
+        # Based on implementation by starfry, but updated for GTK3
+        # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
+        from gi.repository import Gtk as gtk
+
+        window = gtk.Window()
+        # the screen contains all monitors
+        screen = window.get_screen()
+        # collect data about active monitor
+        curmon = screen.get_monitor_at_window(screen.get_active_window())
+        # Newer versions of GTK require more work
+        rect = screen.get_monitor_geometry(curmon) # get geometry rectangle of current monitor
+        dx, dy, width, height = (rect.x, rect.y, rect.width, rect.height)
+
+    elif 'GTK' in backend:
         # Implementation by starfry at
         # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
         import gtk
@@ -88,16 +102,21 @@ def get_screen_size():
         height = curScreen.size.height
 
     elif 'WX' in backend:
-        # Implementation by Justin at
-        # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
-        import ctypes
-        user32 = ctypes.windll.user32
-        user32.SetProcessDPIAware()
-        width = user32.GetSystemMetrics(0)
-        height = user32.GetSystemMetrics(1)
+        if sys.platform == "win32":
+            # Implementation by Stevoisiak + totaam at
+            # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
+            import ctypes
+            user32 = ctypes.windll.user32
+            user32.SetProcessDPIAware()
+            width = user32.GetSystemMetrics(0)
+            height = user32.GetSystemMetrics(1)
+        else:
+            import wx
+            MyApp = wx.App(False)
+            width, height = wx.GetDisplaySize()
 
     elif 'Qt4' in backend:
-        # NOT TESTED YET. Implementation by Harsh Kumar Narula at
+        # Implementation by Harsh Kumar Narula at
         # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
         from PyQt4 import QtGui
         MyApp = QtGui.QApplication(sys.argv)

@@ -32,6 +32,13 @@ import math
 import tzlocal
 import pytz
 import matplotlib as mpl
+# To force use of a particular backend, uncomment one of the following:
+#mpl.use('TkAgg')
+#mpl.use('Qt4Agg')
+#mpl.use('Qt5Agg')
+#mpl.use('GTk3Agg')
+#mpl.use('WXAgg')
+#mpl.use('MacOSX')
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import matplotlib.dates as mdates
@@ -547,6 +554,9 @@ else:
         figManager.window.showMaximized()
     elif 'WX' in backend:
         figManager.frame.Maximize(True)
+    elif 'GTK' in backend:
+        dotsperinch = fig.get_dpi()
+        fig.set_size_inches(width/float(dotsperinch), height/float(dotsperinch))
 
 #---------------------------------------------------------
 # The function below is a duplicate of the dexcom_reader util.py
