@@ -436,10 +436,8 @@ scaleText = None
 sScale = None
 sensorWarmupCountDown = None
 latestSensorInsertTime = 0
-if sys.version_info.major > 2:
-    minorTickSequence = list(range(24))
-else:
-    minorTickSequence = range(24)
+minorTickSequence = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, \
+                     12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
 last_etime = None
 annRotation = 1.0
 annCloseCount = 0
@@ -1148,10 +1146,8 @@ def updateScale(val):
     elif displayRange >= 60*60*24*2:
         minorTickSequence = (0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22)
     else:
-        if sys.version_info.major > 2:
-            minorTickSequence = list(range(24))
-        else:
-            minorTickSequence = range(24)
+        minorTickSequence = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, \
+                             12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23)
 
     # Only retick if the sequence has changed
     if minorTickSequence != priorTickSequence:
@@ -2178,6 +2174,9 @@ def readRangeFromSql():
     global lastTestGluc
     global lastTestDateTime
 
+    firstTestSysSecs = 0
+    lastTestSysSecs = 0
+    lastTestGluc = 0
     if sqlite_file:
         conn = sqlite3.connect(sqlite_file)
         curs = conn.cursor()
@@ -2925,6 +2924,10 @@ def plotGraph():
     global curSqlMaxTime
     global newRange
     global noteTimeSet
+    global displayStartSecs
+    global displayEndSecs
+    global firstTestSysSecs
+    global lastTestSysSecs
 
     #print ('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
     if firstPlotGraph == 1:
@@ -3014,6 +3017,27 @@ def plotGraph():
     readDataFromSql(curSqlMinTime, curSqlMaxTime)
     #if position == 100.0:
         #print ('---> At the end position')
+
+    if not egvList:
+        #==================================================================================
+        # In newer releases of matplotlib, a bug has been introduced which causes it to
+        # fail if there are no data points to plot. The failure results in the generation
+        # of messages like "Locator attempting to generate 110000 ticks". This is a
+        # ridiculous number of ticks to plot nothing. This regression was introduced
+        # sometime (3.1.1 > version <= 3.2.1). To work around this bug, which may or may
+        # not be present in the version of matplotlib which is currently installed, we
+        # create a fake data point.
+        #==================================================================================
+        utcTime = datetime.datetime.now(pytz.UTC)
+        egvList.append([utcTime, 130])
+        # Set timing variables to the current time offset
+        receiverSecs = UtcTimeToReceiverTime(utcTime)
+        displayStartSecs = receiverSecs
+        displayEndSecs = receiverSecs
+        curSqlMinTime = receiverSecs
+        curSqlMaxTime = receiverSecs
+        firstTestSysSecs = receiverSecs
+        lastTestSysSecs = receiverSecs
 
     displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
     if posText:
