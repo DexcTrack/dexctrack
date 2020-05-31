@@ -943,7 +943,7 @@ class deviceSeekThread(threading.Thread):
             if readSerialNumInstance is None:
                 dport = readReceiver.readReceiverBase.FindDevice()
                 if dport is not None:
-                    readSerialNumInstance = readReceiver.readReceiver(dport)
+                    readSerialNumInstance = readReceiver.readReceiver(dport, dbg = args.debug)
                 self.connected_state = False
 
             if readSerialNumInstance is not None:
@@ -1055,7 +1055,7 @@ def getReadDataInstance():
     else:
         devType = None
         if my_dport is not None:
-            rsni = readReceiver.readReceiver(my_dport)
+            rsni = readReceiver.readReceiver(my_dport, dbg = args.debug)
             if rsni:
                 devType = rsni.GetDeviceType()
 
@@ -1063,15 +1063,15 @@ def getReadDataInstance():
         if rsni:
             if devType and my_dport:
                 if devType == 'g4':
-                    rdi = readReceiver.readReceiver(my_dport, rsni.port)
+                    rdi = readReceiver.readReceiver(my_dport, rsni.port, dbg = args.debug)
                 elif devType == 'g5':
-                    rdi = readReceiver.readReceiverG5(my_dport, rsni.port)
+                    rdi = readReceiver.readReceiverG5(my_dport, rsni.port, dbg = args.debug)
                 elif devType == 'g6':
-                    rdi = readReceiver.readReceiverG6(my_dport, rsni.port)
+                    rdi = readReceiver.readReceiverG6(my_dport, rsni.port, dbg = args.debug)
                 else:
                     print ('getReadDataInstance() : Unrecognized firmware version', devType)
         else:
-            rdi = readReceiver.readReceiver(my_dport)
+            rdi = readReceiver.readReceiver(my_dport, dbg = args.debug)
 
     return rdi
 

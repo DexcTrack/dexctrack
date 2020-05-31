@@ -92,7 +92,9 @@ class Dexcom(object):
         return util.find_usbserial(constants.DEXCOM_USB_VENDOR,
                                    constants.DEXCOM_USB_PRODUCT)
     except NotImplementedError:
-        #print ('FindDevice() : Exception =', e)
+        if self._debug_mode:
+            print ('FindDevice() : Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -135,7 +137,7 @@ class Dexcom(object):
       sys.stderr.write('Could not find Dexcom G4|G5|G6 Receiver!\n')
       sys.exit(1)
     else:
-      dex = cls(device)
+      dex = cls(device, dbg = True)
       # Uncomment two lines below to show the size of each record type
       #for item in dex.DataPartitions():
           #print (item.attrib)
@@ -248,9 +250,10 @@ class Dexcom(object):
                       #print ('sensorCode =', sen_rec.sensorCode)
                       #print ('')
 
-  def __init__(self, port_path, port=None):
+  def __init__(self, port_path, port=None, dbg = False):
     self._port_name = port_path
     self._port = port
+    self._debug_mode = dbg
 
   def Connect(self):
     try:
@@ -269,11 +272,13 @@ class Dexcom(object):
                     try:
                         stat_info = os.stat(self._port_name)
                     except OSError as e:
-                        #print ('Connect() - os.stat() : Exception =', e)
+                        if self._debug_mode:
+                            print ('Connect() - os.stat() : Exception =', e)
+                            print_exc()
                         if sys.version_info < (3, 0):
                             sys.exc_clear()
                         pass
-                time.sleep(15)
+                time.sleep(18)
                 self._port = serial.Serial(port=self._port_name, baudrate=115200, timeout=4.3)
 
         except serial.SerialException as e:
@@ -303,7 +308,9 @@ class Dexcom(object):
             self.clear()
             #print ('Connect() : self.clear()')
         except Exception as e:
-            #print ('Connect() - self.clear() : Exception =', e)
+            if self._debug_mode:
+                print ('Connect() - self.clear() : Exception =', e)
+                print_exc()
             if sys.version_info < (3, 0):
                 sys.exc_clear()
             pass
@@ -312,7 +319,9 @@ class Dexcom(object):
             self.flush()
             #print ('Connect() : self.flush()')
         except Exception as e:
-            #print ('Connect() - self.flush() : Exception =', e)
+            if self._debug_mode:
+                print ('Connect() - self.flush() : Exception =', e)
+                print_exc()
             if sys.version_info < (3, 0):
                 sys.exc_clear()
             pass
@@ -362,7 +371,9 @@ class Dexcom(object):
     try:
         initial_read = self.read(total_read)
     except serial.SerialException as e:
-        #print ('readpacket() : Exception =', e)
+        if self._debug_mode:
+            print ('readpacket() : Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -397,8 +408,9 @@ class Dexcom(object):
     try:
         packet = self.readpacket()
     except Exception as e:
-        #print ('Ping() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('Ping() Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -417,7 +429,10 @@ class Dexcom(object):
     self.write(packet)
 
   def WriteCommand(self, command_id, *args, **kwargs):
-    #print ('WriteCommand() : command_id =', command_id, ', args =', args, ', kwargs =', kwargs)
+    #if command_id in constants.COMMAND_STRINGS:
+        #print ('WriteCommand(', constants.COMMAND_STRINGS[command_id], ') : args =', args, ', kwargs =', kwargs)
+    #else:
+        #print ('WriteCommand(', command_id, ') : args =', args, ', kwargs =', kwargs)
     p = packetwriter.PacketWriter()
     p.ComposePacket(command_id, *args, **kwargs)
     self.WritePacket(p.PacketBytes())
@@ -427,13 +442,22 @@ class Dexcom(object):
         self.WriteCommand(command_id)
         return self.readpacket()
     except (serial.SerialTimeoutException, serial.SerialException) as e:
-        #print ('GenericReadCommand() : SerialException =', e)
+        if self._debug_mode:
+            if command_id in constants.COMMAND_STRINGS:
+                print ('GenericReadCommand(', constants.COMMAND_STRINGS[command_id], ') : SerialException =', e)
+            else:
+                print ('GenericReadCommand(', command_id, ') : SerialException =', e)
+            #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
     except Exception as e:
-        #print ('GenericReadCommand() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            if command_id in constants.COMMAND_STRINGS:
+                print ('GenericReadCommand(', constants.COMMAND_STRINGS[command_id],') Exception =', e)
+            else:
+                print ('GenericReadCommand(', command_id,') Exception =', e)
+            #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -499,8 +523,9 @@ class Dexcom(object):
     try:
         packet = self.readpacket()
     except Exception as e:
-        #print ('WriteDisplayTimeOffset() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('WriteDisplayTimeOffset() Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -573,8 +598,9 @@ class Dexcom(object):
     try:
         packet = self.readpacket()
     except Exception as e:
-        #print ('WriteChargerCurrentSetting() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('WriteChargerCurrentSetting() Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -639,8 +665,9 @@ class Dexcom(object):
                           chr(record_type_index))
         packet = self.readpacket()
     except Exception as e:
-        #print ('ReadDatabasePageRange() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('ReadDatabasePageRange() Exception =', e)
+            #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
@@ -655,8 +682,9 @@ class Dexcom(object):
                           (chr(record_type_index), struct.pack('I', page), chr(1)))
         packet = self.readpacket()
     except Exception as e:
-        #print ('ReadDatabasePage() Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('ReadDatabasePage() Exception =', e)
+            #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return []
@@ -745,22 +773,24 @@ class Dexcom(object):
               records.extend(page_range)
         return records
     except serial.SerialException as e:
-        #print ('ReadRecords() : SerialException =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('ReadRecords() : SerialException =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         self.Disconnect()
         self.Connect()
         return records
     except ValueError as e:
-        #print ('ReadRecords() : ValueError Exception =', e)
-        #print_exc()
+        if self._debug_mode:
+            print ('ReadRecords() : ValueError Exception =', e)
+            print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return records
     except Exception as e:
-        #print ('ReadRecords() : Exception =', e)
-        #print_exc()
+        print ('ReadRecords() : Exception =', e)
+        print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return records

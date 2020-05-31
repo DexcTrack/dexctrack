@@ -34,9 +34,9 @@ class readReceiverBase(readdata.Dexcom):
     # We don't want to try to re-open a port which has already been opened,
     # so we include an optional 'port' argument, which can
     # be used to specify an existing, open port.
-    def __init__(self, portname, port=None):
+    def __init__(self, portname, port=None, dbg = False):
         self._port_name = portname
-        readdata.Dexcom.__init__(self, portname, port)
+        readdata.Dexcom.__init__(self, portname, port, dbg)
         #print ('readReceiverBase() __init__ running. _port =', self._port, ', _port_name =', self._port_name, ', port =', port)
 
     def GetSerialNumber(self):
@@ -105,13 +105,15 @@ class readReceiverBase(readdata.Dexcom):
             powerLevel = 0
             if self._port_name:
                 powerState = self.ReadBatteryState()
-                powerLevel = self.ReadBatteryLevel()
+                if powerState is not None:
+                    powerLevel = self.ReadBatteryLevel()
 
             self._lock.release()
             return (powerState, powerLevel)
 
         except Exception as e:
-            #print ('GetPowerInfo() : Exception =', e)
+            if self._debug_mode:
+                print ('GetPowerInfo() : Exception =', e)
             self.Disconnect()
             self._port_name = None
             self._lock.release()
@@ -221,9 +223,9 @@ class readReceiver(readReceiverBase):
     # so we declare a class variable 'rr_version'.
     rr_version = 'g4'
 
-    def __init__(self, portname, port=None):
+    def __init__(self, portname, port=None, dbg = False):
         #print ('readReceiver() __init__ running')
-        super(readReceiver, self).__init__(portname, port)
+        super(readReceiver, self).__init__(portname, port, dbg)
 
     #def __del__(self):
         #print ('readReceiver() __del__ running')
@@ -243,9 +245,9 @@ class readReceiverG5(readReceiverBase):
         'USER_SETTING_DATA': database_records.G5UserSettings,
     }
 
-    def __init__(self, portname, port=None):
+    def __init__(self, portname, port=None, dbg = False):
         #print ('readReceiverG5() __init__ running')
-        super(readReceiverG5, self).__init__(portname, port)
+        super(readReceiverG5, self).__init__(portname, port, dbg)
 
     #def __del__(self):
         #print ('readReceiverG5() __del__ running')
@@ -266,9 +268,9 @@ class readReceiverG6(readReceiverBase):
         'USER_SETTING_DATA': database_records.G6UserSettings,
     }
 
-    def __init__(self, portname, port=None):
+    def __init__(self, portname, port=None, dbg = False):
         #print ('readReceiverG6() __init__ running')
-        super(readReceiverG6, self).__init__(portname, port)
+        super(readReceiverG6, self).__init__(portname, port, dbg)
 
     #def __del__(self):
         #print ('readReceiverG6() __del__ running')
@@ -281,7 +283,7 @@ class readReceiverG6(readReceiverBase):
 if __name__ == '__main__':
     mdport = readReceiverBase.FindDevice()
     if mdport:
-        readSerialInstance = readReceiver(mdport)
+        readSerialInstance = readReceiver(mdport, dbg = True)
         serialNum = readSerialInstance.GetSerialNumber()
         print ('serialNum =', serialNum)
         mDevType = readSerialInstance.GetDeviceType()
@@ -289,9 +291,9 @@ if __name__ == '__main__':
         if mDevType == 'g4':
             mReadDataInstance = readSerialInstance
         elif mDevType == 'g5':
-            mReadDataInstance = readReceiverG5(mdport)
+            mReadDataInstance = readReceiverG5(mdport, dbg = True)
         elif mDevType == 'g6':
-            mReadDataInstance = readReceiverG6(mdport)
+            mReadDataInstance = readReceiverG6(mdport, dbg = True)
         else:
             exit
 
