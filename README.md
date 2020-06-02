@@ -42,7 +42,9 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
->>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
+>>>> For python2.7.*
+
+>>>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
 
 >>>>For python3.*
 
@@ -54,7 +56,7 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>***sudo apt-get install git***
 
->>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
+>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
 >>>***sudo dnf install git***
 
