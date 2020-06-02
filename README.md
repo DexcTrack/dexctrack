@@ -1,9 +1,5 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This is implemented in python version 2.7.\* for Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
-
-</br>
-
-About 95% of this code runs fine under python 3.\*, but readdata.py and packetwriter.py (borrowed from the dexcom_reader project), which includes code to write commands to and read data from the Receiver device, don't work under python 3.\* due to the change from ASCII implicit string types to Unicode implicit string types.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This runs using python version 2.7.\* or 3.*, on Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
 
 </br>
 
@@ -22,9 +18,9 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 ## Installing
 
->Install the latest 2.7.* version of 'python' for whatever operating system you are running on your computer.
+>Install the latest 2.7.* or 3.* version of 'python' for whatever operating system you are running on your computer. For MacOS or Windows, www.python.org/downloads has installation packages with built executables. For Linux, they only provide source code, so you are generally better off using your Linux package manager to install the latest built version.
 
->Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you instead, use a package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python2.7.*', you may need to specify an additional package to get 'pip' installed.
+>Also install 'pip' (for python 2.7.*) or 'pip3' (for python 3.*), a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you use a Linux package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python' or 'python3', you may need to specify an additional package to get 'pip' or 'pip3' installed.
 
 </br>
 </br>
@@ -35,11 +31,22 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
->>>>***sudo apt-get install python python-pip python-tk python-wxtools python-matplotlib libpython2.7-dev***
+>>>> For python2.7.*
+
+>>>>>***sudo apt-get install python python-pip python-tk libpython2.7-dev***
+
+>>>>For python3.*
+
+>>>>>***sudo apt-get install python3 python3-pip python3-tk***
+
 
 >>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
 >>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
+
+>>>>For python3.*
+
+>>>>>***sudo dnf install redhat-rpm-config python3 python3-pip python3-tkinter***
 
 >2. Install 'git'
 
@@ -57,9 +64,17 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >4. Install required python libraries, using 'pip'
 
->>>***sudo pip install --upgrade setuptools***
+>>> For python2.7.*
 
->>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
+>>>>***sudo pip install --upgrade setuptools***
+
+>>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler***
+
+>>> For python3.*
+
+>>>>***sudo pip3 install --upgrade setuptools***
+
+>>>>***sudo pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
 
 >5. Set up permissions to provide the user serial port access to a connected USB device. Implement one of the following options to accomplish this.
 
@@ -87,9 +102,11 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >1. Install 'python' and 'pip'
 
->Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Install the latest 2.7.* release under
+>Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Install the latest 2.7.* or 3.* release under
 
->>>https://www.python.org/downloads/
+>>>https://www.python.org/downloads/mac-osx/
+
+The ***macOS 64-bit installer*** will update your PATH to include the newly installed versions of 'python' and 'pip', or 'python3' and 'pip3', by adding a few lines to your ~/.bash_profile file.
 
 >2. Install 'git'
 
@@ -97,23 +114,23 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >The following steps should be run from a Terminal. ***Finder -> Go -> Utilities -> Terminal***
 
->3. Update path
-
->>Update your PATH environmental variable to include paths to the 'python' and 'pip' executables. This can be done by ...
-
->>>***echo 'export PATH="/usr/local/opt/python@2/bin:$PATH"' >> ~/.bashrc***
-
->4. Install dexctrack, using 'git'
+>3. Install dexctrack, using 'git'
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->5. Install required python libraries, using 'pip'
+>4. Install required python libraries, using 'pip'
 
->>>***pip install --upgrade setuptools***
+>>> For python2.7.*
 
->>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***pip install --upgrade setuptools***
 
->>>***pip install pyobjc***
+>>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler pyobjc***
+
+>>> For python3.*
+
+>>>>***pip3 install --upgrade setuptools***
+
+>>>>***pip3 install matplotlib pyserial pytz tzlocal numpy pympler pyobjc***
 
 </br>
 </br>
@@ -122,9 +139,9 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >1. Install 'python' and 'pip'
 
->>>https://www.python.org/downloads/
+>>>https://www.python.org/downloads/windows/
 
->>Update your ***Path*** environmental variable to include paths to the 'python' and 'pip' executables. Menu->Settings and then search for "Edit environment variables for your account". This will open an "Environment Variables" window. Click on the "Path" variable, and then the Edit button. Add
+>>Update your ***Path*** environmental variable to include paths to the 'python' and 'pip' executables. Menu->Settings and then search for "Edit environment variables for your account". This will open an "Environment Variables" window. Click on the "Path" variable, and then the Edit button. For example, if you've installed into the directory C:\Python27, then add
 
 >>>>C:\Python27
 >>>>C:\Python27\Scripts
@@ -145,9 +162,17 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >4. Install required python libraries, using 'pip'
 
->>>***pip install --upgrade setuptools***
+>>> For python2.7.*
 
->>>***pip install matplotlib pyserial pytz tzlocal numpy pympler wxPython***
+>>>>***pip install --upgrade setuptools***
+
+>>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
+
+>>> For python3.*
+
+>>>>***pip3 install --upgrade setuptools***
+
+>>>>***pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
 
 ## Running
 
@@ -155,9 +180,17 @@ To launch the program, move into the dexctrack/ directory and invoke
 
 >>>***python dexctrack.py***
 
+or
+
+>>>***python3 dexctrack.py***
+
 You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out which can help track down issues. For example ...
 
 >>>***python dexctrack.py -d***
+
+or
+
+>>>***python3 dexctrack.py -d***
 
 Once the application is running, 
 
