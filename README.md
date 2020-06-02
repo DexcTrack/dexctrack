@@ -184,7 +184,7 @@ or
 
 >>>***python3 dexctrack.py***
 
-You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out which can help track down issues. For example ...
+You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out to the terminal, which can help track down issues. For example ...
 
 >>>***python dexctrack.py -d***
 
@@ -192,11 +192,29 @@ or
 
 >>>***python3 dexctrack.py -d***
 
-Once the application is running, 
+</br>
+
+```
+> python3 dexctrack.py -d
+
+DexcTrack  Copyright (C) 2018  Steve Erlenborn
+This program comes with ABSOLUTELY NO WARRANTY.
+
+get_screen_size width = 1920 , get_screen_size height = 1080 , dispRatio = 1.8 
+sys.platform = linux2
+backend = TkAgg
+sqlite_file = /home/steve/dexc_PL75130020.sqlite
+rcParams[timezone] = America/Chicago
+Latest glucose at 2020-06-02 10:43:36-05:00 = 90
+2 hour prediction : at 2020-06-02 12:43:12-05:00 glucose = 154.0
+```
+</br>
+
+Once the application is running, a graphical window will be opened. In the lower left corner, the status of the connection to the Receiver device will be displayed.
 
 ![image](https://user-images.githubusercontent.com/39347592/40758362-91bbe2e8-6452-11e8-8139-1d99352ca79a.png)
 
-connect your Dexcom receiver device to your computer using the USB cable. The device will be detected within about 20 seconds, and all of the data on it will be read into an SQLITE database in your home directory.
+Connect your Dexcom receiver device to your computer using the USB cable. The device will be detected within about 20 seconds, and all of the data on it will be read into an SQLITE database in your home directory.
 
 >Note for the Windows 10 operating system, the USB serial port driver (Usbser.sys) does not properly support USB3 -> USB2 backwards compatibility, so you need to plug into to a USB2 port. Plugging into a USB2 or USB3 port will work fine on Linux or MacOS systems.
 
