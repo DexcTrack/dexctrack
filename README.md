@@ -44,11 +44,11 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>> For python2.7.*
 
->>>>>***sudo dnf install redhat-rpm-config python2 python2-devel tkinter***
+>>>>>***sudo dnf install python2 python2-devel tkinter***
 
 >>>>For python3.*
 
->>>>>***sudo dnf install redhat-rpm-config python3 python3-pip python3-tkinter***
+>>>>>***sudo dnf install python3 python3-pip python3-tkinter***
 
 >2. Install 'git'
 
