@@ -9,6 +9,7 @@
 # Support python3 print syntax in python2
 from __future__ import print_function
 
+import os
 import sys
 import matplotlib.pyplot as plt
 
@@ -24,6 +25,20 @@ def get_screen_size():
     """
     backend = plt.get_backend()
 
+    # Linux distributions using Wayland and a GTK or GTK3 backend
+    # get us into trouble. For those backends, the code below grabs
+    # the Active Window. This works well under X11, but Wayland refuses
+    # to identify any Active Window. It's against their philosophy.
+    # If we find we're in such a situation, switch to using the code
+    # for a Tk backend case.
+    if 'GTK' in backend:
+        try:
+            sessionType = os.environ['XDG_SESSION_TYPE']
+            if sessionType == 'wayland':
+                backend = 'TkAgg'
+        except KeyError as e:
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
 
     if 'GTK3' in backend:
         # Based on implementation by starfry, but updated for GTK3
