@@ -44,7 +44,7 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>> For python2.7.*
 
->>>>>***sudo dnf install python2 python2-devel tkinter***
+>>>>>***sudo dnf install python2 python2-devel python-tkinter***
 
 >>>>For python3.*
 
