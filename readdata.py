@@ -43,20 +43,18 @@
 # Support python3 print syntax in python2
 from __future__ import print_function
 
-import crc16
-import constants
-import database_records
 import datetime
-import serial
 import sys
 import time
-import packetwriter
 import struct
-import re
-import util
 import xml.etree.ElementTree as ET
-import platform
 from traceback import print_exc
+import serial
+import util
+import crc16
+import constants
+import packetwriter
+import database_records
 
 # Some services are only to be invoked on unix-based OSs
 if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
@@ -92,9 +90,8 @@ class Dexcom(object):
         return util.find_usbserial(constants.DEXCOM_USB_VENDOR,
                                    constants.DEXCOM_USB_PRODUCT)
     except NotImplementedError:
-        if self._debug_mode:
-            print ('FindDevice() : Exception =', e)
-            print_exc()
+        print ('FindDevice() : Exception =', e)
+        print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
         return None
@@ -149,7 +146,7 @@ class Dexcom(object):
                 dex.ReadManufacturingData().get('SerialNumber')))
       print ('Transmitter paired: %s' % dex.ReadTransmitterId())
       print ('Battery Status: %s (%d%%)' % (dex.ReadBatteryState(),
-                                           dex.ReadBatteryLevel()))
+                                            dex.ReadBatteryLevel()))
       print ('Record count:')
       print ('- Meter records: %d' % (len(dex.ReadRecords('METER_DATA'))))
       print ('- CGM records: %d' % (len(dex.ReadRecords('EGV_DATA'))))
@@ -277,7 +274,6 @@ class Dexcom(object):
                             print_exc()
                         if sys.version_info < (3, 0):
                             sys.exc_clear()
-                        pass
                 time.sleep(18)
                 self._port = serial.Serial(port=self._port_name, baudrate=115200, timeout=4.3)
 
@@ -302,7 +298,7 @@ class Dexcom(object):
                     print ('\n   sudo usermod -a -G', port_group, username)
                     print ('\n   su -', username)
                 print ('\nFor a short term solution, run ...')
-                print ('\n   sudo chmod 666', self._port_name,'\n')
+                print ('\n   sudo chmod 666', self._port_name, '\n')
     if self._port is not None:
         try:
             self.clear()
@@ -313,7 +309,6 @@ class Dexcom(object):
                 print_exc()
             if sys.version_info < (3, 0):
                 sys.exc_clear()
-            pass
 
         try:
             self.flush()
@@ -324,7 +319,6 @@ class Dexcom(object):
                 print_exc()
             if sys.version_info < (3, 0):
                 sys.exc_clear()
-            pass
 
   def Disconnect(self):
     if self._port is not None:
@@ -342,7 +336,6 @@ class Dexcom(object):
           #print ('Disconnect() : self.clear Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
-          pass
 
       try:
           self.flush()
@@ -350,7 +343,6 @@ class Dexcom(object):
           #print ('Disconnect() : self.flush Exception =', e)
           if sys.version_info < (3, 0):
               sys.exc_clear()
-          pass
       self._port.close()
     self._port = None
 
@@ -368,15 +360,7 @@ class Dexcom(object):
 
   def readpacket(self, timeout=None):
     total_read = 4
-    try:
-        initial_read = self.read(total_read)
-    except serial.SerialException as e:
-        if self._debug_mode:
-            print ('readpacket() : Exception =', e)
-            print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        return None
+    initial_read = self.read(total_read)
     if initial_read != []:
         all_data = initial_read
         if ((sys.version_info.major > 2) and (initial_read[0] == 1)) or \
@@ -398,10 +382,10 @@ class Dexcom(object):
           local_crc = crc16.crc16(all_data, 0, total_read)
           if sent_crc != local_crc:
             raise constants.CrcError("readpacket Failed CRC check")
-          num1 = total_read + 2
           return ReadPacket(command, out)
         else:
           raise constants.Error('Error reading packet header!')
+    return None
 
   def Ping(self):
     self.WriteCommand(constants.PING)
@@ -454,9 +438,9 @@ class Dexcom(object):
     except Exception as e:
         if self._debug_mode:
             if command_id in constants.COMMAND_STRINGS:
-                print ('GenericReadCommand(', constants.COMMAND_STRINGS[command_id],') Exception =', e)
+                print ('GenericReadCommand(', constants.COMMAND_STRINGS[command_id], ') Exception =', e)
             else:
-                print ('GenericReadCommand(', command_id,') Exception =', e)
+                print ('GenericReadCommand(', command_id, ') Exception =', e)
             #print_exc()
         if sys.version_info < (3, 0):
             sys.exc_clear()
@@ -660,34 +644,18 @@ class Dexcom(object):
 
   def ReadDatabasePageRange(self, record_type):
     record_type_index = constants.RECORD_TYPES.index(record_type)
-    try:
-        self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
-                          chr(record_type_index))
-        packet = self.readpacket()
-    except Exception as e:
-        if self._debug_mode:
-            print ('ReadDatabasePageRange() Exception =', e)
-            #print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        return []
+    self.WriteCommand(constants.READ_DATABASE_PAGE_RANGE,
+                      chr(record_type_index))
+    packet = self.readpacket()
     if packet is None:
         return []
     return struct.unpack('II', packet.data)
 
   def ReadDatabasePage(self, record_type, page):
     record_type_index = constants.RECORD_TYPES.index(record_type)
-    try:
-        self.WriteCommand(constants.READ_DATABASE_PAGES,
-                          (chr(record_type_index), struct.pack('I', page), chr(1)))
-        packet = self.readpacket()
-    except Exception as e:
-        if self._debug_mode:
-            print ('ReadDatabasePage() Exception =', e)
-            #print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        return []
+    self.WriteCommand(constants.READ_DATABASE_PAGES,
+                      (chr(record_type_index), struct.pack('I', page), chr(1)))
+    packet = self.readpacket()
     if packet is None:
         return []
     if sys.version_info.major > 2:
@@ -760,40 +728,17 @@ class Dexcom(object):
   def ReadRecords(self, record_type):
     records = []
     assert record_type in constants.RECORD_TYPES
-    try:
-        page_range = self.ReadDatabasePageRange(record_type)
-        if page_range != []:
-            start, end = page_range
-            if start != end or not end:
-              end += 1
-            for x in range(start, end):
-              page_range = self.ReadDatabasePage(record_type, x)
-              if page_range == []:
-                  break
-              records.extend(page_range)
-        return records
-    except serial.SerialException as e:
-        if self._debug_mode:
-            print ('ReadRecords() : SerialException =', e)
-            print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        self.Disconnect()
-        self.Connect()
-        return records
-    except ValueError as e:
-        if self._debug_mode:
-            print ('ReadRecords() : ValueError Exception =', e)
-            print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        return records
-    except Exception as e:
-        print ('ReadRecords() : Exception =', e)
-        print_exc()
-        if sys.version_info < (3, 0):
-            sys.exc_clear()
-        return records
+    page_range = self.ReadDatabasePageRange(record_type)
+    if page_range != []:
+        start, end = page_range
+        if start != end or not end:
+          end += 1
+        for x in range(start, end):
+          page_range = self.ReadDatabasePage(record_type, x)
+          if page_range == []:
+              break
+          records.extend(page_range)
+    return records
 
 class DexcomG5 (Dexcom):
   PARSER_MAP = {

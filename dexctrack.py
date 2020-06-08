@@ -850,16 +850,20 @@ class deviceReadThread(threading.Thread):
                 if sqlite_file is not None:
                     if appendable_db:
                         # We probably have new records to add to the database
-                        self.readIntoDbFunc(sqlite_file)
+                        read_status = self.readIntoDbFunc(sqlite_file)
+                        if read_status != 0:
+                            self.firstDelayPeriod = 10
                     else:
                         if readDataInstance is None:
                             readDataInstance = getReadDataInstance()
                         if readDataInstance:
-                            curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
-                            if curGluc and curFullTrend:
+                            curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+                            if curGluc and curFullTrend and (read_status == 0):
                                 lastRealGluc = curGluc
                                 lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
                             else:
+                                if read_status != 0:
+                                    self.firstDelayPeriod = 10
                                 lastRealGluc = 0
                         else:
                             lastRealGluc = 0
@@ -870,7 +874,8 @@ class deviceReadThread(threading.Thread):
                         stat_text.set_backgroundcolor('tomato')
                         stat_text.draw(fig.canvas.get_renderer())
 
-                    plotGraph()    # Draw a new graph
+                    if read_status == 0:
+                        plotGraph()    # Draw a new graph
 
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
@@ -1092,8 +1097,8 @@ def PeriodicReadData():
         return
 
     if appendable_db is False:
-        curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
-        if curGluc and curFullTrend:
+        curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+        if curGluc and curFullTrend and (read_status == 0):
             lastRealGluc = curGluc
             lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
 
@@ -2275,8 +2280,8 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 if not readDataInstance:
                     readDataInstance = getReadDataInstance()
                 if readDataInstance:
-                    curGluc, curFullTrend = readDataInstance.GetCurrentGlucoseAndTrend()
-                    if curGluc and curFullTrend:
+                    curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+                    if curGluc and curFullTrend and (read_status == 0):
                         lastRealGluc = curGluc
                         lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
                     #print ('readDataFromSql() lastRealGluc =', lastRealGluc)

@@ -24,8 +24,10 @@ from __future__ import print_function
 import sys
 import sqlite3
 import threading
+import serial
 import readdata
 import database_records
+#from traceback import print_exc
 
 
 class readReceiverBase(readdata.Dexcom):
@@ -64,33 +66,81 @@ class readReceiverBase(readdata.Dexcom):
             return None
 
     def GetCurrentGlucoseAndTrend(self):
+        db_read_status = 0
         self._lock.acquire()
         if not self._port_name:
             dport = self.FindDevice()
             self._port_name = dport
-        respList = self.ReadRecords('EGV_DATA')
+        try:
+            respList = self.ReadRecords('EGV_DATA')
+        except serial.SerialException as e:
+            db_read_status = 2
+            if self._debug_mode:
+                print ('GetCurrentGlucoseAndTrend() : SerialException =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+        except ValueError as e:
+            db_read_status = 3
+            if self._debug_mode:
+                print ('GetCurrentGlucoseAndTrend() : ValueError Exception =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+        except Exception as e:
+            db_read_status = 4
+            if self._debug_mode:
+                print ('GetCurrentGlucoseAndTrend() : Exception =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+
         if respList:
             currentEgv = respList[-1]
             self._lock.release()
-            return (currentEgv.glucose, currentEgv.full_trend)
+            return (currentEgv.glucose, currentEgv.full_trend, db_read_status)
         else:
             self._lock.release()
-            return (None, None)
+            return (None, None, db_read_status)
 
     def GetCurrentUserSettings(self):
+        db_read_status = 0
         self._lock.acquire()
         if not self._port_name:
             dport = self.FindDevice()
             self._port_name = dport
-        respList = self.ReadRecords('USER_SETTING_DATA')
+        try:
+            respList = self.ReadRecords('USER_SETTING_DATA')
+        except serial.SerialException as e:
+            db_read_status = 2
+            if self._debug_mode:
+                print ('GetCurrentUserSettings() : SerialException =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+        except ValueError as e:
+            db_read_status = 3
+            if self._debug_mode:
+                print ('GetCurrentUserSettings() : ValueError Exception =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+        except Exception as e:
+            db_read_status = 4
+            if self._debug_mode:
+                print ('GetCurrentUserSettings() : Exception =', e)
+                #print_exc()
+            if sys.version_info < (3, 0):
+                sys.exc_clear()
+
         if respList:
             # The current User Settings are held in the last list element
             currentUserSettings = respList[-1]
             self._lock.release()
-            return (currentUserSettings.transmitterPaired, currentUserSettings.highAlert, currentUserSettings.lowAlert, currentUserSettings.riseRate, currentUserSettings.fallRate, currentUserSettings.outOfRangeAlert)
+            return (currentUserSettings.transmitterPaired, currentUserSettings.highAlert, currentUserSettings.lowAlert, currentUserSettings.riseRate, currentUserSettings.fallRate, currentUserSettings.outOfRangeAlert, db_read_status)
         else:
             self._lock.release()
-            return (None, None, None, None, None, None)
+            return (None, None, None, None, None, None, db_read_status)
 
     def GetPowerInfo(self):
         #print ('readReceiverBase() GetPowerInfo running')
@@ -123,21 +173,11 @@ class readReceiverBase(readdata.Dexcom):
 
 
     def DownloadToDb(self, dbPath):
+        db_read_status = 0  # 0 = success, non-zero = failure
         self._lock.acquire()
         if self._port_name is not None:
             #now = datetime.datetime.now()
             #print ('readReceiver.py : DownloadToDb() : Reading device at', str(now))
-
-            #for uev_rec in self.ReadRecords('USER_EVENT_DATA'):
-                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in uev_rec.raw_data))
-
-            #for cal_rec in self.ReadRecords('CAL_SET'):
-                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in cal_rec.raw_data))
-
-            #for ins_rec in self.ReadRecords('INSERTION_TIME'):
-                #print ('raw_data =',' '.join(' %02x' % ord(c) for c in ins_rec.raw_data))
-
-            #--------------------------------------------------------------------------------
             conn = sqlite3.connect(dbPath)
             try:
                 curs = conn.cursor()
@@ -208,13 +248,35 @@ class readReceiverBase(readdata.Dexcom):
                 conn.commit()
             except sqlite3.Error as e:
                 print ('DownloadToDb() : Rolling back SQL changes due to exception =', e)
+                db_read_status = 1
                 curs.close()
                 conn.rollback()
                 if sys.version_info < (3, 0):
                     sys.exc_clear()
+            except serial.SerialException as e:
+                db_read_status = 2
+                if self._debug_mode:
+                    print ('DownloadToDb() : SerialException =', e)
+                    #print_exc()
+                if sys.version_info < (3, 0):
+                    sys.exc_clear()
+            except ValueError as e:
+                db_read_status = 3
+                if self._debug_mode:
+                    print ('DownloadToDb() : ValueError Exception =', e)
+                    #print_exc()
+                if sys.version_info < (3, 0):
+                    sys.exc_clear()
+            except Exception as e:
+                db_read_status = 4
+                if self._debug_mode:
+                    print ('DownloadToDb() : Exception =', e)
+                    #print_exc()
+                if sys.version_info < (3, 0):
+                    sys.exc_clear()
             conn.close()
         self._lock.release()
-        return
+        return db_read_status
 
 #-------------------------------------------------------------------------
 class readReceiver(readReceiverBase):
@@ -222,15 +284,6 @@ class readReceiver(readReceiverBase):
     # but python requires us to put something in our class declaration,
     # so we declare a class variable 'rr_version'.
     rr_version = 'g4'
-
-    def __init__(self, portname, port=None, dbg = False):
-        #print ('readReceiver() __init__ running')
-        super(readReceiver, self).__init__(portname, port, dbg)
-
-    #def __del__(self):
-        #print ('readReceiver() __del__ running')
-        # If readReceiverBase.__del__() gets added ...
-        #super(readReceiver, self).__del__()
 
 #-------------------------------------------------------------------------
 class readReceiverG5(readReceiverBase):
@@ -245,15 +298,6 @@ class readReceiverG5(readReceiverBase):
         'USER_SETTING_DATA': database_records.G5UserSettings,
     }
 
-    def __init__(self, portname, port=None, dbg = False):
-        #print ('readReceiverG5() __init__ running')
-        super(readReceiverG5, self).__init__(portname, port, dbg)
-
-    #def __del__(self):
-        #print ('readReceiverG5() __del__ running')
-        # If readReceiverBase.__del__() gets added ...
-        #super(readReceiverG5, self).__del__()
-
 #-------------------------------------------------------------------------
 class readReceiverG6(readReceiverBase):
     # G6 uses the same format as G5 for Meter Data, Insertion, and EGV data
@@ -267,15 +311,6 @@ class readReceiverG6(readReceiverBase):
         'SENSOR_DATA': database_records.SensorRecord,
         'USER_SETTING_DATA': database_records.G6UserSettings,
     }
-
-    def __init__(self, portname, port=None, dbg = False):
-        #print ('readReceiverG6() __init__ running')
-        super(readReceiverG6, self).__init__(portname, port, dbg)
-
-    #def __del__(self):
-        #print ('readReceiverG6() __del__ running')
-        # If readReceiverBase.__del__() gets added ...
-        #super(readReceiverG6, self).__del__()
 
 #-------------------------------------------------------------------------
 
