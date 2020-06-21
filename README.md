@@ -70,13 +70,13 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>>***sudo pip install --upgrade setuptools***
 
->>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***sudo pip install matplotlib pyserial tzlocal numpy pympler***
 
 >>> For python3.*
 
 >>>>***sudo pip3 install --upgrade setuptools***
 
->>>>***sudo pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***sudo pip3 install matplotlib pyserial tzlocal numpy pympler***
 
 >5. Set up permissions to provide the user serial port access to a connected USB device. Implement one of the following options to accomplish this.
 
@@ -126,13 +126,13 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>>***pip install --upgrade setuptools***
 
->>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler pyobjc***
+>>>>***pip install matplotlib pyserial tzlocal numpy pympler pyobjc***
 
 >>> For python3.*
 
 >>>>***pip3 install --upgrade setuptools***
 
->>>>***pip3 install matplotlib pyserial pytz tzlocal numpy pympler pyobjc***
+>>>>***pip3 install matplotlib pyserial tzlocal numpy pympler pyobjc***
 
 </br>
 </br>
@@ -168,13 +168,13 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>>***pip install --upgrade setuptools***
 
->>>>***pip install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***pip install matplotlib pyserial tzlocal numpy pympler***
 
 >>> For python3.*
 
 >>>>***pip3 install --upgrade setuptools***
 
->>>>***pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***pip3 install matplotlib pyserial tzlocal numpy pympler***
 
 ## Running
 
