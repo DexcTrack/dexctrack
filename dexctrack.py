@@ -30,7 +30,7 @@ import threading
 import argparse
 import math
 import tzlocal
-import pytz
+from dateutil import tz
 import matplotlib as mpl
 # To force use of a particular backend, uncomment one of the following:
 #mpl.use('TkAgg')
@@ -343,7 +343,7 @@ bufferSeconds = 60*60*24*15
 hourSeconds = 60*60
 
 graphHeightInFigure = graphTop - graphBottom
-UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
+UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=tz.UTC)
 readSerialNumInstance = None
 readDataInstance = None
 ax = None
@@ -2948,6 +2948,10 @@ def plotGraph():
         ax.xaxis.set_minor_locator(mpl.dates.HourLocator())
         ax.xaxis.set_major_formatter(majorFormatter)
         ax.xaxis.set_minor_formatter(minorFormatter)
+        if sys.version_info.major >= 3:
+            # Disable removal of overlapping tick locations. This will
+            # plot '0' at midnight, even though we also plot the date.
+            ax.xaxis.remove_overlapping_locs = False
         ax.autoscale_view()
         ax.grid(True)
         ax.tick_params(direction='out', pad=10)
@@ -3033,7 +3037,7 @@ def plotGraph():
         # not be present in the version of matplotlib which is currently installed, we
         # create a fake data point.
         #==================================================================================
-        utcTime = datetime.datetime.now(pytz.UTC)
+        utcTime = datetime.datetime.now(tz.UTC)
         egvList.append([utcTime, 130])
         # Set timing variables to the current time offset
         receiverSecs = UtcTimeToReceiverTime(utcTime)
