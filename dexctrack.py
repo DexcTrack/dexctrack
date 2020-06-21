@@ -30,7 +30,7 @@ import threading
 import argparse
 import math
 import tzlocal
-from dateutil import tz
+import pytz
 import matplotlib as mpl
 # To force use of a particular backend, uncomment one of the following:
 #mpl.use('TkAgg')
@@ -343,7 +343,7 @@ bufferSeconds = 60*60*24*15
 hourSeconds = 60*60
 
 graphHeightInFigure = graphTop - graphBottom
-UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=tz.UTC)
+UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
 readSerialNumInstance = None
 readDataInstance = None
 ax = None
@@ -3037,7 +3037,7 @@ def plotGraph():
         # not be present in the version of matplotlib which is currently installed, we
         # create a fake data point.
         #==================================================================================
-        utcTime = datetime.datetime.now(tz.UTC)
+        utcTime = datetime.datetime.now(pytz.UTC)
         egvList.append([utcTime, 130])
         # Set timing variables to the current time offset
         receiverSecs = UtcTimeToReceiverTime(utcTime)
