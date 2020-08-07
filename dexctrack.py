@@ -44,6 +44,7 @@ import matplotlib.style as style
 import matplotlib.dates as mdates
 from matplotlib.widgets import Slider
 from matplotlib.widgets import TextBox
+#from matplotlib.widgets import Button
 import numpy as np
 
 import readReceiver
@@ -51,7 +52,11 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.3
+dexctrackVersion = 3.4
+
+if sys.version_info.major > 2:
+    import faulthandler
+    faulthandler.enable()
 
 # If a '-d' argument is included on the command line, we'll run in debug mode
 parser = argparse.ArgumentParser()
@@ -86,7 +91,7 @@ mytz = tzlocal.get_localzone()
 #==========================================================================================
 
 def off_drag_new_init(self, ref_artist, use_blit=False):
-    #print ('running off_drag_new_init()')
+    #print('running off_drag_new_init()')
     self.ref_artist = ref_artist
     self.got_artist = False
     self.got_other_artist = False
@@ -101,7 +106,7 @@ def off_drag_new_init(self, ref_artist, use_blit=False):
     self.cids = [c2, c3]
 
 def off_drag_on_pick(self, evt):
-    #print ('running off_drag_on_pick()')
+    #print('running off_drag_on_pick()')
     if self.got_other_artist:
         return
     if self.got_artist or evt.artist == self.ref_artist:
@@ -127,7 +132,7 @@ def off_drag_on_pick(self, evt):
         self.got_other_artist = True
 
 def off_drag_on_release(self, event):
-    #print ('running off_drag_on_release()')
+    #print('running off_drag_on_release()')
     self.got_other_artist = False
     if self.got_artist:
         self.finalize_offset()
@@ -219,7 +224,7 @@ def draggable_anot_picker(self, artist, mouse_evt):
             textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
         except TypeError:
             textX1 = textX0
-            if sys.version_info < (3, 0):
+            if sys.version_info.major < 3:
                 sys.exc_clear()
 
         if textX1 == textX0:
@@ -247,13 +252,13 @@ mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
 def new_da_finalize_offset(self):
     ann = self.annotation
     self.fx, self.fy = ann.get_transform().transform(ann.xyann)
-    #print ('new_da_finalize_offset(): ox =', self.ox, ', oy =', self.oy, ', fx =', self.fx, ', fy =', self.fy)
-    #print ('x = %s' % mdates.num2date(ann.xy[0], tz=mytz), ', y =', ann.xy[1])
+    #print('new_da_finalize_offset(): ox =', self.ox, ', oy =', self.oy, ', fx =', self.fx, ', fy =', self.fy)
+    #print('x = %s' % mdates.num2date(ann.xy[0], tz=mytz), ', y =', ann.xy[1])
     if (self.fx != self.ox) or (self.fy != self.oy):
-        #print (ann, 'Annotation moved')
+        #print(ann, 'Annotation moved')
         saveAnnToDb(ann)
     #else:
-        #print (ann, 'Annotation unmoved')
+        #print(ann, 'Annotation unmoved')
 
 mpl.offsetbox.DraggableAnnotation.finalize_offset = new_da_finalize_offset
 
@@ -261,24 +266,24 @@ mpl.offsetbox.DraggableAnnotation.finalize_offset = new_da_finalize_offset
 
 
 if args.version:
-    print ('Version =', dexctrackVersion)
+    print('Version =', dexctrackVersion)
     sys.exit(0)
 
 specDatabase = None
 if args.databaseFile:
     # abspath() will normalize path navigation elements like '~/' or '../'
     specDatabase = os.path.abspath(args.databaseFile)
-    print ('Specified Database =', specDatabase)
+    print('Specified Database =', specDatabase)
     if not os.path.exists(specDatabase):
-        print ("Specified database file '%s' does not exist" % specDatabase)
+        print("Specified database file '%s' does not exist" % specDatabase)
         sys.exit(2)
 
 if args.debug:
     from pympler import muppy
     from pympler import tracker
 
-print ('DexcTrack  Copyright (C) 2018  Steve Erlenborn')
-print ('This program comes with ABSOLUTELY NO WARRANTY.\n')
+print('DexcTrack  Copyright (C) 2018  Steve Erlenborn')
+print('This program comes with ABSOLUTELY NO WARRANTY.\n')
 
 # HD monitor  = 1920 x 1080 -> 1920/1080 = 1.78
 # small laptop  1366 x  768 -> 1366/ 768 = 1.78
@@ -291,18 +296,18 @@ else:
     width, height = screensize.get_screen_size()
 dispRatio = round(float(width) / float(height), 1)
 if args.debug:
-    print ('get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio)
+    print('get_screen_size width =', width, ', get_screen_size height =', height, ', dispRatio =', dispRatio)
 
 # Use the fivethirtyeight style, if it's available
 # To find explicit Exception type use ...
 #except Exception as e:
-#    print ('Exception type =', type(e).__name__)
+#    print('Exception type =', type(e).__name__)
 try:
     style.use('fivethirtyeight')
 except IOError as e:
-    print ('Exception =', e)
+    print('Exception =', e)
     style.use('ggplot')
-    if sys.version_info < (3, 0):
+    if sys.version_info.major < 3:
         sys.exc_clear()
 
 #####################################################################################################################
@@ -369,7 +374,6 @@ egvStdDev = 0.0
 lastRealGluc = 0
 xnorm = []
 ynorm = []
-runningMean = []
 meanPlot = None
 eventList = []
 noteList = []
@@ -377,7 +381,6 @@ calibList = []
 egvList = []
 gluUnits = 'mg/dL'
 dbGluUnits = 'mg/dL'
-evt_annot = None
 dis_annot = None
 linePlot = None
 egvScatter = None
@@ -387,21 +390,10 @@ lastTrend = None
 majorFormatter = None
 minorFormatter = None
 red_patch = None
-temp_red_patch = None
-inRange_patch = None
-temp_inRange_patch = None
-temp_inRange_Arrow1 = None
-temp_inRange_Arrow2 = None
-temp_inRange_Arrow3 = None
-redStartSet = set()
-inRangeStartSet = set()
-redRegionList = []
-inRangeRegionList = []
-inRangeRegionAnnotList = []
 evtPlotList = []
 notePlotList = []
-etimeSet = set()
-noteSet = set()
+evtTimeSet = set()
+noteAnnSet = set()
 calibDict = {}
 noteTimeSet = set()
 leg = None
@@ -441,8 +433,8 @@ minorTickSequence = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, \
 last_etime = None
 annRotation = 1.0
 annCloseCount = 0
-axtest = None
-testRead = None
+#axtest = None
+#testRead = None
 highPercent = 0.0
 midPercent = 0.0
 lowPercent = 0.0
@@ -470,14 +462,28 @@ disconText = None
 # Number of digits to display after the decimal point for Target Range values
 tgtDecDigits = 0
 dayRotation = 30
-
+lastObjCount = 0
+lastCalibFirst = None
+lastCalibLast = None
+redRangePlottedSet = set()
+redRangeDict = {}
+calibFirst = None
+calibLast = None
+memory_tracker = None
+inRangePlottedSet = set()
+inRangeDict = {}
+inRangeFontSize = 22
+calibFontSize = 'medium'
+eventFontSize = 16
+firstPlotGraph = 1
+cfgScale = (displayRange - displayRangeMin) / (displayRangeMax - displayRangeMin) * 100.0
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
 # way to terminate the program. Ctrl-C gets ignored, by default.
 # Here we set up a handler for Ctrl-C, which we'll use under Windows.
 def CtrlCHandler(signum, frame):
-    print ('Exiting due to Ctrl-C')
+    print('Exiting due to Ctrl-C')
     sys.exit(1)
 
 # Linux & Mac automatically handle Ctrl-C, but for Windows
@@ -525,8 +531,8 @@ else:
     xinches = 14.5
     yinches = 8.5
 
-#print ('interactive backends =',mpl.rcsetup.interactive_bk)
-#print ('non_interactive backends =',mpl.rcsetup.non_interactive_bk)
+#print('interactive backends =',mpl.rcsetup.interactive_bk)
+#print('non_interactive backends =',mpl.rcsetup.non_interactive_bk)
 
 # Start with a figure size corresponding to any given screen dimensions,
 # or the default for a 15 inch laptop.
@@ -537,8 +543,8 @@ figManager = plt.get_current_fig_manager()
 
 backend = plt.get_backend()
 if args.debug:
-    print ('sys.platform =', sys.platform)
-    print ('backend =', backend)
+    print('sys.platform =', sys.platform)
+    print('backend =', backend)
 if args.xsize and args.ysize:
     pass
 else:
@@ -612,10 +618,10 @@ def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
         #qtime = ReceiverTimeToUtcTime(curSqlMinTime)
         #rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
         newRange = True
-        #print ('SetCurrentSqlSelectRange(): newRange =', newRange)
-        #print ('SetCurrentSqlSelectRange(', curSqlMinTime, ',', curSqlMaxTime, ') : curSqlMinTime =', qtime.astimezone(mytz), ', curSqlMaxTime =', rtime.astimezone(mytz))
+        #print('SetCurrentSqlSelectRange(): newRange =', newRange)
+        #print('SetCurrentSqlSelectRange(', curSqlMinTime, ',', curSqlMaxTime, ') : curSqlMinTime =', qtime.astimezone(mytz), ', curSqlMaxTime =', rtime.astimezone(mytz))
         if calledFromPlotGraph is False:
-            #print ('SetCurrentSqlSelectRange : Calling plotGraph()')
+            #print('SetCurrentSqlSelectRange : Calling plotGraph()')
             plotGraph()
 
 #---------------------------------------------------------
@@ -640,7 +646,7 @@ def SecondsToGeneralTimeString(secs):
     seconds -= hours * 3600
     minutes = seconds // 60
     seconds -= minutes * 60
-    #print (months,'months, ',weeks,'weeks, ',days,'days, ',hours,'hours, ',minutes,'minutes')
+    #print(months,'months, ',weeks,'weeks, ',days,'days, ',hours,'hours, ',minutes,'minutes')
 
     if minutes > 30:
         hours += 1     # round up
@@ -700,7 +706,7 @@ def SecondsToGeneralTimeString(secs):
 #---------------------------------------------------------
 def displayCurrentRange():
     global displayEndSecs
-    #print ('displayRange =',displayRange,', displayStartSecs =',displayStartSecs,', displayStartSecs+displayRange =',displayStartSecs+displayRange,', lastTestSysSecs =',lastTestSysSecs)
+    #print('displayRange =',displayRange,', displayStartSecs =',displayStartSecs,', displayStartSecs+displayRange =',displayStartSecs+displayRange,', lastTestSysSecs =',lastTestSysSecs)
 
     #   +--------------------+--------------------------------------------------------+
     #   |                    |********************************************************|
@@ -740,21 +746,25 @@ def displayCurrentRange():
     else:
         dispBegin = displayStartSecs
         displayEndSecs = displayStartSecs + displayRange
-    #print ('displayCurrentRange() displayStartSecs =',displayStartSecs,'displayRange =',displayRange,'dispBegin =',dispBegin,'displayEndSecs =',displayEndSecs)
+    #print('displayCurrentRange() displayStartSecs =',displayStartSecs,'displayRange =',displayRange,'dispBegin =',dispBegin,'displayEndSecs =',displayEndSecs)
     if displayEndSecs > dispBegin:
         try:
             # the following can cause 'RuntimeError: dictionary changed size during iteration'
             ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(dispBegin)),
                         mdates.date2num(ReceiverTimeToUtcTime(displayEndSecs)))
             #if args.debug:
-                #print ('displayCurrentRange() before fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
+                #print('displayCurrentRange() before fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
             fig.canvas.draw_idle()   # each call generates new references to 120 - 300 objects
             #if args.debug:
-                #print ('displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
-                #tr.print_diff()
+                #print('displayCurrentRange() after fig.canvas.draw_idle(), count =',len(muppy.get_objects()))
+                #memory_tracker.print_diff()
         except RuntimeError as e:
-            print ('displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e)
-            if sys.version_info < (3, 0):
+            print('displayCurrentRange() : dispBegin =', dispBegin, ', displayEndSecs =', displayEndSecs, ', Exception =', e)
+            if sys.version_info.major < 3:
+                sys.exc_clear()
+        except Exception as e:
+            print('displayCurrentRange() : Exception type =', type(e).__name__)
+            if sys.version_info.major < 3:
                 sys.exc_clear()
 
 #---------------------------------------------------------
@@ -780,7 +790,7 @@ def getSqlFileName(sNum):
             my_sqlite_file = max(list_of_files, key=os.path.getctime)
             serialNum = my_sqlite_file.replace(sqlprefix, '').replace('.sqlite', '')
             #if args.debug:
-                #print ('getSqlFileName(None) : No device connected, defaulting to %s' % my_sqlite_file)
+                #print('getSqlFileName(None) : No device connected, defaulting to %s' % my_sqlite_file)
         else:
             my_sqlite_file = None
             serialNum = None
@@ -813,13 +823,13 @@ class deviceReadThread(threading.Thread):
         self.restart = False
         self.firstDelayPeriod = 0
         if args.debug:
-            print ('deviceReadThread launched at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            print('deviceReadThread launched at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def stop(self):
         self.restart = False
         self.evobj.set()
         if args.debug:
-            print ('Turning off device read thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            print('Turning off device read thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     # This function will cause termination of the current delay
     # sequence, and start of a new one, optionally beginning with
@@ -829,7 +839,7 @@ class deviceReadThread(threading.Thread):
         self.firstDelayPeriod = firstDelaySecs
         self.evobj.set()
         if args.debug:
-            print ('Restarting device read delay. First delay =', firstDelaySecs)
+            print('Restarting device read delay. First delay =', firstDelaySecs)
 
     def run(self):
         global readDataInstance
@@ -845,12 +855,14 @@ class deviceReadThread(threading.Thread):
                     stat_text.draw(fig.canvas.get_renderer())
 
                 if args.debug:
-                    print ('Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    print('Reading device at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
                 if sqlite_file is not None:
                     if appendable_db:
                         # We probably have new records to add to the database
                         read_status = self.readIntoDbFunc(sqlite_file)
+                        if (read_status != 0) and (args.debug != 0):
+                            print('deviceReadThread.run() : Read failed with status', read_status)
                         if read_status != 0:
                             self.firstDelayPeriod = 10
                     else:
@@ -867,7 +879,7 @@ class deviceReadThread(threading.Thread):
                                 lastRealGluc = 0
                         else:
                             lastRealGluc = 0
-                            #print ('deviceReadThread.run() readDataInstance = NULL')
+                            #print('deviceReadThread.run() readDataInstance = NULL')
 
                     if stat_text:
                         stat_text.set_text('Receiver\nDevice\nPresent')
@@ -880,7 +892,7 @@ class deviceReadThread(threading.Thread):
             if self.firstDelayPeriod != 0:
                 mydelay = float(self.firstDelayPeriod)
                 if args.debug:
-                    print ('Setting timeout delay to', mydelay)
+                    print('Setting timeout delay to', mydelay, 'at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.firstDelayPeriod = 0
                 waitStatus = self.evobj.wait(timeout=mydelay)   # wait up to firstDelayPeriod seconds
             else:
@@ -890,11 +902,11 @@ class deviceReadThread(threading.Thread):
             if waitStatus is True:
                 if self.restart is True:
                     #if args.debug:
-                        #print ('deviceReadThread restart requested')
+                        #print('deviceReadThread restart requested')
                     self.evobj.clear()
                 else:
                     if args.debug:
-                        print ('deviceReadThread terminated')
+                        print('deviceReadThread terminated')
                     lastRealGluc = 0
                     if sys.platform != "win32":
                         try:
@@ -903,8 +915,8 @@ class deviceReadThread(threading.Thread):
                             fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
                         except AttributeError as e:
                             #if args.debug:
-                                #print ('deviceReadThread.run() fig.canvas.set_window_title: Exception =', e)
-                            if sys.version_info < (3, 0):
+                                #print('deviceReadThread.run() fig.canvas.set_window_title: Exception =', e)
+                            if sys.version_info.major < 3:
                                 sys.exc_clear()
 
                     del readDataInstance
@@ -914,6 +926,7 @@ class deviceReadThread(threading.Thread):
 
 #---------------------------------------------------------
 class deviceSeekThread(threading.Thread):
+
     def __init__(self, threadID, name):
         threading.Thread.__init__(self)
         self.threadID = threadID
@@ -921,12 +934,12 @@ class deviceSeekThread(threading.Thread):
         self.connected_state = None
         self.evobj = threading.Event()
         #if args.debug:
-            #print ('deviceSeekThread launched, threadID =', threadID)
+            #print('deviceSeekThread launched, threadID =', threadID)
 
     def stop(self):
         self.evobj.set()
         if args.debug:
-            print ('Turning off device seek thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            print('Turning off device seek thread at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
     def run(self):
         while True:
@@ -990,12 +1003,11 @@ class deviceSeekThread(threading.Thread):
                         disconText = None
 
             #if args.debug:
-                #print ('deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                #print('deviceSeekThread.run() at', datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-            #print ('deviceSeekThread.run() connected_state =', self.connected_state, ', prior_connected_state =', prior_connected_state, ', sqlite_file =', sqlite_file, ', prior_sqlite_file =', prior_sqlite_file)
             if (self.connected_state != prior_connected_state) or (sqlite_file != prior_sqlite_file):
                 #if args.debug:
-                    #print ('Connected state :', prior_connected_state,' -> ',self.connected_state)
+                    #print('Connected state :', prior_connected_state,' -> ',self.connected_state)
                 if not sNum:
                     disconUtcTime = datetime.datetime.utcnow()
                     if rthread is not None:
@@ -1032,7 +1044,7 @@ class deviceSeekThread(threading.Thread):
             # waitStatus = False on timeout, True if someone set() the event object
             if waitStatus is True:
                 if args.debug:
-                    print ('deviceSeekThread terminated')
+                    print('deviceSeekThread terminated')
                 del readSerialNumInstance
                 readSerialNumInstance = None
                 return  # terminate the thread
@@ -1074,7 +1086,7 @@ def getReadDataInstance():
                 elif devType == 'g6':
                     rdi = readReceiver.readReceiverG6(my_dport, rsni.port, dbg = args.debug)
                 else:
-                    print ('getReadDataInstance() : Unrecognized firmware version', devType)
+                    print('getReadDataInstance() : Unrecognized firmware version', devType)
         else:
             rdi = readReceiver.readReceiver(my_dport, dbg = args.debug)
 
@@ -1131,6 +1143,17 @@ def updateScale(val):
     global displayRange
     global displayStartDate
     global minorTickSequence
+    global inRangeDict
+    global inRangeFontSize
+    global calibDict
+    global calibFontSize
+    global eventFontSize
+    global cfgScale
+
+    #print('updateScale() : scale =', val)
+    if cfgScale != val:
+        cfgScale = val
+        saveConfigToDb()
 
     displayRange = int(displayRangeMin + (val / 100.0) * (displayRangeMax - displayRangeMin))
     priorTickSequence = minorTickSequence
@@ -1157,6 +1180,74 @@ def updateScale(val):
     # Only retick if the sequence has changed
     if minorTickSequence != priorTickSequence:
         ax.xaxis.set_minor_locator(mpl.dates.HourLocator(byhour=minorTickSequence, tz=mytz))
+
+    # Adjust font sizes for plotted text based on the Scale setting
+    if val > 80.0:
+        newInRangeFontSize = 6
+        newCalibFontSize = 'x-small'
+        newEventFontSize = 6
+    elif val > 60.0:
+        newInRangeFontSize = 8
+        newCalibFontSize = 'smaller'
+        newEventFontSize = 8
+    elif val > 40.0:
+        newInRangeFontSize = 10
+        newCalibFontSize = 'smaller'
+        newEventFontSize = 10
+    elif val > 26.0:
+        newInRangeFontSize = 12
+        newCalibFontSize = 'small'
+        newEventFontSize = 12
+    elif val > 13.0:
+        newInRangeFontSize = 16
+        newCalibFontSize = 'small'
+        newEventFontSize = 14
+    elif val > 8.0:
+        newInRangeFontSize = 18
+        newCalibFontSize = 'medium'
+        newEventFontSize = 15
+    elif val > 5.0:  # default sizes for 24-hour scale
+        newInRangeFontSize = 22
+        newCalibFontSize = 'medium'
+        newEventFontSize = 16
+    elif val > 3.0:
+        newInRangeFontSize = 24
+        newCalibFontSize = 'large'
+        newEventFontSize = 18
+    elif val > 2.0:
+        newInRangeFontSize = 26
+        newCalibFontSize = 'larger'
+        newEventFontSize = 20
+    else:
+        newInRangeFontSize = 28
+        newCalibFontSize = 'x-large'
+        newEventFontSize = 22
+
+    if newInRangeFontSize != inRangeFontSize:
+        # Update text on previously plotted in range regions
+        for specRange in inRangePlottedSet:
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            thePatch = inRangeDict.get((startRangeNum, endRangeNum), None)
+            if thePatch:
+                # Update the text size for the inRangeArrow3 component
+                thePatch[3].set_fontsize(newInRangeFontSize)
+        inRangeFontSize = newInRangeFontSize
+        #print('updateScale() : new in-range fontsize =', inRangeFontSize)
+
+    if newCalibFontSize != calibFontSize:
+        for key in calibDict:
+            calibDict[key].set_fontsize(newCalibFontSize)
+        calibFontSize = newCalibFontSize
+        #print('updateScale() : new calib fontsize =', calibFontSize)
+
+    if newEventFontSize != eventFontSize:
+        for evtAnn in evtPlotList:
+            evtAnn.set_fontsize(newEventFontSize)
+        for noteAnn in notePlotList:
+            noteAnn.set_fontsize(newEventFontSize)
+        eventFontSize = newEventFontSize
+        #print('updateScale() : new event fontsize =', eventFontSize)
 
     SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
@@ -1251,11 +1342,11 @@ def submitNote(text):
     global oldNoteXoff
     global oldNoteYoff
 
-    #print ('submitNote() : oldNoteText =', noteText,', noteText =', text)
+    #print('submitNote() : oldNoteText =', noteText,', noteText =', text)
     oldNoteText = noteText
     noteText = text
     if noteArrow is not None:
-        #print ('submitNote() : writeNote(xoff=', oldNoteXoff, 'yoff=', oldNoteYoff, ')')
+        #print('submitNote() : writeNote(xoff=', oldNoteXoff, 'yoff=', oldNoteYoff, ')')
         writeNote(oldNoteXoff, oldNoteYoff)
         oldNoteXoff = 0.0
         oldNoteYoff = 0.0
@@ -1299,7 +1390,7 @@ def submitTgtLow(text):
 
             plotGraph()
     except ValueError:
-        if sys.version_info < (3, 0):
+        if sys.version_info.major < 3:
             sys.exc_clear()
 
 #---------------------------------------------------------
@@ -1341,7 +1432,7 @@ def submitTgtHigh(text):
 
             plotGraph()
     except ValueError:
-        if sys.version_info < (3, 0):
+        if sys.version_info.major < 3:
             sys.exc_clear()
 
 #---------------------------------------------------------
@@ -1351,10 +1442,10 @@ def writeNote(xoff=0.0, yoff=0.0):
     global noteArrow
     global submit_note_id
     global noteTimeSet
-    global noteSet
+    global noteAnnSet
     global notePlotList
 
-    #print ('writeNote() : oldNoteText =',oldNoteText,', noteText =',noteText, ', xoff =', xoff, ', yoff =', yoff)
+    #print('writeNote() : oldNoteText =',oldNoteText,', noteText =',noteText, ', xoff =', xoff, ', yoff =', yoff)
 
     if noteArrow is not None:
         # oldNoteText='', noteText=''       --> do nothing
@@ -1364,7 +1455,7 @@ def writeNote(xoff=0.0, yoff=0.0):
         if oldNoteText == noteText:
             return
         if noteText != '':
-            #print ('add note', 'noteLoc[0] =',noteLoc[0],'noteLoc[1] =',noteLoc[1])
+            #print('add note', 'noteLoc[0] =',noteLoc[0],'noteLoc[1] =',noteLoc[1])
             if (xoff == 0.0) and (yoff == 0.0):
                 xoffset = 0.0
                 if noteLoc[1] > 200:
@@ -1381,11 +1472,11 @@ def writeNote(xoff=0.0, yoff=0.0):
                                   arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
                                                   shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
             noteAnn.draggable()
-            noteSet.add(noteAnn)
+            noteAnnSet.add(noteAnn)
             notePlotList.append(noteAnn)
             timeIndex = getNearPos(xnorm, mdates.num2date(noteAnn.xy[0], tz=mytz))
             noteTimeSet.add(xnorm[timeIndex])
-            #print ('writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',xnorm[timeIndex])
+            #print('writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',xnorm[timeIndex])
             saveAnnToDb(noteAnn)
             noteText = ''
             oldNoteText = ''
@@ -1394,8 +1485,8 @@ def writeNote(xoff=0.0, yoff=0.0):
             noteBox.set_val('')
             submit_note_id = noteBox.on_submit(submitNote)
         #else:
-            #print ('writetNote() : noteText = \'\'')
-        #print ('writetNote() : calling noteArrow.remove()')
+            #print('writetNote() : noteText = \'\'')
+        #print('writetNote() : calling noteArrow.remove()')
         noteArrow.remove()
         noteArrow = None
         fig.canvas.draw()
@@ -1417,19 +1508,19 @@ def onpick(event):
     mouseevent = event.mouseevent
     if mouseevent:
         if mouseevent.xdata and mouseevent.ydata:
-            #print ('onpick(event) : button =',mouseevent.button,', xdata =',tod,', ydata =',gluc)
+            #print('onpick(event) : button =',mouseevent.button,', xdata =',tod,', ydata =',gluc)
             # Check for a right button click. Some mouse devices only have 2 buttons, and some
             # have 3, so treat either one as a "right button".
             if (mouseevent.button == 2) or (mouseevent.button == 3):
-                #print ('onpick(event) : tod =',tod,', xdata =',mouseevent.xdata,', gluc =',gluc)
+                #print('onpick(event) : tod =',tod,', xdata =',mouseevent.xdata,', gluc =',gluc)
                 noteLoc = (mouseevent.xdata, mouseevent.ydata)
                 matchNote = None
-                for note in noteSet:
-                    #print ('onpick(event) : X.dist =',mouseevent.xdata - note.xy[0],'Y.dist =',mouseevent.ydata - note.xy[1])
+                for note in noteAnnSet:
+                    #print('onpick(event) : X.dist =',mouseevent.xdata - note.xy[0],'Y.dist =',mouseevent.ydata - note.xy[1])
                     xdist = abs(mouseevent.xdata - note.xy[0])
                     # test if we're within 2.5 minutes of this note
                     if xdist < 0.001735906:
-                        #print ('onpick(event) : xdist =',xdist, 'match =',note.xy[0],',',note.xy[1],'=',ReceiverTimeToUtcTime(note.xy[0]),'<--- Match')
+                        #print('onpick(event) : xdist =',xdist, 'match =',note.xy[0],',',note.xy[1],'=',ReceiverTimeToUtcTime(note.xy[0]),'<--- Match')
                         matchNote = note
                         break
 
@@ -1439,7 +1530,7 @@ def onpick(event):
                         if (abs(noteArrow.xy[0] - noteLoc[0]) < 0.001735906) and (noteText == ''):
                             # and the position of that arrow matches where the user
                             # just clicked, then we'll delete that arrow
-                            #print ('onpick(event) : arrow position matches')
+                            #print('onpick(event) : arrow position matches')
                             noteArrow.remove()
                             noteArrow = None
                             return
@@ -1454,7 +1545,7 @@ def onpick(event):
                     fig.canvas.draw()
 
                     if matchNote is None:
-                        #print ('onpick(event) : calling writeNote()')
+                        #print('onpick(event) : calling writeNote()')
                         oldNoteText = ''
                         writeNote()
                     else:
@@ -1463,14 +1554,14 @@ def onpick(event):
                         if noteText == '':
                             noteText = matchNote.get_text()
                             #if args.debug:
-                                #print ("Deleting existing note '%s'" % noteText)
+                                #print("Deleting existing note '%s'" % noteText)
                             deleteNoteFromDb(UtcTimeToReceiverTime(mdates.num2date(matchNote.xy[0], tz=mytz)), noteText)
                             try:
                                 notePlotList.remove(matchNote)
                             except ValueError as e:
-                                if sys.version_info < (3, 0):
+                                if sys.version_info.major < 3:
                                     sys.exc_clear()
-                            noteSet.discard(matchNote)
+                            noteAnnSet.discard(matchNote)
                             matchNote.remove()
                             matchNote = None
                             if submit_note_id is not None:
@@ -1481,7 +1572,7 @@ def onpick(event):
                             # replace the old note with the new one
                             oldNoteText = matchNote.get_text()
                             if args.debug:
-                                print ("Replace the old note '%s' with the new one '%s'" % (oldNoteText, noteText))
+                                print("Replace the old note '%s' with the new one '%s'" % (oldNoteText, noteText))
                             matchNote.set_text(noteText)
                             saveAnnToDb(matchNote)
                             noteArrow.remove()
@@ -1490,13 +1581,13 @@ def onpick(event):
                             fig.canvas.draw()
 
             elif mouseevent.button == 1:
-                #print ('Button left')
+                #print('Button left')
                 pass
             elif mouseevent.button == 'up':
-                #print ('Button up')
+                #print('Button up')
                 pass
             elif mouseevent.button == 'down':
-                #print ('Button down')
+                #print('Button down')
                 pass
 
 #---------------------------------------------------------
@@ -1505,15 +1596,15 @@ def onclose(event):
     global sthread
 
     if args.debug:
-        print ('*****************')
-        print ('Close in progress')
-        print ('*****************')
+        print('*****************')
+        print('Close in progress')
+        print('*****************')
 
     # Shutdown PeriodicReadData thread
     if rthread is not None:
         rthread.stop()
         if args.debug:
-            print ('Waiting on rthread.join()')
+            print('Waiting on rthread.join()')
         rthread.join()
         rthread = None
 
@@ -1521,7 +1612,7 @@ def onclose(event):
     if sthread is not None:
         sthread.stop()
         if args.debug:
-            print ('Waiting on sthread.join()')
+            print('Waiting on sthread.join()')
         sthread.join()
         sthread = None
 
@@ -1567,7 +1658,7 @@ def hover(event):
         # When we're in the Scale slider we want to display a summary statement for
         # the time period represented by the current position of the mouse.
         xsecs = int(displayRangeMin + event.xdata/100.0 * (displayRangeMax-displayRangeMin))
-        #print ('hover() : xdata =',event.xdata,', seconds =',xsecs,SecondsToGeneralTimeString(xsecs))
+        #print('hover() : xdata =',event.xdata,', seconds =',xsecs,SecondsToGeneralTimeString(xsecs))
         text = SecondsToGeneralTimeString(xsecs)
         ptext = '(%s)'%text
         if scaleText:
@@ -1599,7 +1690,7 @@ def hover(event):
 
 #---------------------------------------------------------
 def UnitButtonCallback(event):
-    print ('Unit Button pressed.')
+    print('Unit Button pressed.')
     if gluUnits == 'mmol/L':
         #gluUnits = 'mg/dL'
         unitRead.label.set_text('Switch to\nmmol/L')
@@ -1609,53 +1700,71 @@ def UnitButtonCallback(event):
 
 #---------------------------------------------------------
 def TestButtonCallback(event):
-    print ('Test Button pressed. Will read in 10 seconds.')
+    #print('Clear Button pressed.')
+    #ClearGraph()
     timeLeftSeconds = 10
+    print('Test Button pressed. Will read in', timeLeftSeconds, 'seconds.')
     if rthread is not None:
-        print ('Calling rthread.restartDelay()')
+        print('Calling rthread.restartDelay()')
         rthread.restartDelay(firstDelaySecs=timeLeftSeconds)
     else:
-        print ('rthread is NULL')
+        print('rthread is NULL')
 
 #---------------------------------------------------------
 def ClearGraph():
-    global redRegionList
     global evtPlotList
     global notePlotList
     global egvScatter
     global calibScatter
     global linePlot
-    global inRangeRegionList
-    global inRangeRegionAnnotList
     global curSqlMinTime
     global curSqlMaxTime
+    global evtTimeSet
+    global noteTimeSet
+    global calibDict
+    global redRangePlottedSet
+    global redRangeDict
+    global inRangePlottedSet
+    global inRangeDict
+    global meanPlot
 
     # erase all previously plotted regions
-    for redmark in redRegionList:
-        redmark.remove()
-    redRegionList = []
-    redStartSet.clear()
-    while inRangeRegionAnnotList:
-        inRangeItem = inRangeRegionAnnotList.pop(0)
-        inRangeItem.remove()
-    inRangeRegionAnnotList = []
-    while inRangeRegionList:
-        inRangeRegionList.pop(0).remove()
-    inRangeRegionList = []
-    inRangeStartSet.clear()
+    while redRangePlottedSet:
+        specRange = redRangePlottedSet.pop()
+        startRangeNum = mdates.date2num(specRange[0])
+        endRangeNum = mdates.date2num(specRange[1])
+        stalePatch = redRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+        if stalePatch:
+            if args.debug:
+                print('ClearGraph - Deleting out of calibration range', specRange[0], ' to', specRange[1])
+            stalePatch.remove()
+
+    # erase all previously plotted in range for 24+ hour regions
+    while inRangePlottedSet:
+        specRange = inRangePlottedSet.pop()
+        startRangeNum = mdates.date2num(specRange[0])
+        endRangeNum = mdates.date2num(specRange[1])
+        stalePatch = inRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+        if stalePatch:
+            if args.debug:
+                print('ClearGraph - Deleting 24+ hour range section', specRange[0], 'to', specRange[1])
+            stalePatch[0].remove()  # inRange_patch
+            stalePatch[1].remove()  # inRangeArrow1
+            stalePatch[2].remove()  # inRangeArrow2
+            stalePatch[3].remove()  # inRangeArrow3
 
     # erase all previously plotted events
+    evtTimeSet.clear()
     for evtP in evtPlotList:
         evtP.remove()
     evtPlotList = []
-    etimeSet.clear()
 
     # erase all previously plotted notes
     noteTimeSet.clear()
     for noteP in notePlotList:
         noteP.remove()
     notePlotList = []
-    noteSet.clear()
+    noteAnnSet.clear()
 
     # erase calibration numbers
     for calTextRef in calibDict:
@@ -1664,7 +1773,11 @@ def ClearGraph():
 
     # erase scatter & line plots
     if calibScatter:
-        calibScatter.remove()
+        calibScatter[0].remove()
+        for line in calibScatter[1]:
+            line.remove()
+        for line in calibScatter[2]:
+            line.remove()
         calibScatter = None
     if egvScatter:
         egvScatter.remove()
@@ -1673,8 +1786,17 @@ def ClearGraph():
         linePlot.pop(0).remove()
         linePlot = None
 
+    if meanPlot:
+        meanPlot.pop(0).remove()
+
     curSqlMinTime = 0
     curSqlMaxTime = 0
+    fig.canvas.draw()
+
+    if args.debug:
+        print('After ClearGraph                           count =', len(muppy.get_objects()))
+        memory_tracker.print_diff()
+
 
 #---------------------------------------------------------
 def plotInit():
@@ -1712,6 +1834,7 @@ def plotInit():
     global gluMult
     global cfgDisplayLow
     global cfgDisplayHigh
+    global cfgScale
     global dbGluUnits
     global dayRotation
     #global unitRead
@@ -1720,7 +1843,7 @@ def plotInit():
     #global testRead
 
     if args.debug:
-        print ('rcParams[timezone] =', mpl.rcParams['timezone'])
+        print('rcParams[timezone] =', mpl.rcParams['timezone'])
 
     # Reserve some space at the bottom for the Sliders
     fig.subplots_adjust(bottom=sliderSpace)
@@ -1740,9 +1863,9 @@ def plotInit():
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
 
-    #print ('pixels per inch =',fig.canvas.winfo_fpixels( '1i' ))
-    #print ('axPos : Rect =', axPos.get_position().bounds)
-    #print ('axPos : Rect.bottom =', axPos.get_position().bounds[1])
+    #print('pixels per inch =',fig.canvas.winfo_fpixels( '1i' ))
+    #print('axPos : Rect =', axPos.get_position().bounds)
+    #print('axPos : Rect.bottom =', axPos.get_position().bounds[1])
 
     ########################################################
     # hd terminal = 1920 x 1080 -> 1920/1080 = 1.78
@@ -1936,7 +2059,7 @@ def plotInit():
         minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
-    cfgDisplayLow, cfgDisplayHigh, dbGluUnits = readConfigFromSql()
+    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale = readConfigFromSql()
     if dbGluUnits == 'mmol/L':
         # mmol/L = mg/dL x 0.0555
         gluMult = 0.0555
@@ -1954,7 +2077,7 @@ def plotInit():
     noteBox = TextBox(axNote, 'Note', color='wheat', hovercolor='lightsalmon')
     submit_note_id = noteBox.on_submit(submitNote)
     noteBoxPos = axNote.get_position()
-    #print ('noteBoxPos.x0 =',noteBoxPos.x0,'noteBoxPos.y0 =',noteBoxPos.y0,'noteBoxPos =',noteBoxPos)
+    #print('noteBoxPos.x0 =',noteBoxPos.x0,'noteBoxPos.y0 =',noteBoxPos.y0,'noteBoxPos =',noteBoxPos)
 
     ####################################################################################
     axTgtLow = plt.axes([tgtLowX, tgtLowY, tgtLowW, tgtLowH], frameon=True, zorder=10)
@@ -1972,8 +2095,8 @@ def plotInit():
                    backgroundcolor='gold', ha='center', va='center')
     ####################################################################################
 
-    #axtest = plt.axes([0, 0.15, 0.1, 0.075])
-    #testRead = Button(axtest, 'Jump', color='pink')
+    #axtest = plt.axes([0.02, 0.15, 0.05, 0.055])
+    #testRead = Button(axtest, 'Clear', color='mediumpurple')
     #testRead.on_clicked(TestButtonCallback)
 
     #                     Left, Bottom, Width, Height
@@ -2035,7 +2158,7 @@ def calcStats():
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
         ninetyDaysBack = int(displayEndSecs - 60*60*24*30*3)
-        #print ('ninetyDaysBack =',ninetyDaysBack)
+        #print('ninetyDaysBack =',ninetyDaysBack)
         curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
         sqlData = curs.fetchone()
         if sqlData[0] is None:
@@ -2045,7 +2168,7 @@ def calcStats():
             avgGlu = sqlData[0]
             hba1c = (sqlData[0] + 46.7) / 28.7
             #if args.debug:
-                #print ('Average glucose =', avgGlu,', HbA1c =',hba1c)
+                #print('Average glucose =', avgGlu,', HbA1c =',hba1c)
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # Find percentages of readings in High, Middle, and Low ranges over a 3 month period
@@ -2084,7 +2207,7 @@ def calcStats():
             midPercent = 0.0
             lowPercent = 0.0
         #if args.debug:
-            #print ('highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent)
+            #print('highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent)
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # Calculate the SampleVariance over a 3 month period
@@ -2111,7 +2234,7 @@ def calcStats():
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         egvStdDev = math.sqrt(egvSampleVariance)
         #if args.debug:
-            #print ('egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev)
+            #print('egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev)
 
         del sqlData
         curs.close()
@@ -2119,14 +2242,14 @@ def calcStats():
 
         if avgText:
             if gluUnits == 'mmol/L':
-                if (lastTestGluc == 5) or (lastTestGluc == 1):
+                if lastTestGluc in (5, 1):
                     avgText.set_text('Latest = ?\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                      %(gluMult * avgGlu, gluMult * egvStdDev, hba1c))
                 else:
                     avgText.set_text('Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                      %(gluMult * lastRealGluc, gluMult * avgGlu, gluMult * egvStdDev, hba1c))
             else:
-                if (lastTestGluc == 5) or (lastTestGluc == 1):
+                if lastTestGluc in (5, 1):
                     avgText.set_text('Latest = ?\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                      %(avgGlu, egvStdDev, hba1c))
                 else:
@@ -2152,25 +2275,37 @@ def readConfigFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
-            selectSql = "SELECT displayLow, displayHigh, glUnits FROM Config"
+            selectSql = "SELECT displayLow, displayHigh, glUnits, scale FROM Config"
+            try:
+                curs.execute(selectSql)
+            except sqlite3.Error as e:
+                # Older versions of the database didn't have a 'scale' column, so add it now.
+                if sys.version_info.major < 3:
+                    sys.exc_clear()
+                if args.debug:
+                    print('readConfigFromSql() : Adding \'scale\' column to Config table')
+                defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
+                curs.execute("ALTER TABLE Config ADD COLUMN scale REAL DEFAULT %f" % defScale)
             curs.execute(selectSql)
             sqlData = curs.fetchone()
             if sqlData is not None:
                 myDisplayLow = sqlData[0]
                 myDisplayHigh = sqlData[1]
                 myGluUnits = sqlData[2]
+                myScale = sqlData[3]
                 if myGluUnits == 'mmol/L':
                     tgtDecDigits = 1
                 else:
                     tgtDecDigits = 0
                 curs.close()
                 conn.close()
-                return myDisplayLow, myDisplayHigh, myGluUnits
+                return myDisplayLow, myDisplayHigh, myGluUnits, myScale
 
         curs.close()
         conn.close()
     # Couldn't read from database, so return default values
-    return displayLow, displayHigh, gluUnits
+    defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
+    return displayLow, displayHigh, gluUnits, defScale
 
 #---------------------------------------------------------
 def readRangeFromSql():
@@ -2227,13 +2362,18 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
     global dbGluUnits
     global readDataInstance
     global tgtDecDigits
+    global calibFirst
+    global calibLast
+    global cfgScale
 
     #if args.debug:
-        #print ('readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz)))
+        #print('readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz)))
     egvList = []
     calibList = []
     eventList = []
     noteList = []
+    calibFirst = None
+    calibLast = None
 
     if sqlite_file:
         conn = sqlite3.connect(sqlite_file)
@@ -2284,16 +2424,16 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     if curGluc and curFullTrend and (read_status == 0):
                         lastRealGluc = curGluc
                         lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
-                    #print ('readDataFromSql() lastRealGluc =', lastRealGluc)
+                    #print('readDataFromSql() lastRealGluc =', lastRealGluc)
                 #else:
-                    #print ('readDataFromSql() readDataInstance = NULL')
+                    #print('readDataFromSql() readDataInstance = NULL')
 
             trendChar = trendToChar(lastTrend)
 
             if args.debug:
-                print ('Latest glucose at', lastTestDateTime.astimezone(mytz), '=', lastRealGluc)
+                print('Latest glucose at', lastTestDateTime.astimezone(mytz), '=', round(lastRealGluc * gluMult, tgtDecDigits))
 
-            #print ('sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime)
+            #print('sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime)
             #-----------------------------------------------------
 
             selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
@@ -2301,11 +2441,18 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             # Limit the range of the selection ...
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
-            #print ('sql results length =',len(sqlData),'sqlMinTime =',sqlMinTime,'sqlMaxTime =',sqlMaxTime)
+            #print('sql results length =',len(sqlData),'sqlMinTime =',sqlMinTime,'sqlMaxTime =',sqlMaxTime)
 
+            # Calculate the running mean
+            rowCount = 0
+            runMean = 0.0
             for row in sqlData:
-                egvList.append([ReceiverTimeToUtcTime(row[0]), row[1]])
-            #print ('readDataFromSql(2) length egvList =', len(egvList))
+                # Only include real Glucose values. Values <= 12 are fake.
+                if row[1] > 12:
+                    rowCount += 1
+                    runMean = float(row[1] + (rowCount-1) * runMean) / rowCount
+
+                egvList.append([ReceiverTimeToUtcTime(row[0]), row[1], runMean])
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # Check to see if we have any Calib records in the database
@@ -2320,7 +2467,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 selectEgvSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds BETWEEN ?-300 AND ?+300 ORDER BY ABS(sysSeconds - ?) LIMIT 1'
                 curs.execute(selectCalSql, (sqlMinTime, sqlMaxTime))
                 sqlData = curs.fetchall()
-                #print ('sql calibration results length =',len(sqlData))
+                #print('sql calibration results length =',len(sqlData))
 
                 for calibRow in sqlData:
                     # Search for the closest EGV record within 5 minutes of the User Calibration entry
@@ -2328,7 +2475,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     egvRow = curs.fetchone()
                     if egvRow:
                         #ctime = ReceiverTimeToUtcTime(egvRow[0])
-                        #print ('New --> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calibRow[1], ', timeDiff =', calibRow[0] - egvRow[0], ', cgmGluc =', egvRow[1], ', calibDiff =', calibRow[1] - egvRow[1])
+                        #print('New --> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calibRow[1], ', timeDiff =', calibRow[0] - egvRow[0], ', cgmGluc =', egvRow[1], ', calibDiff =', calibRow[1] - egvRow[1])
                         # calculate an errorbar offset
                         calibList.append([ReceiverTimeToUtcTime(egvRow[0]), egvRow[1], calibRow[1] - egvRow[1], None])
                     else:
@@ -2336,6 +2483,19 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                         # within a Sensor Calibration period), so specify a 0 distance offset.
                         # We'll end up plotting the User Calibration without an errorbar.
                         calibList.append([ReceiverTimeToUtcTime(calibRow[0]), calibRow[1], 0, None])
+
+                try:
+                    calibFirst = calibList[0]
+                except IndexError:
+                    calibFirst = None
+                    if sys.version_info.major < 3:
+                        sys.exc_clear()
+                try:
+                    calibLast = calibList[-1]
+                except IndexError:
+                    calibLast = None
+                    if sys.version_info.major < 3:
+                        sys.exc_clear()
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserEvent'"
@@ -2347,7 +2507,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
-                #print ('Event: sysSeconds =',row[0],'type =',row[1],'subtype =',row[2],'value =',row[3],'xoffset =',row[4],'yoffset =',row[5])
+                #print('Event: sysSeconds =',row[0],'type =',row[1],'subtype =',row[2],'value =',row[3],'xoffset =',row[4],'yoffset =',row[5])
                 #########################################################################################
                 # In older (G5) versions Receiver firmware, the current date and time is always assigned
                 # when a user enters an Event.  In newer (G6) releases of firmware, the user is allowed
@@ -2369,7 +2529,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
             sqlData = curs.fetchall()
             for row in sqlData:
-                #print ('Note: sysSeconds =',row[0],'message =',row[1],'xoffset =',row[2],'yoffset =',row[3])
+                #print('Note: sysSeconds =',row[0],'message =',row[1],'xoffset =',row[2],'yoffset =',row[3])
                 noteList.append([ReceiverTimeToUtcTime(row[0]), row[1], row[2], row[3]])
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -2390,7 +2550,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql)
             sqlData = curs.fetchone()
             if sqlData[0] > 0:
-                selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits FROM Config"
+                selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits, scale FROM Config"
                 curs.execute(selectSql)
                 sqlData = curs.fetchone()
                 if sqlData is not None:
@@ -2401,6 +2561,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     legPosX = legDefaultPosX
                     legPosY = legDefaultPosY
                     dbGluUnits = sqlData[4]
+                    cfgScale = sqlData[5]
             else:
                 cfgDisplayLow = displayLow
                 cfgDisplayHigh = displayHigh
@@ -2427,12 +2588,12 @@ def saveAnnToDb(ann):
         curs = conn.cursor()
         if ann.get_color() == 'black':
             # We may have modified offsets, or modified message, or a completely new UserNote
-            #print ('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.get_text()))
+            #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.get_text()))
             selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND message=?'
             curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
             sqlData = curs.fetchone()
             if sqlData is None:
-                #print ('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
+                #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
                 selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND xoffset=? AND yoffset=?'
                 curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
                 sqlData = curs.fetchone()
@@ -2440,37 +2601,37 @@ def saveAnnToDb(ann):
                     # A completely new UserNote
                     curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
                     insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
-                    #print ('INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)),'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1]))
+                    #print('INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)),'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1]))
                     curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text(), ann.xyann[0], ann.xyann[1]))
                 else:
                     # Modified message
                     update_note_sql = '''UPDATE UserNote SET message=? WHERE sysSeconds=? AND xoffset=? AND yoffset=?;'''
-                    #print ('UPDATE UserNote SET message=\'%s\' WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' %(ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.xyann[0], ann.xyann[1]))
+                    #print('UPDATE UserNote SET message=\'%s\' WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' %(ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.xyann[0], ann.xyann[1]))
                     curs.execute(update_note_sql, ('%s'%ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
             else:
                 # Modified offsets
                 update_note_sql = '''UPDATE UserNote SET xoffset=?, yoffset=? WHERE sysSeconds=? AND message=?;'''
-                #print ('UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.get_text()))
+                #print('UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.get_text()))
                 curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
             curs.close()
             conn.commit()
         else:
-            #print ('SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds=%u AND xoffset=%d AND yoffset=%d;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0])), ann.xyann[0], ann.xyann[1]))
+            #print('SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds=%u AND xoffset=%d AND yoffset=%d;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0])), ann.xyann[0], ann.xyann[1]))
             selectSql = 'SELECT sysSeconds,dispSeconds,meterSeconds,type,subtype,value,xoffset,yoffset FROM UserEvent WHERE sysSeconds-dispSeconds+meterSeconds=?'
             curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0])),))
             sqlData = curs.fetchone()
             if sqlData is None:
-                #print ('saveAnnToDb() : No match for', ann)
+                #print('saveAnnToDb() : No match for', ann)
                 pass
             else:
                 update_evt_sql = '''UPDATE UserEvent SET xoffset=?, yoffset=? WHERE sysSeconds=? AND type=? AND subtype=? AND value=?;'''
-                #print ('UPDATE UserEvent SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND type=%u AND subtype=%u AND value=%u;'%(ann.xyann[0], ann.xyann[1], sqlData[0], sqlData[3], sqlData[4], sqlData[5]))
+                #print('UPDATE UserEvent SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND type=%u AND subtype=%u AND value=%u;'%(ann.xyann[0], ann.xyann[1], sqlData[0], sqlData[3], sqlData[4], sqlData[5]))
                 curs.execute(update_evt_sql, (ann.xyann[0], ann.xyann[1], sqlData[0],
                                               sqlData[3], sqlData[4], sqlData[5]))
             curs.close()
             conn.commit()
     except sqlite3.Error as e:
-        print ('saveAnnToDb() : sql changes failed to exception =', e)
+        print('saveAnnToDb() : sql changes failed to exception =', e)
         curs.close()
     conn.close()
 
@@ -2479,13 +2640,13 @@ def deleteNoteFromDb(sysSeconds, message):
     conn = sqlite3.connect(sqlite_file)
     try:
         curs = conn.cursor()
-        #print ('DELETE FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' %(sysSeconds,message))
+        #print('DELETE FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' %(sysSeconds,message))
         deleteSql = 'DELETE FROM UserNote WHERE sysSeconds=? AND message=?'
         curs.execute(deleteSql, (sysSeconds, '%s'%message))
         curs.close()
         conn.commit()
     except sqlite3.Error as e:
-        print ('deleteNoteFromDb() : sql changes failed to exception =', e)
+        print('deleteNoteFromDb() : sql changes failed to exception =', e)
         curs.close()
     conn.close()
 
@@ -2500,30 +2661,35 @@ def saveConfigToDb():
                 lframe = leg.get_frame()
                 lx, ly = lframe.get_x(), lframe.get_y()
                 legx, legy = fig.transFigure.inverted().transform((lx, ly))
-                #print ('legx, legy =',(legx, legy))
+                #print('legx, legy =',(legx, legy))
             else:
                 #legx,legy = legDefaultPosX, legDefaultPosY
                 legx, legy = 0, 0
 
-            #print ('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\');' %gluUnits)
-            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits) VALUES (0, ?, ?, ?, ?, ?);'''
-            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits))
+            #print('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits, scale) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\', cfgScale);' %gluUnits)
+            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale) VALUES (0, ?, ?, ?, ?, ?, ?);'''
+            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits, cfgScale))
 
             curs.close()
             conn.commit()
         except sqlite3.Error as e:
-            print ('saveConfigToDb() : Rolling back sql changes due to exception =', e)
+            print('saveConfigToDb() : Rolling back sql changes due to exception =', e)
             curs.close()
             conn.rollback()
-            if sys.version_info < (3, 0):
+            if sys.version_info.major < 3:
                 sys.exc_clear()
         conn.close()
 
 #---------------------------------------------------------
-def getNearPos(array, value):
-    idx = (np.abs(array-value)).argmin()
-    return idx
-
+def getNearPos(ordArray, value):
+    idx = np.searchsorted(ordArray, value, side='left')
+    # There are special cases where value is smaller (idx = 0) or larger
+    # (idx = len(ordArray)) than anything in the array. For every other
+    # case, since the array is ordered, ordArray[idx-1] < value <= ordArray[idx]
+    if idx > 0 and (idx == len(ordArray) or (value - ordArray[idx-1]) <= (ordArray[idx] - value)):
+        return idx-1
+    else:
+        return idx
 
 #---------------------------------------------------------
 def ShowOrHideEventsNotes():
@@ -2532,38 +2698,29 @@ def ShowOrHideEventsNotes():
     global last_etime
     global annRotation
     global annCloseCount
-    global evt_annot
     global noteTimeSet
+    global evtTimeSet
+    global noteAnnSet
 
     #=======================================================
     # Annotate the plot with user events
     #=======================================================
     multX = 1.0
     multY = 1.0
-    visibleAnnotCount = 0
     longTextBump = 0
 
     # Find the size of the plotting area in pixels
     ax_bbox = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
     ax_width, ax_height = ax_bbox.width * fig.dpi, ax_bbox.height * fig.dpi
-    #print ('ax_width, ax_height =', (ax_width, ax_height))
-
-    #if args.debug:
-        #print ('Before visible events count =', len(muppy.get_objects()))
+    #print('ax_width, ax_height =', (ax_width, ax_height))
 
     begTime = ReceiverTimeToUtcTime(displayStartSecs)
     endTime = ReceiverTimeToUtcTime(displayStartSecs + displayRange)
-    for (estime, etype, esubtype, evalue, exoffset, eyoffset) in eventList:
-        if (estime >= begTime) and (estime < endTime):
-            visibleAnnotCount += 1
+    visibleAnnotCount = sum(1 for evtAn in eventList if ((evtAn[0] >= begTime) and (evtAn[0] < endTime))) \
+                      + sum(1 for noteAn in noteList if ((noteAn[0] >= begTime) and (noteAn[0] < endTime)))
 
-    for (estime, message, xoffset, yoffset) in noteList:
-        if (estime >= begTime) and (estime < endTime):
-            visibleAnnotCount += 1
-
-    #print ('visibleAnnotCount =',visibleAnnotCount)
     #if args.debug:
-        #print ('After visible events count =', len(muppy.get_objects()))
+        #print('visibleAnnotCount =', visibleAnnotCount)
 
     if visibleAnnotCount > maxAnnotations:
         # User has probably zoomed out so much that plotting all these
@@ -2571,10 +2728,11 @@ def ShowOrHideEventsNotes():
         # can zoom in to see more detail, and show annotations if we
         # pass this test.
         # Erase all previously plotted event annotations
+        evtTimeSet.clear()
         for evtP in evtPlotList:
             evtP.remove()
         evtPlotList = []
-        etimeSet.clear()
+        #print('visibleAnnotCount too big - len(evtTimeSet) =', len(evtTimeSet))
         # erase all previously plotted notes
         noteTimeSet.clear()
         for noteP in notePlotList:
@@ -2584,16 +2742,47 @@ def ShowOrHideEventsNotes():
 
     # Note: 'pylint' complains about the following line,
     #   Do not use `len(SEQUENCE)` to determine if a sequence is empty (len-as-condition)
-    # but it is WRONG because 'xnorm' is a numpy.array.
+    # but it is WRONG because 'xnorm' is a numpy array.
     if len(xnorm) == 0:
         return
 
     #if args.debug:
-        #print ('Before events count =', len(muppy.get_objects()))
-    evtgen = (ev for ev in eventList if ev[0] not in etimeSet)
+        #print('ShowOrHideEventsNotes() : Before events    count =', len(muppy.get_objects()))
+
+    # Compare event annotations with previous iteration
+    minTod = ReceiverTimeToUtcTime(curSqlMinTime)
+    maxTod = ReceiverTimeToUtcTime(curSqlMaxTime)
+    #print('Annotation Range = %s - %s' % (minTod.astimezone(mytz), maxTod.astimezone(mytz)))
+
+    evtInScopeSet = set()
+    inScopePlotList = []
+    outScopePlotList = []
+    for evtAnn in evtPlotList:
+        if mdates.num2date(evtAnn.xy[0], tz=mytz) >= minTod and mdates.num2date(evtAnn.xy[0], tz=mytz) <= maxTod:
+            # event in scope
+            evtInScopeSet.add(mdates.num2date(evtAnn.xy[0]))
+            inScopePlotList.append(evtAnn)
+        else:
+            # event out of scope
+            outScopePlotList.append(evtAnn)
+
+    evtTimeSet = evtInScopeSet
+    evtPlotList = inScopePlotList
+
+    # remove events which have fallen out of scope
+    while outScopePlotList:
+        outScopePlotList.pop(0).remove()
+        #evtAnn = outScopePlotList.pop(0)
+        #if args.debug:
+            #print('Removing Event @ %s \'%s\'' % (mdates.num2date(evtAnn.xy[0], tz=mytz), evtAnn.get_text()))
+        #evtAnn.remove()
+
+    # add new events which have fallen into scope
+    evtgen = (ev for ev in eventList if ev[0] not in evtTimeSet)
     for (estime, etype, esubtype, evalue, exoffset, eyoffset) in evtgen:
         timeIndex = getNearPos(xnorm, estime)
-        #print ('Event: time =',estime,'type =',etype,'subtype =',esubtype,'value =',evalue,'index =',timeIndex,'glu =',ynorm[timeIndex])
+
+        #print('Event: time =',estime,'type =',etype,'subtype =',esubtype,'value =',evalue,'index =',timeIndex,'glu =',ynorm[timeIndex])
         longTextBump = 0
 
         if etype == 1:
@@ -2640,8 +2829,6 @@ def ShowOrHideEventsNotes():
         else:
             evt_color = 'brown'
             evtStr = 'Unknown event'
-        #if args.debug:
-            #print ('After setting event string count =',len(muppy.get_objects()))
 
         if last_etime:
             # Since users can insert many events in close proximity,
@@ -2671,7 +2858,7 @@ def ShowOrHideEventsNotes():
             # 'F' (-2,-2)----------------+                     (2,-2) 'G'
             #
             if (estime - last_etime) < datetime.timedelta(minutes=110):
-                #print ('---> estime =',estime,'estime - last_etime =',estime - last_etime,', evtStr =',evtStr)
+                #print('---> estime =',estime,'estime - last_etime =',estime - last_etime,', evtStr =',evtStr)
                 if annCloseCount & 3 == 0:
                     multX = annRotation
                     multY = -annRotation
@@ -2687,14 +2874,12 @@ def ShowOrHideEventsNotes():
                     multY = annRotation
                 annCloseCount += 1
             else:
-                #print ('estime =',estime,'estime - last_etime =',estime - last_etime,', evtStr =',evtStr)
+                #print('estime =',estime,'estime - last_etime =',estime - last_etime,', evtStr =',evtStr)
                 annRotation = 1.0
                 longTextBump = 0
                 annCloseCount = 0
                 multX = 1.0
                 multY = 1.0
-            #if args.debug:
-                #print ('After setting multX, multY, annRotation, count =',len(muppy.get_objects()))
 
         # If a specific position has not been established for the event yet, automatically
         # generate a value which is distanced away from recent event locations.
@@ -2724,12 +2909,12 @@ def ShowOrHideEventsNotes():
         # with a small offset.
         if exoffset < -ax_width / 2:
             if args.debug:
-                print ('Event @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, -ax_width / 2))
+                print('Event @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, -ax_width / 2))
             exoffset = -60.0
             repositioned = True
         elif exoffset > ax_width / 2:
             if args.debug:
-                print ('Event @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, ax_width / 2))
+                print('Event @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), evtStr, exoffset, ax_width / 2))
             exoffset = 60.0
             repositioned = True
 
@@ -2737,25 +2922,25 @@ def ShowOrHideEventsNotes():
         # it with a small offset.
         if eyoffset < -ax_height / 2:
             if args.debug:
-                print ('Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2))
+                print('Event @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, -ax_height / 2))
             eyoffset = -60.0
             repositioned = True
         elif eyoffset > ax_height / 2:
             if args.debug:
-                print ('Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2))
+                print('Event @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), evtStr, eyoffset, ax_height / 2))
             eyoffset = 60.0
             repositioned = True
 
         if repositioned:
             if args.debug:
-                print ('After repositioning, new offsets =', (exoffset, eyoffset))
+                print('After repositioning, new offsets =', (exoffset, eyoffset))
 
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
         if (ynorm[timeIndex] + gluMult * eyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
             if args.debug:
-                print ('Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
+                print('Event @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
             strawY = multY*(75+longTextBump)
             if ((ynorm[timeIndex] + gluMult * strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + gluMult * strawY) < 0):
                 eyoffset = -strawY
@@ -2764,21 +2949,22 @@ def ShowOrHideEventsNotes():
 
             if ((ynorm[timeIndex] + gluMult * eyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * eyoffset < 0):
                 if args.debug:
-                    print ('Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
+                    print('Event @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), evtStr, ynorm[timeIndex] + gluMult * eyoffset, ynorm[timeIndex], gluMult * eyoffset))
                 eyoffset *= -1.5
             repositioned = True
             if args.debug:
-                print ('    new offsets =', (exoffset, eyoffset))
+                print('    new offsets =', (exoffset, eyoffset))
 
+        # optionally add 'clip_on=True' to prevent string from extending out of graph axes
         evt_annot = ax.annotate(evtStr,
                                 xy=(mdates.date2num(estime), ynorm[timeIndex]), xycoords='data',
                                 xytext=(exoffset, eyoffset), textcoords='offset pixels',
-                                fontsize=16, color=evt_color,
+                                fontsize=eventFontSize, color=evt_color,
                                 arrowprops=dict(connectionstyle="arc3,rad=.3", facecolor=evt_color,
                                                 shrink=0.10, width=2, headwidth=6.5, zorder=11), zorder=11)
-
         #if args.debug:
-            #print ('After event annotation, count =',len(muppy.get_objects()))
+            #print('Adding Event @ %s \'%s\'' % (estime, evtStr))
+
         evt_annot.draggable()
         evtPlotList.append(evt_annot)
 
@@ -2786,17 +2972,43 @@ def ShowOrHideEventsNotes():
         if repositioned is True:
             saveAnnToDb(evt_annot)
 
-        #if args.debug:
-            #print ('After event append, count =',len(muppy.get_objects()))
         last_etime = estime
         # add this to the list of events which have already been annotated
-        etimeSet.add(estime)
+        evtTimeSet.add(estime)
 
     #=======================================================
     # User Notes
     #=======================================================
     #if args.debug:
-        #print ('After events, before Notes count =', len(muppy.get_objects()))
+        #print('ShowOrHideEventsNotes() : Before Notes     count =', len(muppy.get_objects()))
+
+    inNoteSet = set()
+    inScopeNoteTimeSet = set()
+    inScopePlotList = []
+    outScopePlotList = []
+    for note_Ann in notePlotList:
+        if mdates.num2date(note_Ann.xy[0], tz=mytz) >= minTod and mdates.num2date(note_Ann.xy[0], tz=mytz) <= maxTod:
+            # note in scope
+            inScopeNoteTimeSet.add(mdates.num2date(note_Ann.xy[0]))
+            inScopePlotList.append(note_Ann)
+            inNoteSet.add(note_Ann)
+        else:
+            # note out of scope
+            outScopePlotList.append(note_Ann)
+
+    noteAnnSet = inNoteSet
+    noteTimeSet = inScopeNoteTimeSet
+    notePlotList = inScopePlotList
+
+    # remove notes which have fallen out of scope
+    while outScopePlotList:
+        outScopePlotList.pop(0).remove()
+        #note_Ann = outScopePlotList.pop(0)
+        #if args.debug:
+            #print('Removing Note @ %s \'%s\'' % (mdates.num2date(note_Ann.xy[0], tz=mytz), note_Ann.get_text()))
+        #note_Ann.remove()
+
+    # add new notes which have fallen into scope
     notegen = (nt for nt in noteList if nt[0] not in noteTimeSet)
     for (estime, message, nxoffset, nyoffset) in notegen:
         #tod, gluc = (mdates.num2date(mouseevent.xdata,tz=mytz), mouseevent.ydata)
@@ -2808,12 +3020,12 @@ def ShowOrHideEventsNotes():
         # with a small offset.
         if nxoffset < -ax_width / 2:
             if args.debug:
-                print ('Note @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, -ax_width / 2))
+                print('Note @ %s \'%s\' X offset %f < -half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, -ax_width / 2))
             nxoffset = -60.0
             repositioned = True
         elif nxoffset > ax_width / 2:
             if args.debug:
-                print ('Note @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, ax_width / 2))
+                print('Note @ %s \'%s\' X offset %f > half screen width (%f)' % (estime.astimezone(mytz), message, nxoffset, ax_width / 2))
             nxoffset = 60.0
             repositioned = True
 
@@ -2821,25 +3033,25 @@ def ShowOrHideEventsNotes():
         # it with a small offset.
         if nyoffset < -ax_height / 2:
             if args.debug:
-                print ('Note @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, -ax_height / 2))
+                print('Note @ %s \'%s\' Y offset %f < -half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, -ax_height / 2))
             nyoffset = -60.0
             repositioned = True
         elif nyoffset > ax_height / 2:
             if args.debug:
-                print ('Note @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, ax_height / 2))
+                print('Note @ %s \'%s\' Y offset %f > half screen height (%f)' % (estime.astimezone(mytz), message, nyoffset, ax_height / 2))
             nyoffset = 60.0
             repositioned = True
 
         if repositioned:
             if args.debug:
-                print ('After repositioning, new offsets =', (nxoffset, nyoffset))
+                print('After repositioning, new offsets =', (nxoffset, nyoffset))
 
         # Sometimes the calculated or stored Y offset position lands outside
         # the limits of the axes, making it invisible. In such a case, we want to
         # recalculate the offset position.
         if (ynorm[timeIndex] + gluMult * nyoffset > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
             if args.debug:
-                print ('Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
+                print('Note @ %s \'%s\' Y offset %f (%f + %f) is outside plotting area. Recalculating.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
             strawY = multY*(75+longTextBump)
             if ((ynorm[timeIndex] + strawY) > maxDisplayHigh) or ((ynorm[timeIndex] + strawY) < 0):
                 nyoffset = -strawY
@@ -2848,23 +3060,23 @@ def ShowOrHideEventsNotes():
 
             if ((ynorm[timeIndex] + gluMult * nyoffset) > maxDisplayHigh) or (ynorm[timeIndex] + gluMult * nyoffset < 0):
                 if args.debug:
-                    print ('Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
+                    print('Note @ %s \'%s\' recalculated Y offset %f (%f + %f) is outside plotting area.' % (estime.astimezone(mytz), message, ynorm[timeIndex] + gluMult * nyoffset, ynorm[timeIndex], gluMult * nyoffset))
                 nyoffset *= -1.5
             repositioned = True
             if args.debug:
-                print ('    new offsets =', (nxoffset, nyoffset))
+                print('    new offsets =', (nxoffset, nyoffset))
 
-        #print ('Note: estime =', estime, ', gluc =', ynorm[timeIndex],'message =', message, 'xoffset =', nxoffset, 'yoffset =', nyoffset)
+        #print('Note: estime =', estime, ', gluc =', ynorm[timeIndex],'message =', message, 'xoffset =', nxoffset, 'yoffset =', nyoffset)
         noteAnn = ax.annotate(message,
                               xy=(mdates.date2num(estime), ynorm[timeIndex]), xycoords='data',
                               xytext=(nxoffset, nyoffset), textcoords='offset pixels',
-                              color='black', fontsize=16,
+                              color='black', fontsize=eventFontSize,
                               arrowprops=dict(connectionstyle="arc3,rad=-0.3", facecolor='brown',
                                               shrink=0.10, width=2, headwidth=6.5, zorder=16), zorder=16)
         noteAnn.draggable()
         notePlotList.append(noteAnn)
-        #print ('ShowOrHideEventsNotes note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'xytext[0] =',noteAnn.xytext[0],'xytext[1] =',noteAnn.xytext[1])
-        #print ('ShowOrHideEventsNotes note : X =', noteAnn.xy[0], 'Y =', noteAnn.xy[1], 'datetime =', estime)
+        #if args.debug:
+            #print('Adding Note @ %s \'%s\'' % (mdates.num2date(noteAnn.xy[0], tz=mytz), noteAnn.get_text()))
 
         # If we had to reposition the annotation, save the new location in the database
         if repositioned is True:
@@ -2872,7 +3084,9 @@ def ShowOrHideEventsNotes():
 
         # add this to the list of notes which have already been annotated
         noteTimeSet.add(estime)
-        noteSet.add(noteAnn)
+        noteAnnSet.add(noteAnn)
+    #if args.debug:
+        #print('ShowOrHideEventsNotes() : End              count =', len(muppy.get_objects()))
 
 #---------------------------------------------------------
 def glucInRange(glucose):
@@ -2883,25 +3097,15 @@ def plotGraph():
     global ax
     global xnorm
     global ynorm
-    global runningMean
     global calibScatter
     global egvScatter
     global desirableRange
-    global tr
+    global memory_tracker
     global displayRange
     global firstPlotGraph
     global dis_annot
     global linePlot
     global red_patch
-    global temp_red_patch
-    global inRange_patch
-    global temp_inRange_patch
-    global temp_inRange_Arrow1
-    global temp_inRange_Arrow2
-    global temp_inRange_Arrow3
-    global redRegionList
-    global inRangeRegionList
-    global inRangeRegionAnnotList
     global evtPlotList
     global notePlotList
     global leg
@@ -2928,16 +3132,27 @@ def plotGraph():
     global curSqlMinTime
     global curSqlMaxTime
     global newRange
+    global evtTimeSet
     global noteTimeSet
     global displayStartSecs
     global displayEndSecs
     global firstTestSysSecs
     global lastTestSysSecs
+    global lastObjCount
+    global calibDict
+    global lastCalibFirst
+    global lastCalibLast
+    global redRangePlottedSet
+    global redRangeDict
+    global inRangePlottedSet
+    global inRangeDict
+    global tgtLowBox
+    global tgtHighBox
 
-    #print ('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
+    #print('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
     if firstPlotGraph == 1:
         if args.debug:
-            tr = tracker.SummaryTracker()
+            memory_tracker = tracker.SummaryTracker()
 
         ax = fig.add_subplot(1, 1, 1)
         # rotate labels a bit to use less vertical space
@@ -2968,7 +3183,7 @@ def plotGraph():
 
         displayRange = defaultDisplaySecs
 
-        sScale.set_val(100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin))
+        sScale.set_val(cfgScale)
 
         dispDate = displayStartDate.strftime("%Y-%m-%d")
         posText = axPos.text(0.50, 0.10, dispDate, horizontalalignment='center',
@@ -2985,47 +3200,67 @@ def plotGraph():
 
     if restart is True:
         if args.debug:
-            print ('Erasing plot data from previous device')
+            print('Erasing plot data from previous device')
         # erase all previously plotted event annotations
+        evtTimeSet.clear()
         for evtP in evtPlotList:
             evtP.remove()
         evtPlotList = []
-        etimeSet.clear()
         # erase all previously plotted notes
         noteTimeSet.clear()
         for noteP in notePlotList:
             noteP.remove()
         notePlotList = []
-        noteSet.clear()
+        noteAnnSet.clear()
         # erase all previously plotted calibrations
         for calTextRef in calibDict:
             calibDict[calTextRef].remove()
         calibDict.clear()
-        # erase all previously plotted regions
-        for redmark in redRegionList:
-            redmark.remove()
-        redRegionList = []
-        redStartSet.clear()
-        while inRangeRegionAnnotList:
-            inRangeItem = inRangeRegionAnnotList.pop(0)
-            inRangeItem.remove()
-        inRangeRegionAnnotList = []
-        while inRangeRegionList:
-            inRangeRegionList.pop(0).remove()
-        inRangeRegionList = []
-        inRangeStartSet.clear()
+        if calibScatter:
+            calibScatter[0].remove()
+            for line in calibScatter[1]:
+                line.remove()
+            for line in calibScatter[2]:
+                line.remove()
+            calibScatter = None
+
+        # erase all previously plotted out of calibration regions
+        while redRangePlottedSet:
+            specRange = redRangePlottedSet.pop()
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            stalePatch = redRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+            if stalePatch:
+                #if args.debug:
+                    #print('restart - Deleting out of calibration range', specRange[0], 'to', specRange[1])
+                stalePatch.remove()
+
+        # erase all previously plotted in range for 24+ hour regions
+        while inRangePlottedSet:
+            specRange = inRangePlottedSet.pop()
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            stalePatch = inRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+            if stalePatch:
+                #if args.debug:
+                    #print('restart - Deleting in range section', specRange[0], 'to', specRange[1])
+                stalePatch[0].remove()  # inRange_patch
+                stalePatch[1].remove()  # inRangeArrow1
+                stalePatch[2].remove()  # inRangeArrow2
+                stalePatch[3].remove()  # inRangeArrow3
+
         cfgDisplayLow = None
         cfgDisplayHigh = None
         restart = False
 
     #if args.debug:
-        #tr.print_diff()
+        #memory_tracker.print_diff()
 
     readRangeFromSql()
     SetCurrentSqlSelectRange(True) # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     readDataFromSql(curSqlMinTime, curSqlMaxTime)
     #if position == 100.0:
-        #print ('---> At the end position')
+        #print('---> At the end position')
 
     if not egvList:
         #==================================================================================
@@ -3038,7 +3273,7 @@ def plotGraph():
         # create a fake data point.
         #==================================================================================
         utcTime = datetime.datetime.now(pytz.UTC)
-        egvList.append([utcTime, 130])
+        egvList.append([utcTime, 130, 130.0])
         # Set timing variables to the current time offset
         receiverSecs = UtcTimeToReceiverTime(utcTime)
         displayStartSecs = receiverSecs
@@ -3061,6 +3296,8 @@ def plotGraph():
             gluMult = 1.0
             scaleText.y = 70.0
         ax.set_ylabel('Glucose (%s)'%dbGluUnits)
+        # For python3, or perhaps the newer versions of matplotlib used by python3,
+        # the line below crashes with a 'Segmentation fault', for no clear reason.
         tgtLowBox.set_val('%g' % round(displayLow * gluMult, tgtDecDigits))
         tgtHighBox.set_val('%g' % round(displayHigh * gluMult, tgtDecDigits))
         # erase plotted calibration numbers because their units have changed
@@ -3068,50 +3305,12 @@ def plotGraph():
             calibDict[calTextRef].remove()
         calibDict.clear()
 
-    if newRange is True:
-        #---------------------------------------------------------
-        # erase all previously plotted event annotations
-        for evtP in evtPlotList:
-            evtP.remove()
-        evtPlotList = []
-        etimeSet.clear()
-        # erase all previously plotted notes
-        noteTimeSet.clear()
-        for noteP in notePlotList:
-            noteP.remove()
-        notePlotList = []
-        # erase all previously plotted calibration numbers
-        for calTextRef in calibDict:
-            calibDict[calTextRef].remove()
-        calibDict.clear()
-        # erase all previously plotted regions
-        for redmark in redRegionList:
-            redmark.remove()
-        redRegionList = []
-        redStartSet.clear()
-        inRangeRegionList = []
-        while inRangeRegionAnnotList:
-            inRangeItem = inRangeRegionAnnotList.pop(0)
-            inRangeItem.remove()
-        inRangeRegionAnnotList = []
-        inRangeStartSet.clear()
-
     # mark the desirable glucose region
     if desirableRange:
         # Only redraw desirable range if it has changed since the last drawing
         if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or (dbGluUnits != gluUnits):
 
-            # Need to clear in target annotations, since the target size has changed
-            while inRangeRegionAnnotList:
-                inRangeItem = inRangeRegionAnnotList.pop(0)
-                inRangeItem.remove()
-            inRangeRegionAnnotList = []
-            while inRangeRegionList:
-                inRangeRegionList.pop(0).remove()
-            inRangeRegionList = []
-            inRangeStartSet.clear()
-
-            #print ('High/Low value(s) changed')
+            #print('High/Low value(s) changed')
             cfgDisplayLow = displayLow
             cfgDisplayHigh = displayHigh
             desirableRange.remove()
@@ -3128,7 +3327,7 @@ def plotGraph():
             lowPercentText = plt.figtext(0.95, displayLow / 2.0 / maxDisplayHigh * graphHeightInFigure + graphBottom,
                                          '%4.1f' %lowPercent, style='italic', size=percentFontSize, weight='bold', color='magenta')
     else:
-        #print ('Setting initial High/Low values')
+        #print('Setting initial High/Low values')
         if cfgDisplayLow is not None:
             displayLow = cfgDisplayLow
         if cfgDisplayHigh is not None:
@@ -3136,9 +3335,9 @@ def plotGraph():
         desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
 
     #if args.debug:
-        #print ('plotGraph() :  After desirableRange() count =', len(muppy.get_objects()))
-        #print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
-        #tr.print_diff()
+        #print('plotGraph() :  After desirableRange() count =', len(muppy.get_objects()))
+        #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
+        #memory_tracker.print_diff()
 
     gluUnits = dbGluUnits
 
@@ -3172,54 +3371,47 @@ def plotGraph():
                 fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
         except AttributeError as e:
             #if args.debug:
-                #print ('fig.canvas.set_window_title: Exception =', e)
-            if sys.version_info < (3, 0):
+                #print('fig.canvas.set_window_title: Exception =', e)
+            if sys.version_info.major < 3:
                 sys.exc_clear()
 
     if egvList:
         data = np.array(egvList)
-        xx = []
-        yy = []
+        dataNorm = np.array([_ for _ in data if _[1] > 12])   # filter out fake glucose values
+        #print('sizeof(data) =', len(data), 'sizeof(dataNorm) =', len(dataNorm))
         xx = data[:, 0] # ReceiverTimeToUtcTime(sysSeconds)
         yy = data[:, 1] # glucose
-        #print ('sizeof(data) =',len(data),'sizeof(xx) =',len(xx),'sizeof(yy) =',len(yy))
+        #print('sizeof(data) =',len(data),'sizeof(xx) =',len(xx),'sizeof(yy) =',len(yy))
+        xnorm = dataNorm[:, 0]  # sysSeconds
+        ynorm = dataNorm[:, 1] * gluMult # glucose
+        runningMean = dataNorm[:, 2] * gluMult
 
-        # If we have at least two data points, and the glucose values are not "special" values
-        if len(xx) > 1 and len(yy) > 1 and yy[-1] > 12 and yy[-2] > 12:
-            # predict values for the next couple of hours based on the last two data points
-            xdiff = xx[-1]-xx[-2]
-            ydiff = yy[-1]-yy[-2]
+        if args.debug:
+            # If we have at least two data points, and the glucose values are not "special" values
+            if len(xx) > 1 and len(yy) > 1 and yy[-1] > 12 and yy[-2] > 12:
+                # predict values for the next couple of hours based on the last two data points
+                xdiff = xx[-1]-xx[-2]
+                ydiff = yy[-1]-yy[-2]
 
-            # Predict glucose value in two hours based on current rate of change.
-            # 2 hours = 24 * 5 minute samplings
-            predx = xx[-1] + 24 * xdiff
-            predy = min(max(minDisplayLow, yy[-1] + 24.0 * ydiff), maxDisplayHigh)
-            if args.debug:
-                print ('2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy)
+                # Predict glucose value in two hours based on current rate of change.
+                # 2 hours = 24 * 5 minute samplings
+                predx = xx[-1] + 24 * xdiff
+                predy = round(min(max(minDisplayLow, yy[-1] + 24.0 * ydiff), maxDisplayHigh) * gluMult, tgtDecDigits)
+                #tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
+                print('2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy)
 
         # create subset of normal (non-calib) data points
         # and a subset of calibration data points
-        cx = []
-        cy = []
-        cz = []
         cxnorm = []
         cynorm = []
         cznorm = []
 
-        xnorm = xx[yy > 12]
-        ynorm = yy[yy > 12] * gluMult
-
-        calibdata = np.array(calibList)
-        #print ('sizeof(calibdata) =',len(calibdata))
+        calibdata = np.array([_ for _ in calibList if _[1] > 12])
         if calibdata.size != 0:
-            cx = calibdata[:, 0] # sysSeconds
-            cy = calibdata[:, 1] # glucose
-            cz = calibdata[:, 2] # calibration
-            cxnorm = cx[cy > 12]
-            #print ('sizeof(xnorm) =',len(xnorm),'sizeof(cx) =',len(cx),'sizeof(cy) =',len(cy),'sizeof(cxnorm) =',len(cxnorm))
-            cynorm = cy[cy > 12] * gluMult
-            cznorm = cz[cy > 12] * gluMult
-            #print ('len(xx) =',len(xx),' len(yy) =',len(yy),' len(cx) =',len(cx),' len(cy) =',len(cy),' len(cxnorm) =',len(cxnorm),' len(cynorm) =',len(cynorm))
+            cxnorm = calibdata[:, 0] # sysSeconds
+            cynorm = calibdata[:, 1] * gluMult # glucose
+            cznorm = calibdata[:, 2] * gluMult # calibration
+            #print('sizeof(xnorm) =',len(xnorm),'sizeof(cxnorm) =',len(cxnorm),'sizeof(cynorm) =',len(cynorm))
 
         #-----------------------------------------------------
         # Find ranges where we're out of calibration.
@@ -3228,15 +3420,16 @@ def plotGraph():
         # partial region which is increasing in size.
         #-----------------------------------------------------
         calibZoneList = []
+        outOfCalZoneSet = set()
         lastx = ReceiverTimeToUtcTime(curSqlMinTime)
         lasty = sqlEarliestGluc
         startOfZone = lastx
-        tempRangeEnd = startOfZone
         for pointx, pointy in zip(xx, yy):
             if (lasty <= 12) and (pointy > 12):
                 # we've transitioned out of a calib zone
-                #print ('calibZoneList[] adding ',startOfZone,'to',pointx)
+                #print('calibZoneList[] adding ',startOfZone,'to',pointx)
                 calibZoneList.append([startOfZone, pointx])
+                outOfCalZoneSet.add((startOfZone, pointx))
             elif (lasty > 12) and (pointy <= 12):
                 # we've transitioned into a calib zone
                 startOfZone = pointx
@@ -3244,24 +3437,24 @@ def plotGraph():
             lasty = pointy
 
         #if args.debug:
-            #print ('plotGraph() :  After calibZoneList() count =', len(muppy.get_objects()))
-            #print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
-            #tr.print_diff()
+            #print('plotGraph() :  After calibZoneList() count =', len(muppy.get_objects()))
+            #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
+            #memory_tracker.print_diff()
 
         # Check for SENSOR_NOT_CALIBRATED or SENSOR_NOT_ACTIVE at the end
         # of the SQL selection.
-        if (lasty == 5) or (lasty == 1):
+        if lasty in (5, 1):
             calibZoneList.append([startOfZone, lastx])
-            tempRangeEnd = lastx
+            outOfCalZoneSet.add((startOfZone, lastx))
 
         # Check for SENSOR_NOT_CALIBRATED or SENSOR_NOT_ACTIVE as the latest value
-        if (lastTestGluc == 5) or (lastTestGluc == 1):
+        if lastTestGluc in (5, 1):
             # We reached the end of the data points while still in
             # an uncalibrated range, so add this final range.
             secsSinceWarmupStart = max(0, lastTestSysSecs - latestSensorInsertTime)
             if secsSinceWarmupStart < sensorWarmupPeriod:
                 if args.debug:
-                    print ('Sensor Warm-up Time =', secsSinceWarmupStart, 'out of', sensorWarmupPeriod, 'seconds')
+                    print('Sensor Warm-up Time =', secsSinceWarmupStart, 'out of', sensorWarmupPeriod, 'seconds')
                 timeLeftSeconds = sensorWarmupPeriod - secsSinceWarmupStart
                 timeLeftString = 'Sensor Warm-up Time Left = %u minutes' % (timeLeftSeconds // 60)
                 if sensorWarmupCountDown:
@@ -3284,8 +3477,8 @@ def plotGraph():
                         fig.canvas.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
                     except AttributeError as e:
                         #if args.debug:
-                            #print ('fig.canvas.set_window_title: Exception =', e)
-                        if sys.version_info < (3, 0):
+                            #print('fig.canvas.set_window_title: Exception =', e)
+                        if sys.version_info.major < 3:
                             sys.exc_clear()
 
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
@@ -3294,44 +3487,61 @@ def plotGraph():
                 if timeLeftSeconds < meterSamplingPeriod:
                     if rthread is not None:
                         if args.debug:
-                            print ('calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds)
+                            print('calling restartDelay(firstDelaySecs=%u)' % timeLeftSeconds)
                         rthread.restartDelay(firstDelaySecs=timeLeftSeconds)
                     else:
                         if args.debug:
-                            print ('rthread is None')
+                            print('rthread is None')
             elif sensorWarmupCountDown:
                 if args.debug:
-                    print ('Writing Ready for calibrations message')
+                    print('Writing Ready for calibrations message')
                 sensorWarmupCountDown.set_text('Ready for calibrations')
         else:
             if sensorWarmupCountDown:
                 if args.debug:
-                    print ('done with sensorWarmupCountDown')
+                    print('done with sensorWarmupCountDown')
                 sensorWarmupCountDown.remove()
                 sensorWarmupCountDown = None
 
-        # Highlight any new out-of-calibration ranges
-        redgen = (sr for sr in calibZoneList if mdates.date2num(sr[0]) not in redStartSet)
-        for specRange in redgen:
-            if temp_red_patch:
-                #print ('deleting temp_red_patch ending at', tempRangeEnd)
-                temp_red_patch.remove()
-                temp_red_patch = None
-            #print ('Highlighting out of calibration range',specRange[0],' to',specRange[1])
-            red_patch = ax.axvspan(mdates.date2num(specRange[0]),
-                                   mdates.date2num(specRange[1]),
+        #if args.debug:
+            #print('plotGraph() : Before out of calibration    count =', len(muppy.get_objects()))
+
+        #--------------------------------------------------------------------------------------------------
+        # Highlight out-of-calibration ranges
+        descopedRangeSet = redRangePlottedSet - outOfCalZoneSet
+        newRangeSet = outOfCalZoneSet - redRangePlottedSet
+        #if args.debug:
+            #print('Out Cal descopedRangeSet =', len(descopedRangeSet), 'commonRangeSet =', len(redRangePlottedSet & outOfCalZoneSet), 'newRangeSet =', len(newRangeSet))
+
+        # Remove any descoped out-of-calibration ranges
+        for specRange in descopedRangeSet:
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            stalePatch = redRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+            if stalePatch:
+                #if args.debug:
+                    #print('Deleting out of calibration range', specRange[0], 'to', specRange[1])
+                stalePatch.remove()
+            redRangePlottedSet.discard((specRange[0], specRange[1]))
+
+        # Add any new out-of-calibration ranges
+        for specRange in newRangeSet:
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+
+            #if args.debug:
+                #print('Highlighting out of calibration range', specRange[0], 'to', specRange[1])
+            red_patch = ax.axvspan(startRangeNum, endRangeNum,
                                    alpha=0.2, color='red',
                                    label='Uncalibrated', zorder=2)
-            if tempRangeEnd == lastx == specRange[1]:
-                # This range is not necessarily completed yet.
-                # Remember it so we can delete it later, if it
-                # is to be replaced by a larger range.
-                temp_red_patch = red_patch
-            else:
-                # add this to the list of ranges which have already been colored
-                redStartSet.add(mdates.date2num(specRange[0]))
-                redRegionList.append(red_patch)
-                temp_red_patch = None
+
+            # Store a reference to the plottted red patch in a dictionary indexed by the endpoints of the range
+            redRangeDict[(startRangeNum, endRangeNum)] = red_patch
+            redRangePlottedSet.add((specRange[0], specRange[1]))
+        #--------------------------------------------------------------------------------------------------
+
+        #if args.debug:
+            #print('plotGraph() : After out of calibration     count =', len(muppy.get_objects()))
 
         #-----------------------------------------------------------
         # Find where we're in desirable range for 24 hours or more.
@@ -3339,17 +3549,15 @@ def plotGraph():
         # The only one we might need to erase and redraw is a
         # partial region which is increasing in size.
         #-----------------------------------------------------------
-        inRangeList = []
+        inRangeSet = set()
         lastx = ReceiverTimeToUtcTime(curSqlMinTime)
         lasty = sqlEarliestGluc
         startOfZone = lastx
-        tempRangeEnd = startOfZone
         for pointx, pointy in zip(xnorm, ynorm):
             if (glucInRange(lasty) is True) and (glucInRange(pointy) is False):
                 # we've transitioned out desirable range
                 if pointx - startOfZone >= datetime.timedelta(hours=24):
-                    #print ('inRangeList[] adding ',startOfZone,'to',pointx)
-                    inRangeList.append([startOfZone, pointx])
+                    inRangeSet.add((startOfZone, pointx))
             elif (glucInRange(lasty) is False) and (glucInRange(pointy) is True):
                 # we've transitioned into desirable range
                 startOfZone = pointx
@@ -3360,61 +3568,65 @@ def plotGraph():
             # We reached the end of the data points while still in
             # range, so add this final range.
             if lastx - startOfZone >= datetime.timedelta(hours=24):
-                #print ('inRangeList[] adding ',startOfZone,'to',lastx)
-                inRangeList.append([startOfZone, lastx])
-            tempRangeEnd = lastx
+                #print('inRangeSet[] adding ',startOfZone,'to',lastx)
+                inRangeSet.add((startOfZone, lastx))
 
-        # Highlight any in region ranges >= 24 hours
-        inRangegen = (sr for sr in inRangeList if mdates.date2num(sr[0]) not in inRangeStartSet)
-        for specRange in inRangegen:
-            if temp_inRange_patch:
-                temp_inRange_patch.remove()
-                temp_inRange_Arrow1.remove()
-                temp_inRange_Arrow2.remove()
-                temp_inRange_Arrow3.remove()
-            #print ('Highlighting 24 hour or greater range', specRange[0], ' to', specRange[1])
-            inRange_patch = ax.axvspan(mdates.date2num(specRange[0]),
-                                       mdates.date2num(specRange[1]),
+
+        #--------------------------------------------------------------------------------------------------
+        # Highlight in-range regions >= 24 hours
+        descopedRangeSet = inRangePlottedSet - inRangeSet
+        newRangeSet = inRangeSet - inRangePlottedSet
+        #if args.debug:
+            #print('24-hour descopedRangeSet =', len(descopedRangeSet), 'commonRangeSet =', len(inRangePlottedSet & inRangeSet), 'newRangeSet =', len(newRangeSet))
+
+        # Remove any descoped 24 hour ranges
+        for specRange in descopedRangeSet:
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            stalePatch = inRangeDict.pop((startRangeNum, endRangeNum), None)   # returns None if key not found
+            if stalePatch:
+                #if args.debug:
+                    #print('Deleting     24+ hour range', specRange[0], 'to', specRange[1])
+                stalePatch[0].remove()  # inRange_patch
+                stalePatch[1].remove()  # inRangeArrow1
+                stalePatch[2].remove()  # inRangeArrow2
+                stalePatch[3].remove()  # inRangeArrow3
+            inRangePlottedSet.discard((specRange[0], specRange[1]))
+
+        # Add any new 24 hour ranges
+        for specRange in newRangeSet:
+            #if args.debug:
+                #print('Highlighting 24+ hour range', specRange[0], 'to', specRange[1])
+
+            startRangeNum = mdates.date2num(specRange[0])
+            endRangeNum = mdates.date2num(specRange[1])
+            inRange_patch = ax.axvspan(startRangeNum,
+                                       endRangeNum,
                                        0.0, 1.0, color='lightsteelblue',
                                        alpha=1.0, zorder=0)
 
-            inRangeArrow1 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * sqlMaximumGluc * 0.9),
-                                        xytext=(mdates.date2num(specRange[1]), gluMult * sqlMaximumGluc * 0.9),
+            inRangeArrow1 = ax.annotate('', xy=(startRangeNum, gluMult * sqlMaximumGluc * 0.9),
+                                        xytext=(endRangeNum, gluMult * sqlMaximumGluc * 0.9),
                                         xycoords='data', textcoords='data',
                                         arrowprops=dict(arrowstyle='|-|', color='red', linewidth=4),
                                         annotation_clip=False)
-            inRangeArrow2 = ax.annotate('', xy=(mdates.date2num(specRange[0]), gluMult * sqlMaximumGluc * 0.9),
-                                        xytext=(mdates.date2num(specRange[1]), gluMult * sqlMaximumGluc * 0.9),
+            inRangeArrow2 = ax.annotate('', xy=(startRangeNum, gluMult * sqlMaximumGluc * 0.9),
+                                        xytext=(endRangeNum, gluMult * sqlMaximumGluc * 0.9),
                                         xycoords='data', textcoords='data',
                                         arrowprops=dict(arrowstyle='<->', color='red', linewidth=4),
                                         annotation_clip=False)
 
-            xcenter = mdates.date2num(specRange[0]) + (mdates.date2num(specRange[1])-mdates.date2num(specRange[0]))/2
+            xcenter = startRangeNum + (endRangeNum - startRangeNum)/2
             inRangeDelta = specRange[1] - specRange[0]
             inRangeHours = inRangeDelta.days * 24 + inRangeDelta.seconds // 3600
             inRangeArrow3 = ax.annotate('%u hours in Target Range!' % inRangeHours,
                                         xy=(xcenter, gluMult * sqlMaximumGluc * 0.94), ha='center',
-                                        va='center', fontsize=22, annotation_clip=False)
+                                        va='center', fontsize=inRangeFontSize, annotation_clip=False)
 
-            if tempRangeEnd == lastx == specRange[1]:
-                # This range is not necessarily completed yet.
-                # Remember it so we can delete it later, if it
-                # is to be replaced by a larger range.
-                temp_inRange_patch = inRange_patch
-                temp_inRange_Arrow1 = inRangeArrow1
-                temp_inRange_Arrow2 = inRangeArrow2
-                temp_inRange_Arrow3 = inRangeArrow3
-            else:
-                # add this to the list of ranges which have already been colored
-                inRangeStartSet.add(mdates.date2num(specRange[0]))
-                inRangeRegionList.append(inRange_patch)
-                inRangeRegionAnnotList.append(inRangeArrow1)
-                inRangeRegionAnnotList.append(inRangeArrow2)
-                inRangeRegionAnnotList.append(inRangeArrow3)
-                temp_inRange_patch = None
-                temp_inRange_Arrow1 = None
-                temp_inRange_Arrow2 = None
-                temp_inRange_Arrow3 = None
+            # Store a reference to the plottted patch and arrows in a dictionary indexed by the endpoints of the range
+            inRangeDict[(startRangeNum, endRangeNum)] = (inRange_patch, inRangeArrow1, inRangeArrow2, inRangeArrow3)
+            inRangePlottedSet.add((specRange[0], specRange[1]))
+        #--------------------------------------------------------------------------------------------------
 
         #-----------------------------------------------------
         # Set point color to Magenta (Low), Cyan (Normal), or Red (High)
@@ -3422,97 +3634,124 @@ def plotGraph():
         #-----------------------------------------------------
 
         if args.debug:
-            print ('plotGraph() : Before plotting              count =', len(muppy.get_objects()))
+            print('plotGraph() : Before plotting              count =', len(muppy.get_objects()))
 
         # Set higher zorder to place scatter points on top of line drawing
         # Setting 'picker' allows us to handle hover events later on.
         if egvScatter:
             egvScatter.remove()
+            #if args.debug:
+                #print('plotGraph() : After egvScatter remove      count =', len(muppy.get_objects()))
         egvScatter = ax.scatter([mdates.date2num(jj) for jj in xnorm], ynorm, s=15, c=kcolor, zorder=8, marker='o', picker=True)
         #if args.debug:
-            #print ('plotGraph() : new size(egvScatter) =', len(muppy.get_objects()))
+            #print('plotGraph() : After egvScatter             count =', len(muppy.get_objects()))
 
-        # Plot the calibration settings with a diamond marker and an errorbar
-        if calibScatter:
-            calibScatter.remove()
-            calibScatter = None
+        # The calibDict could be empty if the glucose units changed since last time
+        if (calibFirst != lastCalibFirst) or (calibLast != lastCalibLast) or (not calibDict):
+            lastCalibFirst = calibFirst
+            lastCalibLast = calibLast
 
-        if calibdata.size != 0:
-            # Get slices of negative and positive calibration offsets
-            negSlice = np.array([-i for i in cznorm.clip(max=0)])
-            posSlice = np.array(cznorm.clip(min=0))
-            # Get a slice of absolute values
-            absSlice = np.array([abs(i) for i in cznorm])
-
-            # lower & upper limits of the errorbars
-            lowerLims = np.array(posSlice, dtype=bool)
-            upperLims = np.array(negSlice, dtype=bool)
-
-            calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
-                                       yerr=absSlice, lolims=lowerLims, uplims=upperLims,
-                                       marker='D', linestyle='None', color='black',
-                                       elinewidth=2, ecolor='deeppink', picker=True, zorder=10)
-
-            if sys.version_info.major > 2:
-                calibZip = list(zip(cxnorm, cynorm, cznorm))
-            else:
-                calibZip = zip(cxnorm, cynorm, cznorm)
-            for qq in calibZip:
-                if qq[0] not in calibDict:
-                    if qq[2] >= 0:
-                        # plot the calibration value a little above an Up arrow
-                        heightOffset = 6 * gluMult
-                    else:
-                        # plot the calibration value a little below a Down arrow
-                        heightOffset = -14 * gluMult
-                    # Save the reference to ax.text in a dictionary
-                    if gluUnits == 'mmol/L':
-                        calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
-                                                   '%5.2f' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
-                    else:
-                        calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
-                                                   '%d' % (qq[1] + qq[2]), color='black', ha='center', zorder=18)
-
+            # Erase previously plotted calibrations
+            if calibScatter:
+                calibScatter[0].remove()
+                for line in calibScatter[1]:
+                    line.remove()
+                for line in calibScatter[2]:
+                    line.remove()
+                calibScatter = None
+                # erase all previously plotted calibration numbers
+                for calTextRef in calibDict:
+                    calibDict[calTextRef].remove()
+                calibDict.clear()
             #if args.debug:
-                #print ('plotGraph() : new size(calibScatter) =', len(muppy.get_objects()))
+                #print('plotGraph() : After clearing calibScatter  count =', len(muppy.get_objects()))
 
+            # Plot the calibration settings with a diamond marker and an errorbar
+            if calibdata.size != 0:
+                # Get slices of negative and positive calibration offsets
+                negSlice = np.array([-i for i in cznorm.clip(max=0)])
+                posSlice = np.array(cznorm.clip(min=0))
+                # Get a slice of absolute values
+                absSlice = np.array([abs(i) for i in cznorm])
+
+                # lower & upper limits of the errorbars
+                lowerLims = np.array(posSlice, dtype=bool)
+                upperLims = np.array(negSlice, dtype=bool)
+
+                #if args.debug:
+                    #print('plotGraph() : Before calibScatter          count =', len(muppy.get_objects()))
+                calibScatter = ax.errorbar([mdates.date2num(jj) for jj in cxnorm], cynorm,
+                                           yerr=absSlice, lolims=lowerLims, uplims=upperLims,
+                                           marker='D', linestyle='None', color='black',
+                                           elinewidth=2, ecolor='deeppink', picker=True, zorder=10)
+                #if args.debug:
+                    #print('plotGraph() : After calibScatter           count =', len(muppy.get_objects()))
+
+                if sys.version_info.major > 2:
+                    calibZip = list(zip(cxnorm, cynorm, cznorm))
+                else:
+                    calibZip = zip(cxnorm, cynorm, cznorm)
+                #if args.debug:
+                    #print('plotGraph() : After calibZip               count =', len(muppy.get_objects()))
+                for qq in calibZip:
+                    if qq[0] not in calibDict:
+                        if qq[2] >= 0:
+                            # plot the calibration value a little above an Up arrow
+                            heightOffset = 6 * gluMult
+                        else:
+                            # plot the calibration value a little below a Down arrow
+                            heightOffset = -14 * gluMult
+                        # Save the reference to ax.text in a dictionary
+                        if gluUnits == 'mmol/L':
+                            calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                                       '%5.2f' % (qq[1] + qq[2]), color='black', ha='center',
+                                                       fontsize=calibFontSize, clip_on=True, zorder=18)
+                        else:
+                            calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
+                                                       '%d' % (qq[1] + qq[2]), color='black', ha='center',
+                                                       fontsize=calibFontSize, clip_on=True, zorder=18)
+                        #if args.debug:
+                            #print('plotGraph() : adding calib text ', calibDict[qq[0]].get_text(), 'for key =', qq[0])
+
+                #if args.debug:
+                    #print('plotGraph() : calibDict size =', len(calibDict))
+
+        #if args.debug:
+            #print('plotGraph() : Before linePlot remove       count =', len(muppy.get_objects()))
+            #memory_tracker.print_diff()
         if linePlot:
             linePlot.pop(0).remove()
+            #if args.debug:
+                #print('plotGraph() : After linePlot remove        count =', len(muppy.get_objects()))
+                #memory_tracker.print_diff()
         linePlot = ax.plot(xnorm, ynorm, color='cornflowerblue', zorder=7)
         #if args.debug:
-            #print ('After linePlot count =', len(muppy.get_objects()))
+            #print('plotGraph() : After linePlot               count =', len(muppy.get_objects()))
+            #memory_tracker.print_diff()
 
         #========================================================================================
         # Plot a running mean as a dashed line
-
-        del runningMean[:]
-        runningMean = []
-        for nn, gluc in enumerate(ynorm):
-            if nn == 0:
-                # There is no previous entry. The average, so far, is just this value.
-                runningMean.append(float(gluc))
-            else:
-                runningMean.append(float(nn * runningMean[nn - 1] + gluc) / (nn + 1))
         if meanPlot:
             meanPlot.pop(0).remove()
         meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=3, alpha=0.6)
+
+        #if args.debug:
+            #print('plotGraph() : After running mean           count =', len(muppy.get_objects()))
         #========================================================================================
         newRange = False
 
         #if args.debug:
-            #print ('plotGraph() :  After plots count =', len(muppy.get_objects()))
-            #print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
-            #tr.print_diff()
+            #print('plotGraph() :  After plots count =', len(muppy.get_objects()))
+            #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
+            #memory_tracker.print_diff()
 
         #=======================================================
         # Annotate the plot with user events and notes
         #=======================================================
         ShowOrHideEventsNotes()
-        #if args.debug:
-            #print ('After ShowOrHideEventsNotes count =', len(muppy.get_objects()))
 
     #if args.debug:
-        #print ('Before legend count =', len(muppy.get_objects()))
+        #print('Before legend                              count =', len(muppy.get_objects()))
     if leg is None:
         # We want to make sure that the Legend is fully visible. The user can drag
         # it to a location which causes it to partially outside the figure space.
@@ -3531,7 +3770,7 @@ def plotGraph():
 
         if legPosX < 0 or legPosX > (1.0 - 0.14) or legPosY < 0.1 or legPosY > (1.0 - 0.12):
             if args.debug:
-                print ('Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY))
+                print('Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY))
             legPosX = legDefaultPosX
             legPosY = legDefaultPosY
 
@@ -3545,12 +3784,12 @@ def plotGraph():
                 #leg.draggable(True)
 
     #if args.debug:
-        #print ('After legend count =', len(muppy.get_objects()))
+        #print('After legend                               count =', len(muppy.get_objects()))
 
     #if args.debug:
-        #print ('plotGraph() :  After legend count =', len(muppy.get_objects()))
-        #print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
-        #tr.print_diff()
+        #print('plotGraph() :  After legend count =', len(muppy.get_objects()))
+        #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
+        #memory_tracker.print_diff()
 
     if lastTrend == 1:     # doubleUp
         trendRot = 90.0
@@ -3614,6 +3853,8 @@ def plotGraph():
                         batt_text.set_backgroundcolor('hotpink')
                     else:
                         batt_text.set_backgroundcolor('deeppink')
+                    if args.debug:
+                        print('draining : powerLevel = ', powerLevel, ', lastPowerLevel = ', lastPowerLevel)
                 else:
 
                     batt_text.set_text('%s\n%d%%' % (powerStateString, powerLevel))
@@ -3633,7 +3874,7 @@ def plotGraph():
     #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
     if args.debug:
-        print ('plotGraph() : Before displayCurrentRange() count =', len(muppy.get_objects()))
+        print('plotGraph() : Before displayCurrentRange() count =', len(muppy.get_objects()))
 
     displayCurrentRange()
 
@@ -3650,12 +3891,14 @@ def plotGraph():
             #   Legend (X,Y) = [0. 0.] , (W,H) = [0.00068966 0.00117647]
             # so filter such entries out.
             if legxy[0] > 0.01 or legxy[1] > 0.01:
-                print ('Legend (X,Y) =', legxy, ', (W,H) =', legwh)
+                print('Legend (X,Y) =', legxy, ', (W,H) =', legwh)
 
     if args.debug:
-        print ('plotGraph() :  After displayCurrentRange() count =', len(muppy.get_objects()))
-        print ('++++++++++++++++++++++++++++++++++++++++++++++++\n')
-        tr.print_diff()
+        currObjCount = len(muppy.get_objects())
+        print('plotGraph() :  After displayCurrentRange() count =', currObjCount, '   +', currObjCount - lastObjCount)
+        lastObjCount = currObjCount
+        print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
+        memory_tracker.print_diff()
 
 # end of plotGraph()
 
@@ -3666,8 +3909,7 @@ fig.canvas.mpl_connect('axes_leave_event', leave_axes)
 
 sqlite_file = getSqlFileName(None)
 if args.debug:
-    print ('sqlite_file =', sqlite_file)
-firstPlotGraph = 1
+    print('sqlite_file =', sqlite_file)
 plotInit()
 # We need to call plotGraph() before launching the device seek thread because
 # that thread could also end up calling plotGraph(). If the seek thread calls
@@ -3679,7 +3921,7 @@ plotGraph()
 PerodicDeviceSeek()  # launch thread to check for device presence periodically
 
 plt.show()  # This hangs until the user closes the window
-#print ('returned from plt.show()')
+#print('returned from plt.show()')
 
 #-----------------------------------------------------
 #
