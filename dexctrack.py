@@ -1139,21 +1139,12 @@ def updatePos(val):
         displayCurrentRange()
 
 #---------------------------------------------------------
-def updateScale(val):
+def setPropsFromScale(val):
     global displayRange
-    global displayStartDate
     global minorTickSequence
-    global inRangeDict
     global inRangeFontSize
-    global calibDict
     global calibFontSize
     global eventFontSize
-    global cfgScale
-
-    #print('updateScale() : scale =', val)
-    if cfgScale != val:
-        cfgScale = val
-        saveConfigToDb()
 
     displayRange = int(displayRangeMin + (val / 100.0) * (displayRangeMax - displayRangeMin))
     priorTickSequence = minorTickSequence
@@ -1233,13 +1224,13 @@ def updateScale(val):
                 # Update the text size for the inRangeArrow3 component
                 thePatch[3].set_fontsize(newInRangeFontSize)
         inRangeFontSize = newInRangeFontSize
-        #print('updateScale() : new in-range fontsize =', inRangeFontSize)
+        #print('setPropsFromScale() : new in-range fontsize =', inRangeFontSize)
 
     if newCalibFontSize != calibFontSize:
         for key in calibDict:
             calibDict[key].set_fontsize(newCalibFontSize)
         calibFontSize = newCalibFontSize
-        #print('updateScale() : new calib fontsize =', calibFontSize)
+        #print('setPropsFromScale() : new calib fontsize =', calibFontSize)
 
     if newEventFontSize != eventFontSize:
         for evtAnn in evtPlotList:
@@ -1247,8 +1238,17 @@ def updateScale(val):
         for noteAnn in notePlotList:
             noteAnn.set_fontsize(newEventFontSize)
         eventFontSize = newEventFontSize
-        #print('updateScale() : new event fontsize =', eventFontSize)
+        #print('setPropsFromScale() : new event fontsize =', eventFontSize)
 
+#---------------------------------------------------------
+def updateScale(val):
+    global displayStartDate
+    global cfgScale
+
+    #print('updateScale() : switching scale from', cfgScale, 'to', val)
+    cfgScale = val
+    saveConfigToDb()
+    setPropsFromScale(val)
     SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
     if posText:
@@ -1857,8 +1857,9 @@ def plotInit():
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
+    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale = readConfigFromSql()
     axScale = plt.axes([0.20, 0.01, 0.69, 0.03], facecolor=axcolor)
-    sScale = Slider(axScale, 'Scale', 0.0, 100.0, 100.0, color='limegreen')
+    sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
@@ -2059,7 +2060,6 @@ def plotInit():
         minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
 
-    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale = readConfigFromSql()
     if dbGluUnits == 'mmol/L':
         # mmol/L = mg/dL x 0.0555
         gluMult = 0.0555
@@ -3181,9 +3181,7 @@ def plotGraph():
         # Don't move the following to plotInit() or Scale slider will be messed up
         plt.autoscale(True, 'both', None)
 
-        displayRange = defaultDisplaySecs
-
-        sScale.set_val(cfgScale)
+        displayRange = int(displayRangeMin + (cfgScale / 100.0) * (displayRangeMax - displayRangeMin))
 
         dispDate = displayStartDate.strftime("%Y-%m-%d")
         posText = axPos.text(0.50, 0.10, dispDate, horizontalalignment='center',
@@ -3191,6 +3189,8 @@ def plotGraph():
         scaleText = axScale.text(0.50, 0.10, SecondsToGeneralTimeString(displayRange),
                                  horizontalalignment='center', verticalalignment='bottom',
                                  weight='bold', transform=axScale.transAxes)
+
+        setPropsFromScale(cfgScale)
 
         readRangeFromSql()
         curSqlMaxTime = lastTestSysSecs
