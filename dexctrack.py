@@ -323,10 +323,9 @@ sensorWarmupPeriod = 60*60*2    # 2 hours, in seconds
 # The following are user interface defaults.
 #####################################################################################################################
 maxAnnotations = 30             # only display Events and Notes, if there are <= this number in display range
-defaultDisplaySecs = 60*60*24   # 1 day, in seconds
 displayRangeMin = 60*60*4       # 4 hours, in seconds
 displayRangeMax = 60*60*24*14   # 2 weeks, in seconds
-displayRange = 60*60*24         # default Scale displays one day of values
+displayRange = 60*60*25         # default Scale is one day + 1 hour (for future projections), in seconds
 displayLow = 75.0               # default low end of Target Range
 displayHigh = 200.0             # default high end of Target Range
 position = 100.0                # start with display of the latest values
@@ -477,6 +476,9 @@ calibFontSize = 'medium'
 eventFontSize = 16
 firstPlotGraph = 1
 cfgScale = (displayRange - displayRangeMin) / (displayRangeMax - displayRangeMin) * 100.0
+futurePlot = [None, None, None, None]
+futureSecs = 60 * 60    # predict values one hour into the future
+future_patch = None
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
@@ -497,7 +499,6 @@ plt.rcParams['toolbar'] = 'None'
 
 # Disable default keyboard shortcuts so that a user
 # accidentally hitting 'q' won't kill the application.
-plt.rcParams['keymap.all_axes'] = ''
 plt.rcParams['keymap.back'] = ''
 plt.rcParams['keymap.forward'] = ''
 plt.rcParams['keymap.fullscreen'] = ''
@@ -588,7 +589,7 @@ def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
 
     # |<-----------------------------------maxRangeSecs----------------------------------------->|
     # |                                                                                          |
-    # firstTestSysSecs                                                             lastTestSysSecs
+    # firstTestSysSecs                                                lastTestSysSecs + futureSecs
     #
     #         <--displayRange-->            <--displayRange-->                 <--displayRange-->
     #       +-------------------+         +-------------------+              +-------------------+
@@ -608,13 +609,13 @@ def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
     # curSqlMinTime                    curSqlMaxTime
 
     displayStartSecs = int(firstTestSysSecs + (position / 100.0) *
-                           max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
-    displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
+                           max(lastTestSysSecs + futureSecs - firstTestSysSecs - displayRange, 0))
+    displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs + futureSecs)
 
     if (displayStartSecs < curSqlMinTime) or (displayEndSecs > curSqlMaxTime):
         # the range of data we need is outside of the last retrieved one
         curSqlMinTime = max(displayEndSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
-        curSqlMaxTime = min(max(displayEndSecs + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs)
+        curSqlMaxTime = min(max(displayEndSecs + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs + futureSecs)
         #qtime = ReceiverTimeToUtcTime(curSqlMinTime)
         #rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
         newRange = True
@@ -706,43 +707,45 @@ def SecondsToGeneralTimeString(secs):
 #---------------------------------------------------------
 def displayCurrentRange():
     global displayEndSecs
+
+    #print('displayCurrentRange()')
     #print('displayRange =',displayRange,', displayStartSecs =',displayStartSecs,', displayStartSecs+displayRange =',displayStartSecs+displayRange,', lastTestSysSecs =',lastTestSysSecs)
 
-    #   +--------------------+--------------------------------------------------------+
-    #   |                    |********************************************************|
-    #   | <- displayRange -> |********************************************************|
-    #   |                    |********************************************************|
-    #   +--------------------+--------------------------------------------------------+
-    #   |                    |                                                        |
-    #   displayStartSecs     displayStartSecs+displayRange                            lastTestSysSecs
-    #                        displayEndSecs
+    #   +--------------------+----------------------------------------------------+---+
+    #   |                    |****************************************************|   |
+    #   | <- displayRange -> |****************************************************|Fut|
+    #   |                    |****************************************************|   |
+    #   +--------------------+----------------------------------------------------+---+
+    #   |                    |                                                    |   lastTestSysSecs+futureSecs
+    #   displayStartSecs     displayEndSecs                                       lastTestSysSecs
+    #                        displayStartSecs+displayRange
 
-    #   +--------------------------+--------------------+-----------------------------+
-    #   |**************************|                    |*****************************|
-    #   |**************************| <- displayRange -> |*****************************|
-    #   |**************************|                    |*****************************|
-    #   +--------------------------+--------------------+-----------------------------+
-    #   |                          |                    |                             |
-    #   firstTestSysSecs           displayStartSecs     displayStartSecs+displayRange lastTestSysSecs
-    #                                                   displayEndSecs
+    #   +--------------------------+--------------------+-------------------------+---+
+    #   |**************************|                    |*************************|   |
+    #   |**************************| <- displayRange -> |*************************|Fut|
+    #   |**************************|                    |*************************|   |
+    #   +--------------------------+--------------------+-------------------------+---+
+    #   |                          |                    |                         |   lastTestSysSecs+futureSecs
+    #   firstTestSysSecs           displayStartSecs     displayEndSecs            lastTestSysSecs
+    #                                                   displayStartSecs+displayRange
 
-    #   +-----------------------------------------------------------------------------+
-    #   |********************************************************|                    |
-    #   |********************************************************| <- displayRange -> |
-    #   |********************************************************|                    |
-    #   +-----------------------------------------------------------------------------+
-    #   |                                                        |                    |
-    #   firstTestSysSecs                                         displayStartSecs     displayStartSecs+displayRange
-    #                                                                                 lastTestSysSecs
+    #   +-------------------------------------------------------------------------+---+
+    #   |****************************************************|                    |Fut|
+    #   |****************************************************| <--- displayRange ---> |
+    #   |****************************************************|                    |   |
+    #   +-------------------------------------------------------------------------+---+
+    #   |                                                    |                    |   lastTestSysSecs+futureSecs
+    #   firstTestSysSecs                                     displayStartSecs     displayStartSecs+displayRange
+    #                                                                             lastTestSysSecs
     #                                                                                 displayEndSecs
 
-    if (displayStartSecs + displayRange) > lastTestSysSecs:
+    if (displayStartSecs + displayRange) > lastTestSysSecs + futureSecs:
         # there isn't enough data to fill out displayRange
         if (displayStartSecs - displayRange) < firstTestSysSecs:
             dispBegin = firstTestSysSecs
         else:
-            dispBegin = max(lastTestSysSecs - displayRange, firstTestSysSecs)
-        displayEndSecs = lastTestSysSecs
+            dispBegin = max(lastTestSysSecs + futureSecs - displayRange, firstTestSysSecs)
+        displayEndSecs = lastTestSysSecs + futureSecs
     else:
         dispBegin = displayStartSecs
         displayEndSecs = displayStartSecs + displayRange
@@ -864,7 +867,7 @@ class deviceReadThread(threading.Thread):
                         if (read_status != 0) and (args.debug != 0):
                             print('deviceReadThread.run() : Read failed with status', read_status)
                         if read_status != 0:
-                            self.firstDelayPeriod = 10
+                            self.firstDelayPeriod = 5
                     else:
                         if readDataInstance is None:
                             readDataInstance = getReadDataInstance()
@@ -1077,16 +1080,15 @@ def getReadDataInstance():
                 devType = rsni.GetDeviceType()
 
     if my_dport:
-        if rsni:
-            if devType and my_dport:
-                if devType == 'g4':
-                    rdi = readReceiver.readReceiver(my_dport, rsni.port, dbg = args.debug)
-                elif devType == 'g5':
-                    rdi = readReceiver.readReceiverG5(my_dport, rsni.port, dbg = args.debug)
-                elif devType == 'g6':
-                    rdi = readReceiver.readReceiverG6(my_dport, rsni.port, dbg = args.debug)
-                else:
-                    print('getReadDataInstance() : Unrecognized firmware version', devType)
+        if rsni and devType:
+            if devType == 'g4':
+                rdi = readReceiver.readReceiver(my_dport, rsni.port, dbg = args.debug)
+            elif devType == 'g5':
+                rdi = readReceiver.readReceiverG5(my_dport, rsni.port, dbg = args.debug)
+            elif devType == 'g6':
+                rdi = readReceiver.readReceiverG6(my_dport, rsni.port, dbg = args.debug)
+            else:
+                print('getReadDataInstance() : Unrecognized firmware version', devType)
         else:
             rdi = readReceiver.readReceiver(my_dport, dbg = args.debug)
 
@@ -1128,6 +1130,7 @@ def updatePos(val):
     global displayStartDate
     global position
 
+    #print('updatePos(', val, ')')
     position = val
     origDisplayStartSecs = displayStartSecs
     SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
@@ -1263,22 +1266,22 @@ def updateScale(val):
 # If user hits the '<-' or '->' keys, scroll the position display to left or right.
 #-----------------------------------------------------------------------------------
 #
-#   min(displayStartSecs) = firstTestSysSecs                 max(displayStartSecs) = LastTestSysSecs - displayRange
+#   min(displayStartSecs) = firstTestSysSecs                 max(displayStartSecs) = LastTestSysSecs + futureSecs - displayRange
 #   |<------------------------------------------------------>|
 #   |                                                        |
 #   0% <------------------ position ----------------------> 100%
 #   |                                                        |
 #   V                                                        V
-#   +----------------------+--------------------+------------+--------------------+
-#   |**********************|                    |************|                    |
-#   |**********************| <- displayRange -> |************| <- displayRange -> |
-#   |**********************|                    |************|                    |
-#   +----------------------+--------------------+------------+--------------------+
-#   ^                      ^                    ^                                 ^
+#   +----------------------+--------------------+------------+--------------------+-----+
+#   |**********************|                    |************|                    | Fut |
+#   |**********************| <- displayRange -> |************| <---- displayRange --->  |
+#   |**********************|                    |************|                          |
+#   +----------------------+--------------------+------------+--------------------+-----+
+#   ^                      ^                    ^                                 ^     LastTestSysSecs + futureSecs
 #   |                      |                    |                                 |
 #   firstTestSysSecs       displayStartSecs     displayStartSecs+displayRange     LastTestSysSecs
 #
-#   position = (displayStartSecs - firstTestSysSecs)/(lastTestSysSecs - displayRange - firstTestSysSecs) * 100.0
+#   position = (displayStartSecs - firstTestSysSecs)/(lastTestSysSecs + futureSecs - displayRange - firstTestSysSecs) * 100.0
 #
 def press(event):
     global position
@@ -1308,27 +1311,30 @@ def press(event):
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - displayRange)
 
         elif event.key == 'right':      # shift one screen right
-            displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + displayRange))
+            displayStartSecs = max(firstTestSysSecs + futureSecs, min(lastTestSysSecs + futureSecs - displayRange, displayStartSecs + displayRange))
 
         elif event.key == 'alt+left':   # shift one hour left
             displayStartSecs = max(firstTestSysSecs, displayStartSecs - hourSeconds)
 
         elif event.key == 'alt+right':  # shift one hour right
-            displayStartSecs = max(firstTestSysSecs, min(lastTestSysSecs - displayRange, displayStartSecs + hourSeconds))
+            displayStartSecs = max(firstTestSysSecs + futureSecs, min(lastTestSysSecs + futureSecs - displayRange, displayStartSecs + hourSeconds))
 
         else:
             #print('you pressed', event.key)
             return
 
-        displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs)
-        if lastTestSysSecs-displayRange-firstTestSysSecs > 0:
-            position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs-displayRange-firstTestSysSecs), 100.0)
+        displayEndSecs = min(displayStartSecs + displayRange, lastTestSysSecs + futureSecs)
+        if lastTestSysSecs+futureSecs-displayRange-firstTestSysSecs > 0:
+            position = min(100.0 * (displayStartSecs-firstTestSysSecs) / (lastTestSysSecs+futureSecs-displayRange-firstTestSysSecs), 100.0)
         else:
             position = 100.0
+        #if (origDisplayStartSecs != displayStartSecs) or (origPosition != position):
+            #print('press() : origDisplayStartSecs =', origDisplayStartSecs, 'displayStartSecs =', displayStartSecs, 'displayEndSecs =', displayEndSecs)
+            #print('press() : origPosition =', origPosition, 'position =', position)
         SetCurrentSqlSelectRange() # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
         if displayStartSecs != origDisplayStartSecs:
             ax.set_xlim(mdates.date2num(ReceiverTimeToUtcTime(displayStartSecs)),
-                        mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+1))))
+                        mdates.date2num(ReceiverTimeToUtcTime(min(displayStartSecs+displayRange, lastTestSysSecs+futureSecs+1))))
         if position != origPosition:
             calcStats()
             sPos.set_val(position)  # this will cause fig.canvas.draw() to be called
@@ -1667,7 +1673,7 @@ def hover(event):
     elif event.inaxes is axPos:
         #ptext = '(%5.2f%%)'%event.xdata
         xsecs = int(firstTestSysSecs + (event.xdata / 100.0) *
-                    max(lastTestSysSecs - firstTestSysSecs - displayRange, 0))
+                    max(lastTestSysSecs + futureSecs - firstTestSysSecs - displayRange, 0))
         myDisplayStartDate = ReceiverTimeToUtcTime(xsecs).astimezone(mytz)
         ptext = '(%s)'% myDisplayStartDate.strftime("%Y-%m-%d")
         if posText:
@@ -2096,7 +2102,7 @@ def plotInit():
     ####################################################################################
 
     #axtest = plt.axes([0.02, 0.15, 0.05, 0.055])
-    #testRead = Button(axtest, 'Clear', color='mediumpurple')
+    #testRead = Button(axtest, 'Button', color='mediumpurple')
     #testRead.on_clicked(TestButtonCallback)
 
     #                     Left, Bottom, Width, Height
@@ -2146,8 +2152,9 @@ def calcStats():
     global lowPercent
     global displayEndSecs
 
+    #print('calcStats()')
     if displayEndSecs == 0:
-        displayEndSecs = lastTestSysSecs
+        displayEndSecs = lastTestSysSecs + futureSecs
 
     if sqlite_file:
         conn = sqlite3.connect(sqlite_file)
@@ -2431,7 +2438,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             trendChar = trendToChar(lastTrend)
 
             if args.debug:
-                print('Latest glucose at', lastTestDateTime.astimezone(mytz), '=', round(lastRealGluc * gluMult, tgtDecDigits))
+                print('Latest glucose at', lastTestDateTime.astimezone(mytz), '= %g' % round(lastRealGluc * gluMult, tgtDecDigits))
 
             #print('sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime)
             #-----------------------------------------------------
@@ -3148,6 +3155,8 @@ def plotGraph():
     global inRangeDict
     global tgtLowBox
     global tgtHighBox
+    global futurePlot
+    global future_patch
 
     #print('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
     if firstPlotGraph == 1:
@@ -3155,6 +3164,8 @@ def plotGraph():
             memory_tracker = tracker.SummaryTracker()
 
         ax = fig.add_subplot(1, 1, 1)
+        # disable default navigation based on key presses
+        ax.set_navigate(False)
         # rotate labels a bit to use less vertical space
         plt.xticks(rotation=dayRotation)
 
@@ -3193,8 +3204,8 @@ def plotGraph():
         setPropsFromScale(cfgScale)
 
         readRangeFromSql()
-        curSqlMaxTime = lastTestSysSecs
-        curSqlMinTime = max(lastTestSysSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
+        curSqlMaxTime = lastTestSysSecs + futureSecs
+        curSqlMinTime = max(lastTestSysSecs + futureSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
 
         firstPlotGraph = 0
 
@@ -3385,20 +3396,6 @@ def plotGraph():
         xnorm = dataNorm[:, 0]  # sysSeconds
         ynorm = dataNorm[:, 1] * gluMult # glucose
         runningMean = dataNorm[:, 2] * gluMult
-
-        if args.debug:
-            # If we have at least two data points, and the glucose values are not "special" values
-            if len(xx) > 1 and len(yy) > 1 and yy[-1] > 12 and yy[-2] > 12:
-                # predict values for the next couple of hours based on the last two data points
-                xdiff = xx[-1]-xx[-2]
-                ydiff = yy[-1]-yy[-2]
-
-                # Predict glucose value in two hours based on current rate of change.
-                # 2 hours = 24 * 5 minute samplings
-                predx = xx[-1] + 24 * xdiff
-                predy = round(min(max(minDisplayLow, yy[-1] + 24.0 * ydiff), maxDisplayHigh) * gluMult, tgtDecDigits)
-                #tgtLowBox.set_val('%g' % round((displayLow * gluMult), tgtDecDigits))
-                print('2 hour prediction : at', predx.astimezone(mytz), 'glucose =', predy)
 
         # create subset of normal (non-calib) data points
         # and a subset of calibration data points
@@ -3740,6 +3737,100 @@ def plotGraph():
         #========================================================================================
         newRange = False
 
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Use recent data to find polynomials to predict future values.
+        recentData = dataNorm[-6:]
+        recentDates = recentData[:, 0]  # datetime
+        recentDays = mdates.date2num(recentData[:, 0])  # time, in days
+        recentGluc = recentData[:, 1].astype(np.float32)  # glucose
+
+        # We don't want to use large X values (e.g. 737648.9121412) because
+        # this will quickly cause overflows when raised to higher exponents. We don't
+        # want really small X values (e.g. .00003) because they will quickly cause underflows
+        # when raised to higher exponents. We want something nicely sized, in the middle,
+        # preferably greater than 1, but not too much greater than 1.
+        #
+        # The numbers in 'recentDays' are roughly in units of days since year 1. The data
+        # samples are acquired in 5 minutes intervals, which is just a fraction of a day.
+        #
+        #       5 minutes = 5/60/24 = 0.003472222 days
+        #
+        # To convert this interval to a reasonable step value, multiply by 300.
+        #
+        # Time values look like this, in days:
+        #       737646.1967476852,
+        #       737646.2002199073,  (+ 0.003472222 from previous)
+        #       737646.2036921296,
+        #       737646.2071643518,
+        #
+        # If we multiply by 300, we get:
+        #       221293859.02430556,
+        #       221293860.06597219, (+ 1.04166663 from previous)
+        #       221293861.10763888,
+        #       221293862.14930554
+        #
+        # Now subtract the integer value of the first entry (221293859):
+        #               0.02430556,
+        #               1.06597219,
+        #               2.10763888,
+        #               3.14930554
+        #
+        # This gives us a nicely sized, slowly advancing step of 1.04166663
+        # to feed into the polyfit() routine.
+
+        # Convert the X-dimension data using this scheme
+        daysX300 = recentDays * 300.0
+        shiftX = daysX300 - int(daysX300[0])
+        # degrees:       1       2        3        4
+        futureColor = ['red', 'green', 'blue', 'orange']
+
+        # A range of (1, 3) will display 1 and 2 degree polynomials
+        # Set range to (1, 5) to add 3 and, 4 degree polynomials
+        for coefCount in range(1, 3):
+            if futurePlot[coefCount-1]:
+                futurePlot[coefCount-1].pop(0).remove()
+                futurePlot[coefCount-1] = None
+
+            coefficients = np.polyfit(shiftX, recentGluc, coefCount)
+            polyf = np.poly1d(coefficients)
+            if args.debug:
+                print(coefCount, 'degree polynomial =\n', polyf)
+
+            def predictFunc(daysFloat):
+                multDays = daysFloat * 300.0
+                shiftDays = multDays - int(multDays[0])
+                return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
+
+            # calculate future data points (1 hour forward)
+            x_new = np.linspace(recentDays[0], recentDays[-1] + 1/24, 20)
+            y_new = predictFunc(x_new)
+            futurePlot[coefCount-1] = ax.plot(x_new, y_new,'--', color=futureColor[coefCount-1], linewidth=2)
+            if args.debug:
+                print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
+                #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])
+                #yTwoHour = predictFunc(xPlusTwo)
+                #print('2 hour prediction : at', mdates.num2date(xPlusTwo[1], tz=mytz), 'glucose = %g' % round(yTwoHour[1], tgtDecDigits)
+                print('\n')
+
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+        # Shade the background of the future range in grey
+        startFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs).astimezone(mytz))
+        endFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs + futureSecs).astimezone(mytz))
+        if future_patch:
+            # Update the existing patch
+            future_patch.set_xy([[startFutureRangeNum, 0.0], \
+                                 [startFutureRangeNum, 1.0], \
+                                 [endFutureRangeNum,   1.0], \
+                                 [endFutureRangeNum,   0.0], \
+                                 [startFutureRangeNum, 0.0]])
+        else:
+            # Create a patch
+            future_patch = ax.axvspan(startFutureRangeNum,
+                                      endFutureRangeNum,
+                                      0.0, 1.0, color='lightgrey',
+                                      alpha=1.0, zorder=1)
+        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
         #if args.debug:
             #print('plotGraph() :  After plots count =', len(muppy.get_objects()))
             #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
@@ -3805,6 +3896,8 @@ def plotGraph():
         trendRot = -60.0
     elif lastTrend == 7:   # doubleDown
         trendRot = -90.0
+    elif lastTrend == 8:   # none
+        trendRot = 0.0
     elif lastTrend == 0:   # none
         trendRot = 0.0
     else:                  # notComputable (8) | rateOutOfRange (9)
