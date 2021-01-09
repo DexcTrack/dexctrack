@@ -52,7 +52,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.4
+dexctrackVersion = 3.5
 
 if sys.version_info.major > 2:
     import faulthandler
@@ -3802,7 +3802,7 @@ def plotGraph():
                 return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
 
             # calculate future data points (1 hour forward)
-            x_new = np.linspace(recentDays[0], recentDays[-1] + 1/24, 20)
+            x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
             y_new = predictFunc(x_new)
             futurePlot[coefCount-1] = ax.plot(x_new, y_new,'--', color=futureColor[coefCount-1], linewidth=2)
             if args.debug:
