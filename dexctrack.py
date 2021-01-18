@@ -29,6 +29,7 @@ import datetime
 import threading
 import argparse
 import math
+from collections import deque
 import tzlocal
 import pytz
 import matplotlib as mpl
@@ -2377,6 +2378,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
         #print('readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz)))
     egvList = []
     calibList = []
+    uncalGluQueue = deque()
     eventList = []
     noteList = []
     calibFirst = None
@@ -2441,25 +2443,6 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 print('Latest glucose at', lastTestDateTime.astimezone(mytz), '= %g' % round(lastRealGluc * gluMult, tgtDecDigits))
 
             #print('sqlMinTime =',sqlMinTime,', sqlMaxTime =',sqlMaxTime)
-            #-----------------------------------------------------
-
-            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
-
-            # Limit the range of the selection ...
-            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
-            sqlData = curs.fetchall()
-            #print('sql results length =',len(sqlData),'sqlMinTime =',sqlMinTime,'sqlMaxTime =',sqlMaxTime)
-
-            # Calculate the running mean
-            rowCount = 0
-            runMean = 0.0
-            for row in sqlData:
-                # Only include real Glucose values. Values <= 12 are fake.
-                if row[1] > 12:
-                    rowCount += 1
-                    runMean = float(row[1] + (rowCount-1) * runMean) / rowCount
-
-                egvList.append([ReceiverTimeToUtcTime(row[0]), row[1], runMean])
 
             #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
             # Check to see if we have any Calib records in the database
@@ -2484,12 +2467,14 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                         #ctime = ReceiverTimeToUtcTime(egvRow[0])
                         #print('New --> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calibRow[1], ', timeDiff =', calibRow[0] - egvRow[0], ', cgmGluc =', egvRow[1], ', calibDiff =', calibRow[1] - egvRow[1])
                         # calculate an errorbar offset
-                        calibList.append([ReceiverTimeToUtcTime(egvRow[0]), egvRow[1], calibRow[1] - egvRow[1], None])
+                        calibList.append([ReceiverTimeToUtcTime(egvRow[0]), egvRow[1], calibRow[1] - egvRow[1], 0])
                     else:
                         # No egvRow was found (possibly due to this Calibration happening
                         # within a Sensor Calibration period), so specify a 0 distance offset.
                         # We'll end up plotting the User Calibration without an errorbar.
-                        calibList.append([ReceiverTimeToUtcTime(calibRow[0]), calibRow[1], 0, None])
+                        # Flag this condition with a '1' in the 4th field.
+                        calibList.append([ReceiverTimeToUtcTime(calibRow[0]), calibRow[1], 0, 1])
+                        uncalGluQueue.append([calibRow[0], calibRow[1]])
 
                 try:
                     calibFirst = calibList[0]
@@ -2503,6 +2488,45 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     calibLast = None
                     if sys.version_info.major < 3:
                         sys.exc_clear()
+
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Read all of the Glucose Values in the current range
+
+            selectSql = 'SELECT sysSeconds,glucose FROM EgvRecord WHERE sysSeconds >= ? AND sysSeconds <= ? ORDER BY sysSeconds'
+
+            # Limit the range of the selection ...
+            curs.execute(selectSql, (sqlMinTime, sqlMaxTime))
+            sqlData = curs.fetchall()
+            #print('sql results length =',len(sqlData),'sqlMinTime =',sqlMinTime,'sqlMaxTime =',sqlMaxTime)
+
+            # Calculate the running mean
+            rowCount = 0
+            runMean = 0.0
+            # We want to insert manual data points for glucose values submitted by User
+            # Calibration events which occurred when there was no calibrated sensor.
+            uncalGluData = uncalGluQueue.popleft() if uncalGluQueue else None
+
+            for row in sqlData:
+                if uncalGluData and (uncalGluData[0] < row[0]):
+                    # Insert manual data point
+                    rowCount += 1
+                    runMean = float(uncalGluData[1] + (rowCount-1) * runMean) / rowCount
+                    egvList.append([ReceiverTimeToUtcTime(uncalGluData[0]), uncalGluData[1], runMean])
+                    uncalGluData = uncalGluQueue.popleft() if uncalGluQueue else None
+
+                # Only include real Glucose values. Values <= 12 are fake.
+                if row[1] > 12:
+                    rowCount += 1
+                    runMean = float(row[1] + (rowCount-1) * runMean) / rowCount
+
+                egvList.append([ReceiverTimeToUtcTime(row[0]), row[1], runMean])
+
+            while uncalGluData:
+                # Insert remaining manual data points
+                rowCount += 1
+                runMean = float(uncalGluData[1] + (rowCount-1) * runMean) / rowCount
+                egvList.append([ReceiverTimeToUtcTime(uncalGluData[0]), uncalGluData[1], runMean])
+                uncalGluData = uncalGluQueue.popleft() if uncalGluQueue else None
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserEvent'"
@@ -3410,6 +3434,9 @@ def plotGraph():
             cznorm = calibdata[:, 2] * gluMult # calibration
             #print('sizeof(xnorm) =',len(xnorm),'sizeof(cxnorm) =',len(cxnorm),'sizeof(cynorm) =',len(cynorm))
 
+        # Find User Calibration data input when Sensor was missing or not yet calibrated.
+        uncalDataPoints = np.array([_ for _ in calibList if _[3] == 1])
+
         #-----------------------------------------------------
         # Find ranges where we're out of calibration.
         # This implementation only adds new calibration regions.
@@ -3422,16 +3449,23 @@ def plotGraph():
         lasty = sqlEarliestGluc
         startOfZone = lastx
         for pointx, pointy in zip(xx, yy):
-            if (lasty <= 12) and (pointy > 12):
+            # Check if the specified data point came from a User Calibration entered
+            # while the Sensor was uncalibrated.
+            if uncalDataPoints.size != 0:
+                isManualGluc = np.any(uncalDataPoints[:, 0] == pointx)
+            else:
+                isManualGluc = False
+            if (lasty <= 12) and (pointy > 12) and not isManualGluc:
                 # we've transitioned out of a calib zone
                 #print('calibZoneList[] adding ',startOfZone,'to',pointx)
                 calibZoneList.append([startOfZone, pointx])
                 outOfCalZoneSet.add((startOfZone, pointx))
-            elif (lasty > 12) and (pointy <= 12):
+            elif (lasty > 12) and ((pointy <= 12) or isManualGluc):
                 # we've transitioned into a calib zone
                 startOfZone = pointx
-            lastx = pointx
-            lasty = pointy
+            if not isManualGluc:
+                lastx = pointx
+                lasty = pointy
 
         #if args.debug:
             #print('plotGraph() :  After calibZoneList() count =', len(muppy.get_objects()))
@@ -3739,7 +3773,7 @@ def plotGraph():
 
         #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # Use recent data to find polynomials to predict future values.
-        recentData = dataNorm[-6:]
+        recentData = dataNorm[-6:]  # base predictions on last 6 values
         recentDates = recentData[:, 0]  # datetime
         recentDays = mdates.date2num(recentData[:, 0])  # time, in days
         recentGluc = recentData[:, 1].astype(np.float32)  # glucose
@@ -3784,6 +3818,12 @@ def plotGraph():
         # degrees:       1       2        3        4
         futureColor = ['red', 'green', 'blue', 'orange']
 
+        # Note: 'polyf' must be defined before this can be invoked
+        def predictFunc(daysFloat):
+            multDays = daysFloat * 300.0
+            shiftDays = multDays - int(multDays[0])
+            return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
+
         # A range of (1, 3) will display 1 and 2 degree polynomials
         # Set range to (1, 5) to add 3 and, 4 degree polynomials
         for coefCount in range(1, 3):
@@ -3796,15 +3836,10 @@ def plotGraph():
             if args.debug:
                 print(coefCount, 'degree polynomial =\n', polyf)
 
-            def predictFunc(daysFloat):
-                multDays = daysFloat * 300.0
-                shiftDays = multDays - int(multDays[0])
-                return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
-
             # calculate future data points (1 hour forward)
             x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
             y_new = predictFunc(x_new)
-            futurePlot[coefCount-1] = ax.plot(x_new, y_new,'--', color=futureColor[coefCount-1], linewidth=2)
+            futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2)
             if args.debug:
                 print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
                 #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])

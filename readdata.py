@@ -280,25 +280,29 @@ class Dexcom(object):
         except serial.SerialException as e:
             if sys.version_info < (3, 0):
                 sys.exc_clear()
-            print ('Read/Write permissions missing for', self._port_name)
+            print ('Connect() : Exception =', e)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
                 port_gid = stat_info.st_gid
                 port_group = grp.getgrgid(port_gid)[0]
                 username = pwd.getpwuid(os.getuid())[0]
-                print ('\nFor a persistent solution (recommended), run ...')
-                if sys.platform == "darwin":
-                    print ('\n   sudo dseditgroup -o edit -a', username, '-t user', port_group)
-                else:
-                    # On Mint, Ubuntu, etc.
-                    print ('\n   sudo addgroup', username, port_group)
-                    print ('\n   sudo -', username)
-                    print ('\n         OR')
-                    # On Fedora, Red Hat, etc.
-                    print ('\n   sudo usermod -a -G', port_group, username)
-                    print ('\n   su -', username)
-                print ('\nFor a short term solution, run ...')
-                print ('\n   sudo chmod 666', self._port_name, '\n')
+                # Check to see if the user is a member of the group we need
+                userGroups = [grp.getgrgid(gid).gr_name for gid in os.getgroups()]
+                if port_group not in userGroups:
+                    print ('Read/Write permissions missing for', self._port_name)
+                    print ('\nFor a persistent solution (recommended), run ...')
+                    if sys.platform == "darwin":
+                        print ('\n   sudo dseditgroup -o edit -a', username, '-t user', port_group)
+                    else:
+                        # On Mint, Ubuntu, etc.
+                        print ('\n   sudo addgroup', username, port_group)
+                        print ('\n   sudo -', username)
+                        print ('\n         OR')
+                        # On Fedora, Red Hat, etc.
+                        print ('\n   sudo usermod -a -G', port_group, username)
+                        print ('\n   su -', username)
+                    print ('\nFor a short term solution, run ...')
+                    print ('\n   sudo chmod 666', self._port_name, '\n')
     if self._port is not None:
         try:
             self.clear()
@@ -353,10 +357,16 @@ class Dexcom(object):
     return self._port
 
   def write(self, *args, **kwargs):
-    return self.port.write(*args, **kwargs)
+    if self.port is not None:
+        return self.port.write(*args, **kwargs)
+    else:
+        return 0
 
   def read(self, *args, **kwargs):
-    return self.port.read(*args, **kwargs)
+    if self.port is not None:
+        return self.port.read(*args, **kwargs)
+    else:
+        return []
 
   def readpacket(self, timeout=None):
     total_read = 4
@@ -617,11 +627,13 @@ class Dexcom(object):
     return data
 
   def flush(self):
-    self.port.flush()
+    if self.port is not None:
+        self.port.flush()
 
   def clear(self):
-    self.port.flushInput()
-    self.port.flushOutput()
+    if self.port is not None:
+        self.port.flushInput()
+        self.port.flushOutput()
 
   def GetFirmwareHeader(self):
     i = self.GenericReadCommand(constants.READ_FIRMWARE_HEADER)
