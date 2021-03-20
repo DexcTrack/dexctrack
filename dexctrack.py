@@ -3771,100 +3771,104 @@ def plotGraph():
         #========================================================================================
         newRange = False
 
-        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Use recent data to find polynomials to predict future values.
-        recentData = dataNorm[-6:]  # base predictions on last 6 values
-        recentDates = recentData[:, 0]  # datetime
-        recentDays = mdates.date2num(recentData[:, 0])  # time, in days
-        recentGluc = recentData[:, 1].astype(np.float32)  # glucose
+        # We're going to predict future values base on the last 6
+        # data points, but don't do this until we have at least
+        # that much data to analyze.
+        if len(dataNorm) > 6:
+            #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Use recent data to find polynomials to predict future values.
+            recentData = dataNorm[-6:]  # base predictions on last 6 values
+            recentDates = recentData[:, 0]  # datetime
+            recentDays = mdates.date2num(recentData[:, 0])  # time, in days
+            recentGluc = recentData[:, 1].astype(np.float32)  # glucose
 
-        # We don't want to use large X values (e.g. 737648.9121412) because
-        # this will quickly cause overflows when raised to higher exponents. We don't
-        # want really small X values (e.g. .00003) because they will quickly cause underflows
-        # when raised to higher exponents. We want something nicely sized, in the middle,
-        # preferably greater than 1, but not too much greater than 1.
-        #
-        # The numbers in 'recentDays' are roughly in units of days since year 1. The data
-        # samples are acquired in 5 minutes intervals, which is just a fraction of a day.
-        #
-        #       5 minutes = 5/60/24 = 0.003472222 days
-        #
-        # To convert this interval to a reasonable step value, multiply by 300.
-        #
-        # Time values look like this, in days:
-        #       737646.1967476852,
-        #       737646.2002199073,  (+ 0.003472222 from previous)
-        #       737646.2036921296,
-        #       737646.2071643518,
-        #
-        # If we multiply by 300, we get:
-        #       221293859.02430556,
-        #       221293860.06597219, (+ 1.04166663 from previous)
-        #       221293861.10763888,
-        #       221293862.14930554
-        #
-        # Now subtract the integer value of the first entry (221293859):
-        #               0.02430556,
-        #               1.06597219,
-        #               2.10763888,
-        #               3.14930554
-        #
-        # This gives us a nicely sized, slowly advancing step of 1.04166663
-        # to feed into the polyfit() routine.
+            # We don't want to use large X values (e.g. 737648.9121412) because
+            # this will quickly cause overflows when raised to higher exponents. We don't
+            # want really small X values (e.g. .00003) because they will quickly cause underflows
+            # when raised to higher exponents. We want something nicely sized, in the middle,
+            # preferably greater than 1, but not too much greater than 1.
+            #
+            # The numbers in 'recentDays' are roughly in units of days since year 1. The data
+            # samples are acquired in 5 minutes intervals, which is just a fraction of a day.
+            #
+            #       5 minutes = 5/60/24 = 0.003472222 days
+            #
+            # To convert this interval to a reasonable step value, multiply by 300.
+            #
+            # Time values look like this, in days:
+            #       737646.1967476852,
+            #       737646.2002199073,  (+ 0.003472222 from previous)
+            #       737646.2036921296,
+            #       737646.2071643518,
+            #
+            # If we multiply by 300, we get:
+            #       221293859.02430556,
+            #       221293860.06597219, (+ 1.04166663 from previous)
+            #       221293861.10763888,
+            #       221293862.14930554
+            #
+            # Now subtract the integer value of the first entry (221293859):
+            #               0.02430556,
+            #               1.06597219,
+            #               2.10763888,
+            #               3.14930554
+            #
+            # This gives us a nicely sized, slowly advancing step of 1.04166663
+            # to feed into the polyfit() routine.
 
-        # Convert the X-dimension data using this scheme
-        daysX300 = recentDays * 300.0
-        shiftX = daysX300 - int(daysX300[0])
-        # degrees:       1       2        3        4
-        futureColor = ['red', 'green', 'blue', 'orange']
+            # Convert the X-dimension data using this scheme
+            daysX300 = recentDays * 300.0
+            shiftX = daysX300 - int(daysX300[0])
+            # degrees:       1       2        3        4
+            futureColor = ['red', 'green', 'blue', 'orange']
 
-        # Note: 'polyf' must be defined before this can be invoked
-        def predictFunc(daysFloat):
-            multDays = daysFloat * 300.0
-            shiftDays = multDays - int(multDays[0])
-            return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
+            # Note: 'polyf' must be defined before this can be invoked
+            def predictFunc(daysFloat):
+                multDays = daysFloat * 300.0
+                shiftDays = multDays - int(multDays[0])
+                return np.clip(polyf(shiftDays), 40.0, sqlMaximumGluc)
 
-        # A range of (1, 3) will display 1 and 2 degree polynomials
-        # Set range to (1, 5) to add 3 and, 4 degree polynomials
-        for coefCount in range(1, 3):
-            if futurePlot[coefCount-1]:
-                futurePlot[coefCount-1].pop(0).remove()
-                futurePlot[coefCount-1] = None
+            # A range of (1, 3) will display 1 and 2 degree polynomials
+            # Set range to (1, 5) to add 3 and, 4 degree polynomials
+            for coefCount in range(1, 3):
+                if futurePlot[coefCount-1]:
+                    futurePlot[coefCount-1].pop(0).remove()
+                    futurePlot[coefCount-1] = None
 
-            coefficients = np.polyfit(shiftX, recentGluc, coefCount)
-            polyf = np.poly1d(coefficients)
-            if args.debug:
-                print(coefCount, 'degree polynomial =\n', polyf)
+                coefficients = np.polyfit(shiftX, recentGluc, coefCount)
+                polyf = np.poly1d(coefficients)
+                if args.debug:
+                    print(coefCount, 'degree polynomial =\n', polyf)
 
-            # calculate future data points (1 hour forward)
-            x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
-            y_new = predictFunc(x_new)
-            futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2)
-            if args.debug:
-                print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
-                #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])
-                #yTwoHour = predictFunc(xPlusTwo)
-                #print('2 hour prediction : at', mdates.num2date(xPlusTwo[1], tz=mytz), 'glucose = %g' % round(yTwoHour[1], tgtDecDigits)
-                print('\n')
+                # calculate future data points (1 hour forward)
+                x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
+                y_new = predictFunc(x_new)
+                futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2)
+                if args.debug:
+                    print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
+                    #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])
+                    #yTwoHour = predictFunc(xPlusTwo)
+                    #print('2 hour prediction : at', mdates.num2date(xPlusTwo[1], tz=mytz), 'glucose = %g' % round(yTwoHour[1], tgtDecDigits)
+                    print('\n')
 
-        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Shade the background of the future range in grey
-        startFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs).astimezone(mytz))
-        endFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs + futureSecs).astimezone(mytz))
-        if future_patch:
-            # Update the existing patch
-            future_patch.set_xy([[startFutureRangeNum, 0.0], \
-                                 [startFutureRangeNum, 1.0], \
-                                 [endFutureRangeNum,   1.0], \
-                                 [endFutureRangeNum,   0.0], \
-                                 [startFutureRangeNum, 0.0]])
-        else:
-            # Create a patch
-            future_patch = ax.axvspan(startFutureRangeNum,
-                                      endFutureRangeNum,
-                                      0.0, 1.0, color='lightgrey',
-                                      alpha=1.0, zorder=1)
-        #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Shade the background of the future range in grey
+            startFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs).astimezone(mytz))
+            endFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs + futureSecs).astimezone(mytz))
+            if future_patch:
+                # Update the existing patch
+                future_patch.set_xy([[startFutureRangeNum, 0.0], \
+                                     [startFutureRangeNum, 1.0], \
+                                     [endFutureRangeNum,   1.0], \
+                                     [endFutureRangeNum,   0.0], \
+                                     [startFutureRangeNum, 0.0]])
+            else:
+                # Create a patch
+                future_patch = ax.axvspan(startFutureRangeNum,
+                                          endFutureRangeNum,
+                                          0.0, 1.0, color='lightgrey',
+                                          alpha=1.0, zorder=1)
+            #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         #if args.debug:
             #print('plotGraph() :  After plots count =', len(muppy.get_objects()))
