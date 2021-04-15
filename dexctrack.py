@@ -916,7 +916,7 @@ class deviceReadThread(threading.Thread):
                         try:
                             # During shutdown, set_window_title() can fail with
                             # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-                            fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
+                            fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
                         except AttributeError as e:
                             #if args.debug:
                                 #print('deviceReadThread.run() fig.canvas.set_window_title: Exception =', e)
@@ -3379,7 +3379,7 @@ def plotGraph():
     calcStats()
 
     if sys.platform == "win32":
-        # fig.canvas.set_window_title() hangs forever under Windows, so don't try to use it
+        # fig.canvas.manager.set_window_title() hangs forever under Windows, so don't try to use it
         pass
         # The code below writes the string near the top of the window, but not in the window
         # title bar.
@@ -3399,11 +3399,11 @@ def plotGraph():
             # During shutdown, set_window_title() can fail with
             # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
             if lastRealGluc == 0:
-                fig.canvas.set_window_title('DexcTrack: %s' % (serialNum))
+                fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
             elif gluUnits == 'mmol/L':
-                fig.canvas.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
+                fig.canvas.manager.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
             else:
-                fig.canvas.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
+                fig.canvas.manager.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
         except AttributeError as e:
             #if args.debug:
                 #print('fig.canvas.set_window_title: Exception =', e)
@@ -3505,7 +3505,7 @@ def plotGraph():
                     try:
                         # During shutdown, set_window_title() can fail with
                         # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-                        fig.canvas.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
+                        fig.canvas.manager.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
                     except AttributeError as e:
                         #if args.debug:
                             #print('fig.canvas.set_window_title: Exception =', e)
