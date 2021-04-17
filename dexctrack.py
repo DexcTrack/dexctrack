@@ -815,7 +815,7 @@ def getSqlFileName(sNum):
         disconTimerEnabled = my_sqlite_file and (specDatabase == my_sqlite_file)
 
         my_sqlite_file = specDatabase
-        serialNum = string.replace(string.replace(specDatabase, sqlprefix, ''), '.sqlite', '')
+        serialNum = str.replace(str.replace(specDatabase, sqlprefix, ''), '.sqlite', '')
 
     return my_sqlite_file
 
