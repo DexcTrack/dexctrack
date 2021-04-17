@@ -213,10 +213,10 @@ class readReceiverBase(readdata.Dexcom):
                     #print ('UserEvent(', evt_rec.system_secs, ',', evt_rec.display_secs, ', ', evt_rec.meter_secs, ', ', evt_rec.event_type, ', ', evt_rec.event_sub_type, ',', evt_rec.event_value)
                     curs.execute(insert_evt_sql, (evt_rec.system_secs, evt_rec.display_secs, evt_rec.meter_secs, evt_rec.int_type, evt_rec.int_sub_type, evt_rec.int_value, 0.0, 0.0))
 
-                curs.execute('CREATE TABLE IF NOT EXISTS Config( id INT PRIMARY KEY CHECK (id = 0), displayLow REAL, displayHigh REAL, legendX REAL, legendY REAL, glUnits STR, scale REAL);')
-                insert_cfg_sql = '''INSERT OR IGNORE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale) VALUES (0, ?, ?, ?, ?, ?, ?);'''
+                curs.execute('CREATE TABLE IF NOT EXISTS Config( id INT PRIMARY KEY CHECK (id = 0), displayLow REAL, displayHigh REAL, legendX REAL, legendY REAL, glUnits STR, scale REAL, timeOffset INTEGER);')
+                insert_cfg_sql = '''INSERT OR IGNORE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0, ?, ?, ?, ?, ?, ?, ?);'''
                 # If no instance exists, set default values. Otherwise, do nothing.
-                curs.execute(insert_cfg_sql, (75.0, 200.0, 0.01, 0.99, 'mg/dL', 100.0*(24-4)/(14*24-4)))
+                curs.execute(insert_cfg_sql, (75.0, 200.0, 0.01, 0.99, 'mg/dL', 100.0*(24-4)/(14*24-4), 0))
 
                 respList = self.ReadGlucoseUnit()
                 #print ('self.ReadGlucoseUnit() =', respList)

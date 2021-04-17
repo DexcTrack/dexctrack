@@ -68,6 +68,7 @@ parser.add_argument("-v", "--version", help="show version", action="store_true")
 # code which maximizes the window.
 parser.add_argument("-x", "--xsize", help="specify width in pixels", type=int)
 parser.add_argument("-y", "--ysize", help="specify height in pixels", type=int)
+parser.add_argument("-t", "--timeoffset", help="specify a time offset for data. Format = {-}<hours>{:<min>{:<sec>}}", type=str)
 parser.add_argument("databaseFile", nargs='?', help="optionally specified database file", type=str)
 args = parser.parse_args()
 
@@ -480,6 +481,8 @@ cfgScale = (displayRange - displayRangeMin) / (displayRangeMax - displayRangeMin
 futurePlot = [None, None, None, None]
 futureSecs = 60 * 60    # predict values one hour into the future
 future_patch = None
+cfgOffsetSeconds = 0  # database configured time shift
+offsetSeconds = 0     # current time shift
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
@@ -615,8 +618,8 @@ def SetCurrentSqlSelectRange(calledFromPlotGraph=False):
 
     if (displayStartSecs < curSqlMinTime) or (displayEndSecs > curSqlMaxTime):
         # the range of data we need is outside of the last retrieved one
-        curSqlMinTime = max(displayEndSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
-        curSqlMaxTime = min(max(displayEndSecs + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs + futureSecs)
+        curSqlMinTime = max(displayEndSecs - offsetSeconds - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs - offsetSeconds)
+        curSqlMaxTime = min(max(displayEndSecs - offsetSeconds + bufferSeconds, curSqlMinTime + ninetyDaysInSeconds + bufferSeconds), lastTestSysSecs - offsetSeconds + futureSecs)
         #qtime = ReceiverTimeToUtcTime(curSqlMinTime)
         #rtime = ReceiverTimeToUtcTime(curSqlMaxTime)
         newRange = True
@@ -919,7 +922,7 @@ class deviceReadThread(threading.Thread):
                             fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
                         except AttributeError as e:
                             #if args.debug:
-                                #print('deviceReadThread.run() fig.canvas.set_window_title: Exception =', e)
+                                #print('deviceReadThread.run() fig.canvas.manager.set_window_title: Exception =', e)
                             if sys.version_info.major < 3:
                                 sys.exc_clear()
 
@@ -1844,6 +1847,8 @@ def plotInit():
     global cfgScale
     global dbGluUnits
     global dayRotation
+    global cfgOffsetSeconds
+    global offsetSeconds
     #global unitRead
     #global unitButton
     #global axtest
@@ -1864,7 +1869,59 @@ def plotInit():
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale = readConfigFromSql()
+    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale, cfgOffsetSeconds = readConfigFromSql()
+
+    gluUnits = dbGluUnits
+    if gluUnits == 'mmol/L':
+        # mmol/L = mg/dL x 0.0555
+        gluMult = 0.0555
+    else:
+        gluMult = 1.0
+
+    # Usually we can automatically display the graph in local time, but
+    # sometimes the shift from UTC to local timezone is wrong. The -t
+    # command line option will allow a user to specify a time shift to
+    # correct their date & time display. For example:
+    #       python3 dexctrack.py -t 3
+    # will add three hours to every data point.
+    # Do NOT put a space between flag '-t' and a negative argument
+    # '-H:M:S' or it will confuse the argument parser.
+    #       python3 dexctrack.py -t-8
+    # will subtract eight hours from every data point.
+    #       python3 dexctrack.py -t-0:30:00
+    # will subtract thirty minutes from every data point.
+    # This command line option only needs to be specified once. The offset
+    # will be stored in the database, and that value will be used the
+    # next time dexctrack.py is launched, even without a -t argument.
+    # To remove an existing offset ...
+    #       python3 dexctrack.py -t 0
+    if args.timeoffset:
+        # hours, minutes, seconds format = (+/-)H:M:S, +/- is optional
+        try:
+            hstr,mstr,sstr = args.timeoffset.split(':')
+            offsetSeconds = datetime.timedelta(hours=int(hstr), \
+                                               minutes=int(mstr), \
+                                               seconds=int(sstr)).total_seconds()
+        except ValueError:
+            # hours, minutes format = (+/-)H:M
+            try:
+                hstr,mstr = args.timeoffset.split(':')
+                offsetSeconds = datetime.timedelta(hours=int(hstr), \
+                                                   minutes=int(mstr)).total_seconds()
+            except ValueError:
+                # hours format = (+/-)H
+                try:
+                    hstr = args.timeoffset
+                    offsetSeconds = datetime.timedelta(hours=int(hstr)).total_seconds()
+                except ValueError:
+                    offsetSeconds = cfgOffsetSeconds
+    else:
+        # User did not specify offset on command line so use database value
+        offsetSeconds = cfgOffsetSeconds
+
+    if offsetSeconds != cfgOffsetSeconds:
+        saveConfigToDb()
+
     axScale = plt.axes([0.20, 0.01, 0.69, 0.03], facecolor=axcolor)
     sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen')
     # We don't want to display the numerical value, since we're going to
@@ -2034,7 +2091,6 @@ def plotInit():
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                  %(0, 0, 0, 0), style='italic', size=avgFontSz, weight='bold')
     else:
-        #avgText = plt.gcf().text(0.70, 0.87, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nHbA1c = %5.2f'
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %u (mg/dL)\nAvg = %5.2f (mg/dL)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                  %(0, 0, 0, 0), style='italic', size=avgFontSz, weight='bold')
 
@@ -2066,12 +2122,6 @@ def plotInit():
         majorFormatter = mpl.dates.DateFormatter('%Y-%-m-%-d\n%A')
         minorFormatter = mpl.dates.DateFormatter('%-H')
     minorFormatter.MAXTICKS = int(displayRangeMax / (60*60))
-
-    if dbGluUnits == 'mmol/L':
-        # mmol/L = mg/dL x 0.0555
-        gluMult = 0.0555
-    else:
-        gluMult = 1.0
 
     plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
 
@@ -2294,6 +2344,18 @@ def readConfigFromSql():
                     print('readConfigFromSql() : Adding \'scale\' column to Config table')
                 defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
                 curs.execute("ALTER TABLE Config ADD COLUMN scale REAL DEFAULT %f" % defScale)
+
+            selectSql = "SELECT displayLow, displayHigh, glUnits, scale, timeOffset FROM Config"
+            try:
+                curs.execute(selectSql)
+            except sqlite3.Error as e:
+                # Older versions of the database didn't have a 'timeOffset' column, so add it now.
+                if sys.version_info.major < 3:
+                    sys.exc_clear()
+                if args.debug:
+                    print('readConfigFromSql() : Adding \'timeOffset\' column to Config table')
+                curs.execute("ALTER TABLE Config ADD COLUMN timeOffset INTEGER DEFAULT 0")
+
             curs.execute(selectSql)
             sqlData = curs.fetchone()
             if sqlData is not None:
@@ -2301,19 +2363,20 @@ def readConfigFromSql():
                 myDisplayHigh = sqlData[1]
                 myGluUnits = sqlData[2]
                 myScale = sqlData[3]
+                myOffset = sqlData[4]
                 if myGluUnits == 'mmol/L':
                     tgtDecDigits = 1
                 else:
                     tgtDecDigits = 0
                 curs.close()
                 conn.close()
-                return myDisplayLow, myDisplayHigh, myGluUnits, myScale
+                return myDisplayLow, myDisplayHigh, myGluUnits, myScale, myOffset
 
         curs.close()
         conn.close()
     # Couldn't read from database, so return default values
     defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
-    return displayLow, displayHigh, gluUnits, defScale
+    return displayLow, displayHigh, gluUnits, defScale, 0
 
 #---------------------------------------------------------
 def readRangeFromSql():
@@ -2337,13 +2400,13 @@ def readRangeFromSql():
             curs.execute('SELECT sysSeconds,glucose FROM EgvRecord ORDER BY sysSeconds ASC LIMIT 1')
             sqlData = curs.fetchall()
             for row in sqlData:
-                firstTestSysSecs = row[0]
+                firstTestSysSecs = row[0] + offsetSeconds
 
             # get the last test info
             curs.execute('SELECT sysSeconds,glucose FROM EgvRecord ORDER BY sysSeconds DESC LIMIT 1')
             sqlData = curs.fetchall()
             for row in sqlData:
-                lastTestSysSecs = row[0]
+                lastTestSysSecs = row[0] + offsetSeconds
                 lastTestGluc = row[1]
                 lastTestDateTime = ReceiverTimeToUtcTime(lastTestSysSecs)
 
@@ -2373,6 +2436,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
     global calibFirst
     global calibLast
     global cfgScale
+    global cfgOffsetSeconds
 
     #if args.debug:
         #print('readDataFromSql(%s, %s)' %(ReceiverTimeToUtcTime(sqlMinTime).astimezone(mytz), ReceiverTimeToUtcTime(sqlMaxTime).astimezone(mytz)))
@@ -2467,13 +2531,13 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                         #ctime = ReceiverTimeToUtcTime(egvRow[0])
                         #print('New --> Calib @', ctime.astimezone(mytz), ', calib_gluc =', calibRow[1], ', timeDiff =', calibRow[0] - egvRow[0], ', cgmGluc =', egvRow[1], ', calibDiff =', calibRow[1] - egvRow[1])
                         # calculate an errorbar offset
-                        calibList.append([ReceiverTimeToUtcTime(egvRow[0]), egvRow[1], calibRow[1] - egvRow[1], 0])
+                        calibList.append([ReceiverTimeToUtcTime(egvRow[0] + offsetSeconds), egvRow[1], calibRow[1] - egvRow[1], 0])
                     else:
                         # No egvRow was found (possibly due to this Calibration happening
                         # within a Sensor Calibration period), so specify a 0 distance offset.
                         # We'll end up plotting the User Calibration without an errorbar.
                         # Flag this condition with a '1' in the 4th field.
-                        calibList.append([ReceiverTimeToUtcTime(calibRow[0]), calibRow[1], 0, 1])
+                        calibList.append([ReceiverTimeToUtcTime(calibRow[0] + offsetSeconds), calibRow[1], 0, 1])
                         uncalGluQueue.append([calibRow[0], calibRow[1]])
 
                 try:
@@ -2511,7 +2575,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     # Insert manual data point
                     rowCount += 1
                     runMean = float(uncalGluData[1] + (rowCount-1) * runMean) / rowCount
-                    egvList.append([ReceiverTimeToUtcTime(uncalGluData[0]), uncalGluData[1], runMean])
+                    egvList.append([ReceiverTimeToUtcTime(uncalGluData[0] + offsetSeconds), uncalGluData[1], runMean])
                     uncalGluData = uncalGluQueue.popleft() if uncalGluQueue else None
 
                 # Only include real Glucose values. Values <= 12 are fake.
@@ -2519,13 +2583,13 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     rowCount += 1
                     runMean = float(row[1] + (rowCount-1) * runMean) / rowCount
 
-                egvList.append([ReceiverTimeToUtcTime(row[0]), row[1], runMean])
+                egvList.append([ReceiverTimeToUtcTime(row[0] + offsetSeconds), row[1], runMean])
 
             while uncalGluData:
                 # Insert remaining manual data points
                 rowCount += 1
                 runMean = float(uncalGluData[1] + (rowCount-1) * runMean) / rowCount
-                egvList.append([ReceiverTimeToUtcTime(uncalGluData[0]), uncalGluData[1], runMean])
+                egvList.append([ReceiverTimeToUtcTime(uncalGluData[0] + offsetSeconds), uncalGluData[1], runMean])
                 uncalGluData = uncalGluQueue.popleft() if uncalGluQueue else None
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -2550,7 +2614,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 #   Offset in seconds = sysSeconds - dispSeconds
                 #   Event time (in UTC)= (sysSeconds - dispSeconds) + meterSeconds
                 #########################################################################################
-                eventList.append([ReceiverTimeToUtcTime(row[0] - row[1] + row[2]), row[3], row[4], row[5], row[6], row[7]])
+                eventList.append([ReceiverTimeToUtcTime(row[0] - row[1] + row[2] + offsetSeconds), row[3], row[4], row[5], row[6], row[7]])
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='UserNote'"
         curs.execute(selectSql)
@@ -2561,7 +2625,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             sqlData = curs.fetchall()
             for row in sqlData:
                 #print('Note: sysSeconds =',row[0],'message =',row[1],'xoffset =',row[2],'yoffset =',row[3])
-                noteList.append([ReceiverTimeToUtcTime(row[0]), row[1], row[2], row[3]])
+                noteList.append([ReceiverTimeToUtcTime(row[0] + offsetSeconds), row[1], row[2], row[3]])
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         selectSql = "SELECT count(*) from sqlite_master where type='table' and name='SensorInsert'"
@@ -2573,7 +2637,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql)
             sqlData = curs.fetchall()
             for row in sqlData:
-                latestSensorInsertTime = row[0]
+                latestSensorInsertTime = row[0] + offsetSeconds
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         if (cfgDisplayLow is None) and (cfgDisplayHigh is None):
@@ -2581,7 +2645,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
             curs.execute(selectSql)
             sqlData = curs.fetchone()
             if sqlData[0] > 0:
-                selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits, scale FROM Config"
+                selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset FROM Config"
                 curs.execute(selectSql)
                 sqlData = curs.fetchone()
                 if sqlData is not None:
@@ -2593,6 +2657,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     legPosY = legDefaultPosY
                     dbGluUnits = sqlData[4]
                     cfgScale = sqlData[5]
+                    cfgOffsetSeconds = sqlData[6]
             else:
                 cfgDisplayLow = displayLow
                 cfgDisplayHigh = displayHigh
@@ -2697,9 +2762,9 @@ def saveConfigToDb():
                 #legx,legy = legDefaultPosX, legDefaultPosY
                 legx, legy = 0, 0
 
-            #print('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits, scale) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\', cfgScale);' %gluUnits)
-            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale) VALUES (0, ?, ?, ?, ?, ?, ?);'''
-            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits, cfgScale))
+            #print('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\'' %gluUnits, cfgScale, ',', offsetSeconds, ');')
+            insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0, ?, ?, ?, ?, ?, ?, ?);'''
+            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits, cfgScale, offsetSeconds))
 
             curs.close()
             conn.commit()
@@ -2781,8 +2846,8 @@ def ShowOrHideEventsNotes():
         #print('ShowOrHideEventsNotes() : Before events    count =', len(muppy.get_objects()))
 
     # Compare event annotations with previous iteration
-    minTod = ReceiverTimeToUtcTime(curSqlMinTime)
-    maxTod = ReceiverTimeToUtcTime(curSqlMaxTime)
+    minTod = ReceiverTimeToUtcTime(curSqlMinTime + offsetSeconds)
+    maxTod = ReceiverTimeToUtcTime(curSqlMaxTime + offsetSeconds)
     #print('Annotation Range = %s - %s' % (minTod.astimezone(mytz), maxTod.astimezone(mytz)))
 
     evtInScopeSet = set()
@@ -3228,8 +3293,8 @@ def plotGraph():
         setPropsFromScale(cfgScale)
 
         readRangeFromSql()
-        curSqlMaxTime = lastTestSysSecs + futureSecs
-        curSqlMinTime = max(lastTestSysSecs + futureSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs)
+        curSqlMaxTime = lastTestSysSecs - offsetSeconds + futureSecs
+        curSqlMinTime = max(lastTestSysSecs - offsetSeconds + futureSecs - ninetyDaysInSeconds - bufferSeconds, firstTestSysSecs - offsetSeconds)
 
         firstPlotGraph = 0
 
@@ -3308,15 +3373,15 @@ def plotGraph():
         # create a fake data point.
         #==================================================================================
         utcTime = datetime.datetime.now(pytz.UTC)
-        egvList.append([utcTime, 130, 130.0])
+        egvList.append([utcTime + datetime.timedelta(seconds=offsetSeconds), 130, 130.0])
         # Set timing variables to the current time offset
         receiverSecs = UtcTimeToReceiverTime(utcTime)
-        displayStartSecs = receiverSecs
-        displayEndSecs = receiverSecs
+        displayStartSecs = receiverSecs + offsetSeconds
+        displayEndSecs = receiverSecs + offsetSeconds
         curSqlMinTime = receiverSecs
         curSqlMaxTime = receiverSecs
-        firstTestSysSecs = receiverSecs
-        lastTestSysSecs = receiverSecs
+        firstTestSysSecs = receiverSecs + offsetSeconds
+        lastTestSysSecs = receiverSecs + offsetSeconds
 
     displayStartDate = ReceiverTimeToUtcTime(displayStartSecs).astimezone(mytz)
     if posText:
@@ -3406,7 +3471,7 @@ def plotGraph():
                 fig.canvas.manager.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
         except AttributeError as e:
             #if args.debug:
-                #print('fig.canvas.set_window_title: Exception =', e)
+                #print('fig.canvas.manager.set_window_title: Exception =', e)
             if sys.version_info.major < 3:
                 sys.exc_clear()
 
@@ -3445,7 +3510,7 @@ def plotGraph():
         #-----------------------------------------------------
         calibZoneList = []
         outOfCalZoneSet = set()
-        lastx = ReceiverTimeToUtcTime(curSqlMinTime)
+        lastx = ReceiverTimeToUtcTime(curSqlMinTime + offsetSeconds)
         lasty = sqlEarliestGluc
         startOfZone = lastx
         for pointx, pointy in zip(xx, yy):
@@ -3508,7 +3573,7 @@ def plotGraph():
                         fig.canvas.manager.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
                     except AttributeError as e:
                         #if args.debug:
-                            #print('fig.canvas.set_window_title: Exception =', e)
+                            #print('fig.canvas.manager.set_window_title: Exception =', e)
                         if sys.version_info.major < 3:
                             sys.exc_clear()
 
@@ -3581,7 +3646,7 @@ def plotGraph():
         # partial region which is increasing in size.
         #-----------------------------------------------------------
         inRangeSet = set()
-        lastx = ReceiverTimeToUtcTime(curSqlMinTime)
+        lastx = ReceiverTimeToUtcTime(curSqlMinTime + offsetSeconds)
         lasty = sqlEarliestGluc
         startOfZone = lastx
         for pointx, pointy in zip(xnorm, ynorm):
