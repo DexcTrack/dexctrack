@@ -3970,13 +3970,16 @@ def plotGraph():
             legPosY = legDefaultPosY
 
         if desirableRange and red_patch and calibScatter and egvScatter and meanPlot:
-            # Add a legend. fontsize = [xx-small, x-small, small, medium, large, x-large, xx-large]
             leg = fig.legend((egvScatter, calibScatter, red_patch, desirableRange, meanPlot[0]),
                              ("Glucose values", "User Calibrations", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
                              scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
-            #if leg:
-                ## set the legend as a draggable entity
-                #leg.draggable(True)
+        elif desirableRange and red_patch and egvScatter and meanPlot:
+            leg = fig.legend((egvScatter, red_patch, desirableRange, meanPlot[0]),
+                             ("Glucose values", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
+                             scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
+        #if leg:
+            ## set the legend as a draggable entity
+            #leg.draggable(True)
 
     #if args.debug:
         #print('After legend                               count =', len(muppy.get_objects()))
