@@ -2684,31 +2684,31 @@ def saveAnnToDb(ann):
         curs = conn.cursor()
         if ann.get_color() == 'black':
             # We may have modified offsets, or modified message, or a completely new UserNote
-            #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.get_text()))
+            #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, ann.get_text()))
             selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND message=?'
-            curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
+            curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, '%s'%ann.get_text()))
             sqlData = curs.fetchone()
             if sqlData is None:
-                #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
+                #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, ann.xyann[0], ann.xyann[1]))
                 selectSql = 'SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=? AND xoffset=? AND yoffset=?'
-                curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
+                curs.execute(selectSql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, ann.xyann[0], ann.xyann[1]))
                 sqlData = curs.fetchone()
                 if sqlData is None:
                     # A completely new UserNote
                     curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
                     insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
-                    #print('INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)),'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1]))
-                    curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text(), ann.xyann[0], ann.xyann[1]))
+                    #print('INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)) - offsetSeconds,'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1]))
+                    curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, '%s'%ann.get_text(), ann.xyann[0], ann.xyann[1]))
                 else:
                     # Modified message
                     update_note_sql = '''UPDATE UserNote SET message=? WHERE sysSeconds=? AND xoffset=? AND yoffset=?;'''
-                    #print('UPDATE UserNote SET message=\'%s\' WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' %(ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.xyann[0], ann.xyann[1]))
-                    curs.execute(update_note_sql, ('%s'%ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), ann.xyann[0], ann.xyann[1]))
+                    #print('UPDATE UserNote SET message=\'%s\' WHERE sysSeconds=%u AND xoffset=%f AND yoffset=%f;' %(ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)) - offsetSeconds, ann.xyann[0], ann.xyann[1]))
+                    curs.execute(update_note_sql, ('%s'%ann.get_text(), UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, ann.xyann[0], ann.xyann[1]))
             else:
                 # Modified offsets
                 update_note_sql = '''UPDATE UserNote SET xoffset=?, yoffset=? WHERE sysSeconds=? AND message=?;'''
-                #print('UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)), ann.get_text()))
-                curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)), '%s'%ann.get_text()))
+                #print('UPDATE UserNote SET xoffset=%f, yoffset=%f WHERE sysSeconds=%u AND message=\'%s\';' %(ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)) - offsetSeconds, ann.get_text()))
+                curs.execute(update_note_sql, (ann.xyann[0], ann.xyann[1], UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, '%s'%ann.get_text()))
             curs.close()
             conn.commit()
         else:
@@ -2738,7 +2738,7 @@ def deleteNoteFromDb(sysSeconds, message):
         curs = conn.cursor()
         #print('DELETE FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' %(sysSeconds,message))
         deleteSql = 'DELETE FROM UserNote WHERE sysSeconds=? AND message=?'
-        curs.execute(deleteSql, (sysSeconds, '%s'%message))
+        curs.execute(deleteSql, (sysSeconds - offsetSeconds, '%s'%message))
         curs.close()
         conn.commit()
     except sqlite3.Error as e:
