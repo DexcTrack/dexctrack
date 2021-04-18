@@ -483,6 +483,7 @@ futureSecs = 60 * 60    # predict values one hour into the future
 future_patch = None
 cfgOffsetSeconds = 0  # database configured time shift
 offsetSeconds = 0     # current time shift
+pick_artist = None
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
@@ -550,6 +551,7 @@ backend = plt.get_backend()
 if args.debug:
     print('sys.platform =', sys.platform)
     print('backend =', backend)
+    print('matplotlib version =', mpl.__version__)
 if args.xsize and args.ysize:
     pass
 else:
@@ -1502,6 +1504,18 @@ def writeNote(xoff=0.0, yoff=0.0):
         fig.canvas.draw()
 
 #-----------------------------------------------------------------------------------
+# If user releases a mouseclick on something
+#-----------------------------------------------------------------------------------
+def onrelease(event):
+    global pick_artist
+
+    if leg and type(pick_artist).__name__ == 'Legend':
+        #print ('Legend location =', leg._loc)
+        saveConfigToDb()
+        pick_artist = None
+
+
+#-----------------------------------------------------------------------------------
 # If user clicks on a plot point
 #   If text is present in the Note box, write that note at the click point
 #   Else, draw an arrow from the empty Note box to the click point
@@ -1514,9 +1528,11 @@ def onpick(event):
     global oldNoteXoff
     global oldNoteYoff
     global submit_note_id
+    global pick_artist
 
     mouseevent = event.mouseevent
     if mouseevent:
+        pick_artist = event.artist
         if mouseevent.xdata and mouseevent.ydata:
             #print('onpick(event) : button =',mouseevent.button,', xdata =',tod,', ydata =',gluc)
             # Check for a right button click. Some mouse devices only have 2 buttons, and some
@@ -1849,6 +1865,8 @@ def plotInit():
     global dayRotation
     global cfgOffsetSeconds
     global offsetSeconds
+    global legPosX
+    global legPosY
     #global unitRead
     #global unitButton
     #global axtest
@@ -1869,7 +1887,7 @@ def plotInit():
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    cfgDisplayLow, cfgDisplayHigh, dbGluUnits, cfgScale, cfgOffsetSeconds = readConfigFromSql()
+    cfgDisplayLow, cfgDisplayHigh, legPosX, legPosY, dbGluUnits, cfgScale, cfgOffsetSeconds = readConfigFromSql()
 
     gluUnits = dbGluUnits
     if gluUnits == 'mmol/L':
@@ -2333,7 +2351,7 @@ def readConfigFromSql():
         curs.execute(selectSql)
         sqlData = curs.fetchone()
         if sqlData[0] > 0:
-            selectSql = "SELECT displayLow, displayHigh, glUnits, scale FROM Config"
+            selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits, scale FROM Config"
             try:
                 curs.execute(selectSql)
             except sqlite3.Error as e:
@@ -2345,7 +2363,7 @@ def readConfigFromSql():
                 defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
                 curs.execute("ALTER TABLE Config ADD COLUMN scale REAL DEFAULT %f" % defScale)
 
-            selectSql = "SELECT displayLow, displayHigh, glUnits, scale, timeOffset FROM Config"
+            selectSql = "SELECT displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset FROM Config"
             try:
                 curs.execute(selectSql)
             except sqlite3.Error as e:
@@ -2361,22 +2379,24 @@ def readConfigFromSql():
             if sqlData is not None:
                 myDisplayLow = sqlData[0]
                 myDisplayHigh = sqlData[1]
-                myGluUnits = sqlData[2]
-                myScale = sqlData[3]
-                myOffset = sqlData[4]
+                myLegendX = sqlData[2]
+                myLegendY = sqlData[3]
+                myGluUnits = sqlData[4]
+                myScale = sqlData[5]
+                myOffset = sqlData[6]
                 if myGluUnits == 'mmol/L':
                     tgtDecDigits = 1
                 else:
                     tgtDecDigits = 0
                 curs.close()
                 conn.close()
-                return myDisplayLow, myDisplayHigh, myGluUnits, myScale, myOffset
+                return myDisplayLow, myDisplayHigh, myLegendX, myLegendY, myGluUnits, myScale, myOffset
 
         curs.close()
         conn.close()
     # Couldn't read from database, so return default values
     defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
-    return displayLow, displayHigh, gluUnits, defScale, 0
+    return displayLow, displayHigh, legPosX, legPosY, gluUnits, defScale, 0
 
 #---------------------------------------------------------
 def readRangeFromSql():
@@ -2651,10 +2671,8 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 if sqlData is not None:
                     cfgDisplayLow = sqlData[0]
                     cfgDisplayHigh = sqlData[1]
-                    #legPosX = sqlData[2]
-                    #legPosY = sqlData[3]
-                    legPosX = legDefaultPosX
-                    legPosY = legDefaultPosY
+                    legPosX = sqlData[2]
+                    legPosY = sqlData[3]
                     dbGluUnits = sqlData[4]
                     cfgScale = sqlData[5]
                     cfgOffsetSeconds = sqlData[6]
@@ -3963,7 +3981,7 @@ def plotGraph():
         #         +----------------+
         # (legPosX,legPosY)
 
-        if legPosX < 0 or legPosX > (1.0 - 0.14) or legPosY < 0.1 or legPosY > (1.0 - 0.12):
+        if legPosX < 0 or legPosX > 0.95 or legPosY < 0 or legPosY > .95:
             if args.debug:
                 print('Out of range Legend', (legPosX, legPosY), ' moved to', (legDefaultPosX, legDefaultPosY))
             legPosX = legDefaultPosX
@@ -3977,9 +3995,14 @@ def plotGraph():
             leg = fig.legend((egvScatter, red_patch, desirableRange, meanPlot[0]),
                              ("Glucose values", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
                              scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
-        #if leg:
-            ## set the legend as a draggable entity
-            #leg.draggable(True)
+        if leg:
+            # set the legend as a draggable entity
+            try:
+                # draggable() method was replaced by set_draggable() in matplotlib 3.1.0
+                leg.set_draggable(True)
+            except AttributeError:
+                # AttributeError: 'Legend' object has no attribute 'set_draggable'
+                leg.draggable(True)
 
     #if args.debug:
         #print('After legend                               count =', len(muppy.get_objects()))
@@ -4105,6 +4128,7 @@ def plotGraph():
 fig.canvas.mpl_connect('pick_event', onpick)
 fig.canvas.mpl_connect('close_event', onclose)
 fig.canvas.mpl_connect('axes_leave_event', leave_axes)
+fig.canvas.mpl_connect('button_release_event', onrelease)
 
 
 sqlite_file = getSqlFileName(None)
