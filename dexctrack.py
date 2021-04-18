@@ -3999,10 +3999,10 @@ def plotGraph():
             # set the legend as a draggable entity
             try:
                 # draggable() method was replaced by set_draggable() in matplotlib 3.1.0
-                leg.set_draggable(True)
+                leg.set_draggable(True, use_blit=True, update='loc')
             except AttributeError:
                 # AttributeError: 'Legend' object has no attribute 'set_draggable'
-                leg.draggable(True)
+                leg.draggable(True, use_blit=True, update='loc')
 
     #if args.debug:
         #print('After legend                               count =', len(muppy.get_objects()))
