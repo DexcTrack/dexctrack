@@ -224,7 +224,7 @@ def draggable_anot_picker(self, artist, mouse_evt):
         textX0, textY0 = ann._get_xy_display()
         try:
             textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
-        except TypeError:
+        except (TypeError, AttributeError):
             textX1 = textX0
             if sys.version_info.major < 3:
                 sys.exc_clear()
