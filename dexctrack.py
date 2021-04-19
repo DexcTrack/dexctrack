@@ -484,6 +484,7 @@ future_patch = None
 cfgOffsetSeconds = 0  # database configured time shift
 offsetSeconds = 0     # current time shift
 pick_artist = None
+closeInProgress = False
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
@@ -1606,20 +1607,20 @@ def onpick(event):
                             noteBox.set_val('')
                             fig.canvas.draw()
 
-            elif mouseevent.button == 1:
+            #elif mouseevent.button == 1:
                 #print('Button left')
-                pass
-            elif mouseevent.button == 'up':
+            #elif mouseevent.button == 'up':
                 #print('Button up')
-                pass
-            elif mouseevent.button == 'down':
+            #elif mouseevent.button == 'down':
                 #print('Button down')
-                pass
 
 #---------------------------------------------------------
 def onclose(event):
     global rthread
     global sthread
+    global closeInProgress
+
+    closeInProgress = True
 
     if args.debug:
         print('*****************')
@@ -3266,6 +3267,9 @@ def plotGraph():
     global future_patch
 
     #print('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
+    if closeInProgress:
+        return
+
     if firstPlotGraph == 1:
         if args.debug:
             memory_tracker = tracker.SummaryTracker()
