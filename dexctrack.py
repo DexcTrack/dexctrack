@@ -23,7 +23,6 @@ from __future__ import print_function
 import os
 import sys
 import glob
-import string
 import sqlite3
 import datetime
 import threading
@@ -63,6 +62,7 @@ if sys.version_info.major > 2:
 parser = argparse.ArgumentParser()
 parser.add_argument("-d", "--debug", help="enable debug mode", action="store_true")
 parser.add_argument("-v", "--version", help="show version", action="store_true")
+parser.add_argument("-u", "--units", help="display alternate glucose units (mmol/L or mg/dL)", action="store_true")
 # Use -x <width> -y <height> to hard code the window size. This is useful for
 # testing different window dimensions. When both are specified, we'll skip the
 # code which maximizes the window.
@@ -73,6 +73,14 @@ parser.add_argument("databaseFile", nargs='?', help="optionally specified databa
 args = parser.parse_args()
 
 mytz = tzlocal.get_localzone()
+
+cfgGluUnits = 'mg/dL'
+altGluUnits = 'mmol/L'
+if args.units:
+    # '-u' option was provided, so display alternate glucose units
+    dispGluUnits = altGluUnits
+else:
+    dispGluUnits = cfgGluUnits
 
 #==========================================================================================
 #
@@ -380,8 +388,6 @@ eventList = []
 noteList = []
 calibList = []
 egvList = []
-gluUnits = 'mg/dL'
-dbGluUnits = 'mg/dL'
 dis_annot = None
 linePlot = None
 egvScatter = None
@@ -485,6 +491,14 @@ cfgOffsetSeconds = 0  # database configured time shift
 offsetSeconds = 0     # current time shift
 pick_artist = None
 closeInProgress = False
+tgtLowX = 0
+tgtLowY = 0
+tgtLowW = 0
+tgtLowH = 0
+tgtHighX = 0
+tgtHighY = 0
+tgtHighW = 0
+tgtHighH = 0
 
 # Sometimes there's a failure running under Windows. If this happens before
 # the graphics window has been set up, then there's no simple
@@ -1665,7 +1679,7 @@ def update_egc_annot(ind):
         pos = egvScatter.get_offsets()[ind["ind"][0]]
         dis_annot.xy = pos
         tod, gluc = (mdates.num2date(pos[0], tz=mytz), pos[1])
-        if gluUnits == 'mmol/L':
+        if dispGluUnits == 'mmol/L':
             if sys.platform == "win32":
                 text = "%s,\n%5.2f" % (tod.strftime("%#I:%M%p"), gluc)
             else:
@@ -1718,11 +1732,11 @@ def hover(event):
 #---------------------------------------------------------
 def UnitButtonCallback(event):
     print('Unit Button pressed.')
-    if gluUnits == 'mmol/L':
-        #gluUnits = 'mg/dL'
+    if dispGluUnits == 'mmol/L':
+        #dispGluUnits = 'mg/dL'
         unitRead.label.set_text('Switch to\nmmol/L')
     else:
-        #gluUnits = 'mmol/L'
+        #dispGluUnits = 'mmol/L'
         unitRead.label.set_text('Switch to\nmg/dL')
 
 #---------------------------------------------------------
@@ -1862,12 +1876,23 @@ def plotInit():
     global cfgDisplayLow
     global cfgDisplayHigh
     global cfgScale
-    global dbGluUnits
+    global cfgGluUnits
+    global altGluUnits
+    global dispGluUnits
     global dayRotation
     global cfgOffsetSeconds
     global offsetSeconds
     global legPosX
     global legPosY
+    global tgtDecDigits
+    global tgtLowX
+    global tgtLowY
+    global tgtLowW
+    global tgtLowH
+    global tgtHighX
+    global tgtHighY
+    global tgtHighW
+    global tgtHighH
     #global unitRead
     #global unitButton
     #global axtest
@@ -1888,14 +1913,25 @@ def plotInit():
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
 
-    cfgDisplayLow, cfgDisplayHigh, legPosX, legPosY, dbGluUnits, cfgScale, cfgOffsetSeconds = readConfigFromSql()
+    cfgDisplayLow, cfgDisplayHigh, legPosX, legPosY, cfgGluUnits, cfgScale, cfgOffsetSeconds = readConfigFromSql()
 
-    gluUnits = dbGluUnits
-    if gluUnits == 'mmol/L':
+    if cfgGluUnits == 'mg/dL':
+        altGluUnits = 'mmol/L'
+    else:
+        altGluUnits = 'mg/dL'
+
+    if args.units:
+        dispGluUnits = altGluUnits
+    else:
+        dispGluUnits = cfgGluUnits
+
+    if dispGluUnits == 'mmol/L':
         # mmol/L = mg/dL x 0.0555
         gluMult = 0.0555
+        tgtDecDigits = 1
     else:
         gluMult = 1.0
+        tgtDecDigits = 0
 
     # Usually we can automatically display the graph in local time, but
     # sometimes the shift from UTC to local timezone is wrong. The -t
@@ -1917,14 +1953,14 @@ def plotInit():
     if args.timeoffset:
         # hours, minutes, seconds format = (+/-)H:M:S, +/- is optional
         try:
-            hstr,mstr,sstr = args.timeoffset.split(':')
+            hstr, mstr, sstr = args.timeoffset.split(':')
             offsetSeconds = datetime.timedelta(hours=int(hstr), \
                                                minutes=int(mstr), \
                                                seconds=int(sstr)).total_seconds()
         except ValueError:
             # hours, minutes format = (+/-)H:M
             try:
-                hstr,mstr = args.timeoffset.split(':')
+                hstr, mstr = args.timeoffset.split(':')
                 offsetSeconds = datetime.timedelta(hours=int(hstr), \
                                                    minutes=int(mstr)).total_seconds()
             except ValueError:
@@ -2106,7 +2142,7 @@ def plotInit():
                             backgroundcolor='y', size=largeFontSize, weight='bold',
                             horizontalalignment='center')
 
-    if gluUnits == 'mmol/L':
+    if dispGluUnits == 'mmol/L':
         avgText = plt.gcf().text(avgTextX, avgTextY, 'Latest = %5.2f (mmol/L)\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                  %(0, 0, 0, 0), style='italic', size=avgFontSz, weight='bold')
     else:
@@ -2177,7 +2213,7 @@ def plotInit():
 
     #                     Left, Bottom, Width, Height
     #unitButton = plt.axes([0.010, 0.20, 0.054, 0.065])
-    #if gluUnits == 'mmol/L':
+    #if dispGluUnits == 'mmol/L':
         #unitRead = Button(unitButton, 'Switch to\nmg/dL', color='lightsalmon')
     #else:
         #unitRead = Button(unitButton, 'Switch to\nmmol/L', color='lightsalmon')
@@ -2289,7 +2325,6 @@ def calcStats():
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         # Calculate the SampleVariance over a 3 month period
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        #selectSql = 'SELECT AVG((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ?'
         selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
         curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
         sqlData = curs.fetchall()
@@ -2318,7 +2353,7 @@ def calcStats():
         conn.close()
 
         if avgText:
-            if gluUnits == 'mmol/L':
+            if dispGluUnits == 'mmol/L':
                 if lastTestGluc in (5, 1):
                     avgText.set_text('Latest = ?\nAvg = %5.2f (mmol/L)\nStdDev = %5.2f\nHbA1c = %5.2f'
                                      %(gluMult * avgGlu, gluMult * egvStdDev, hba1c))
@@ -2342,7 +2377,6 @@ def calcStats():
 
 #---------------------------------------------------------
 def readConfigFromSql():
-    global tgtDecDigits
 
     if sqlite_file:
         conn = sqlite3.connect(sqlite_file)
@@ -2385,10 +2419,6 @@ def readConfigFromSql():
                 myGluUnits = sqlData[4]
                 myScale = sqlData[5]
                 myOffset = sqlData[6]
-                if myGluUnits == 'mmol/L':
-                    tgtDecDigits = 1
-                else:
-                    tgtDecDigits = 0
                 curs.close()
                 conn.close()
                 return myDisplayLow, myDisplayHigh, myLegendX, myLegendY, myGluUnits, myScale, myOffset
@@ -2397,7 +2427,7 @@ def readConfigFromSql():
         conn.close()
     # Couldn't read from database, so return default values
     defScale = 100.0*(displayRange-displayRangeMin)/(displayRangeMax-displayRangeMin)
-    return displayLow, displayHigh, legPosX, legPosY, gluUnits, defScale, 0
+    return displayLow, displayHigh, legPosX, legPosY, cfgGluUnits, defScale, 0
 
 #---------------------------------------------------------
 def readRangeFromSql():
@@ -2451,7 +2481,8 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
     global latestSensorInsertTime
     global legPosX
     global legPosY
-    global dbGluUnits
+    global cfgGluUnits
+    global altGluUnits
     global readDataInstance
     global tgtDecDigits
     global calibFirst
@@ -2674,7 +2705,11 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     cfgDisplayHigh = sqlData[1]
                     legPosX = sqlData[2]
                     legPosY = sqlData[3]
-                    dbGluUnits = sqlData[4]
+                    cfgGluUnits = sqlData[4]
+                    if cfgGluUnits == 'mg/dL':
+                        altGluUnits = 'mmol/L'
+                    else:
+                        altGluUnits = 'mg/dL'
                     cfgScale = sqlData[5]
                     cfgOffsetSeconds = sqlData[6]
             else:
@@ -2682,12 +2717,6 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                 cfgDisplayHigh = displayHigh
                 legPosX = legDefaultPosX
                 legPosY = legDefaultPosY
-                dbGluUnits = 'mg/dL'
-
-            if dbGluUnits == 'mmol/L':
-                tgtDecDigits = 1
-            else:
-                tgtDecDigits = 0
 
         #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
@@ -2778,12 +2807,11 @@ def saveConfigToDb():
                 legx, legy = fig.transFigure.inverted().transform((lx, ly))
                 #print('legx, legy =',(legx, legy))
             else:
-                #legx,legy = legDefaultPosX, legDefaultPosY
-                legx, legy = 0, 0
+                legx, legy = legDefaultPosX, legDefaultPosY
 
-            #print('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\'' %gluUnits, cfgScale, ',', offsetSeconds, ');')
+            #print('INSERT OR REPLACE INTO Config (id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0,', displayLow, ',', displayHigh, ',', legx, ',', legy, ',\'%s\'' %cfgGluUnits, cfgScale, ',', offsetSeconds, ');')
             insert_cfg_sql = '''INSERT OR REPLACE INTO Config( id, displayLow, displayHigh, legendX, legendY, glUnits, scale, timeOffset) VALUES (0, ?, ?, ?, ?, ?, ?, ?);'''
-            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, gluUnits, cfgScale, offsetSeconds))
+            curs.execute(insert_cfg_sql, (displayLow, displayHigh, legx, legy, cfgGluUnits, cfgScale, offsetSeconds))
 
             curs.close()
             conn.commit()
@@ -3234,7 +3262,7 @@ def plotGraph():
     global cfgDisplayLow
     global cfgDisplayHigh
     global sensorWarmupCountDown
-    global gluUnits
+    global dispGluUnits
     global gluMult
     global displayStartDate
     global meanPlot
@@ -3265,6 +3293,11 @@ def plotGraph():
     global tgtHighBox
     global futurePlot
     global future_patch
+    global tgtDecDigits
+    global submit_tgtLow_id
+    global submit_tgtHigh_id
+    global axTgtLow
+    global axTgtHigh
 
     #print('plotGraph() entry\n++++++++++++++++++++++++++++++++++++++++++++++++')
     if closeInProgress:
@@ -3293,7 +3326,7 @@ def plotGraph():
         ax.grid(True)
         ax.tick_params(direction='out', pad=10)
         ax.set_xlabel('Date & Time', labelpad=-3)
-        ax.set_ylabel('Glucose (%s)'%gluUnits, labelpad=10)
+        ax.set_ylabel('Glucose (%s)'%dispGluUnits, labelpad=10)
 
         dis_annot = ax.annotate("", xy=(0, 0), xytext=(12, 12), textcoords="offset points",
                                 bbox=dict(boxstyle="round", facecolor="w"),
@@ -3381,6 +3414,7 @@ def plotGraph():
     readRangeFromSql()
     SetCurrentSqlSelectRange(True) # this may modify displayStartSecs, displayEndSecs, curSqlMinTime, curSqlMaxTime
     readDataFromSql(curSqlMinTime, curSqlMaxTime)
+
     #if position == 100.0:
         #print('---> At the end position')
 
@@ -3409,20 +3443,49 @@ def plotGraph():
     if posText:
         posText.set_text(displayStartDate.strftime("%Y-%m-%d"))
 
-    if dbGluUnits != gluUnits:
-        if dbGluUnits == 'mmol/L':
+    unitsChanged = False
+    if args.units:
+        if dispGluUnits != altGluUnits:
+            unitsChanged = True
+            dispGluUnits = altGluUnits
+    else:
+        if dispGluUnits != cfgGluUnits:
+            unitsChanged = True
+            dispGluUnits = cfgGluUnits
+
+    if unitsChanged:
+        if dispGluUnits == 'mmol/L':
             # mmol/L = mg/dL x 0.0555
             gluMult = 0.0555
             scaleText.y = 7.0
+            tgtDecDigits = 1
         else:
             gluMult = 1.0
             scaleText.y = 70.0
-        ax.set_ylabel('Glucose (%s)'%dbGluUnits)
-        # For python3, or perhaps the newer versions of matplotlib used by python3,
-        # the line below crashes with a 'Segmentation fault', for no clear reason.
-        tgtLowBox.set_val('%g' % round(displayLow * gluMult, tgtDecDigits))
-        tgtHighBox.set_val('%g' % round(displayHigh * gluMult, tgtDecDigits))
-        # erase plotted calibration numbers because their units have changed
+            tgtDecDigits = 0
+        ax.set_ylabel('Glucose (%s)'%dispGluUnits)
+
+        #=========================================================================================
+        # For newer versions of matplotlib (such as 3.1.1), we cannot call tgtLowBox.set_val()
+        # or tgtHighBox.set_val() after the units change, because this causes matplotlib to crash.
+        # To avoid this bug, we need to remove the existing instances, and create new ones.
+        #=========================================================================================
+        tgtLowBox.disconnect(submitTgtLow)
+        tgtHighBox.disconnect(submitTgtHigh)
+        axTgtLow.remove()
+        axTgtHigh.remove()
+
+        axTgtLow = plt.axes([tgtLowX, tgtLowY, tgtLowW, tgtLowH], frameon=True, zorder=10)
+        axTgtHigh = plt.axes([tgtHighX, tgtHighY, tgtHighW, tgtHighH], frameon=True, zorder=10)
+        tgtLowBox = TextBox(axTgtLow, '', initial='%g' % round((cfgDisplayLow * gluMult), tgtDecDigits),
+                            color='gold', hovercolor='lightsalmon')
+        tgtHighBox = TextBox(axTgtHigh, '', initial='%g' % round((cfgDisplayHigh * gluMult), tgtDecDigits),
+                             color='gold', hovercolor='lightsalmon')
+        submit_tgtLow_id = tgtLowBox.on_submit(submitTgtLow)
+        submit_tgtHigh_id = tgtHighBox.on_submit(submitTgtHigh)
+        plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
+        #=========================================================================================
+
         for calTextRef in calibDict:
             calibDict[calTextRef].remove()
         calibDict.clear()
@@ -3430,7 +3493,7 @@ def plotGraph():
     # mark the desirable glucose region
     if desirableRange:
         # Only redraw desirable range if it has changed since the last drawing
-        if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or (dbGluUnits != gluUnits):
+        if (displayLow != cfgDisplayLow) or (displayHigh != cfgDisplayHigh) or unitsChanged:
 
             #print('High/Low value(s) changed')
             cfgDisplayLow = displayLow
@@ -3461,8 +3524,6 @@ def plotGraph():
         #print('++++++++++++++++++++++++++++++++++++++++++++++++\n')
         #memory_tracker.print_diff()
 
-    gluUnits = dbGluUnits
-
     calcStats()
 
     if sys.platform == "win32":
@@ -3470,7 +3531,7 @@ def plotGraph():
         pass
         # The code below writes the string near the top of the window, but not in the window
         # title bar.
-        #if gluUnits == 'mmol/L':
+        #if dispGluUnits == 'mmol/L':
             #plt.suptitle('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
         #else:
             #plt.suptitle('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
@@ -3487,7 +3548,7 @@ def plotGraph():
             # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
             if lastRealGluc == 0:
                 fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
-            elif gluUnits == 'mmol/L':
+            elif dispGluUnits == 'mmol/L':
                 fig.canvas.manager.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
             else:
                 fig.canvas.manager.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
@@ -3820,7 +3881,7 @@ def plotGraph():
                             # plot the calibration value a little below a Down arrow
                             heightOffset = -14 * gluMult
                         # Save the reference to ax.text in a dictionary
-                        if gluUnits == 'mmol/L':
+                        if dispGluUnits == 'mmol/L':
                             calibDict[qq[0]] = ax.text(mdates.date2num(qq[0]), qq[1] + qq[2] + heightOffset,
                                                        '%5.2f' % (qq[1] + qq[2]), color='black', ha='center',
                                                        fontsize=calibFontSize, clip_on=True, zorder=18)
@@ -3856,7 +3917,6 @@ def plotGraph():
         #if args.debug:
             #print('plotGraph() : After running mean           count =', len(muppy.get_objects()))
         #========================================================================================
-        newRange = False
 
         # We're going to predict future values base on the last 6
         # data points, but don't do this until we have at least
@@ -4103,6 +4163,15 @@ def plotGraph():
     if args.debug:
         print('plotGraph() : Before displayCurrentRange() count =', len(muppy.get_objects()))
 
+    # We may be able to reduce the scale of the Y axis, depending on the maximum data
+    # value in that axis. The lines below allow us to possibly zoom in on the Y axis.
+    if (unitsChanged or newRange) and egvScatter is not None:
+        ax.ignore_existing_data_limits = True
+        ax.update_datalim(egvScatter.get_datalim(ax.transData))
+        ax.autoscale_view()
+        ax.ignore_existing_data_limits = False
+
+    newRange = False
     displayCurrentRange()
 
     # Enable the following to print out the lower left X & Y position
