@@ -358,8 +358,7 @@ hourSeconds = 60*60
 
 graphHeightInFigure = graphTop - graphBottom
 UTC_BASE_TIME = datetime.datetime(2009, 1, 1, tzinfo=pytz.UTC)
-readSerialNumInstance = None
-readDataInstance = None
+receiverInstance = None
 ax = None
 tr = None
 firstTestSysSecs = 0
@@ -866,7 +865,7 @@ class deviceReadThread(threading.Thread):
             print('Restarting device read delay. First delay =', firstDelaySecs)
 
     def run(self):
-        global readDataInstance
+        global receiverInstance
         global lastRealGluc
         global lastTrend
         while True:
@@ -890,10 +889,10 @@ class deviceReadThread(threading.Thread):
                         if read_status != 0:
                             self.firstDelayPeriod = 5
                     else:
-                        if readDataInstance is None:
-                            readDataInstance = getReadDataInstance()
-                        if readDataInstance:
-                            curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+                        if receiverInstance is None:
+                            receiverInstance = getReceiverInstance()
+                        if receiverInstance:
+                            curGluc, curFullTrend, read_status = receiverInstance.GetCurrentGlucoseAndTrend()
                             if curGluc and curFullTrend and (read_status == 0):
                                 lastRealGluc = curGluc
                                 lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
@@ -903,7 +902,7 @@ class deviceReadThread(threading.Thread):
                                 lastRealGluc = 0
                         else:
                             lastRealGluc = 0
-                            #print('deviceReadThread.run() readDataInstance = NULL')
+                            #print('deviceReadThread.run() receiverInstance = NULL')
 
                     if stat_text:
                         stat_text.set_text('Receiver\nDevice\nPresent')
@@ -932,19 +931,15 @@ class deviceReadThread(threading.Thread):
                     if args.debug:
                         print('deviceReadThread terminated')
                     lastRealGluc = 0
-                    if sys.platform != "win32":
-                        try:
-                            # During shutdown, set_window_title() can fail with
-                            # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-                            fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
-                        except AttributeError as e:
-                            #if args.debug:
-                                #print('deviceReadThread.run() fig.canvas.manager.set_window_title: Exception =', e)
-                            if sys.version_info.major < 3:
-                                sys.exc_clear()
-
-                    del readDataInstance
-                    readDataInstance = None
+                    try:
+                        # During shutdown, set_window_title() can fail with
+                        # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+                        fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
+                    except AttributeError as e:
+                        #if args.debug:
+                            #print('deviceReadThread.run() fig.canvas.manager.set_window_title: Exception =', e)
+                        if sys.version_info.major < 3:
+                            sys.exc_clear()
                     return  # terminate the thread
         return
 
@@ -970,7 +965,7 @@ class deviceSeekThread(threading.Thread):
             global sqlite_file
             global rthread
             global restart
-            global readSerialNumInstance
+            global receiverInstance
             global powerState
             global powerLevel
             global lastPowerState
@@ -982,23 +977,19 @@ class deviceSeekThread(threading.Thread):
             prior_sqlite_file = sqlite_file
             prior_connected_state = self.connected_state
             sNum = None
-            if readSerialNumInstance is None:
-                dport = readReceiver.readReceiverBase.FindDevice()
-                if dport is not None:
-                    readSerialNumInstance = readReceiver.readReceiver(dport, dbg = args.debug)
+            if receiverInstance is None:
+                receiverInstance = getReceiverInstance()
                 self.connected_state = False
 
-            if readSerialNumInstance is not None:
-                (powerState, powerLevel) = readSerialNumInstance.GetPowerInfo()
+            if receiverInstance is not None:
+                (powerState, powerLevel) = receiverInstance.GetPowerInfo()
                 if powerState is None:
                     retryTime = 3.0
                 else:
                     retryTime = 21.0
-                sNum = readSerialNumInstance.GetSerialNumber()
+                sNum = receiverInstance.GetSerialNumber()
                 if not sNum:
                     self.connected_state = False
-                    del readSerialNumInstance
-                    readSerialNumInstance = None
                     (powerState, powerLevel) = (None, 0)
                     retryTime = 3.0
                 else:
@@ -1069,8 +1060,6 @@ class deviceSeekThread(threading.Thread):
             if waitStatus is True:
                 if args.debug:
                     print('deviceSeekThread terminated')
-                del readSerialNumInstance
-                readSerialNumInstance = None
                 return  # terminate the thread
         return
 
@@ -1085,13 +1074,13 @@ def PerodicDeviceSeek():
     return
 
 #---------------------------------------------------------
-def getReadDataInstance():
+def getReceiverInstance():
     rsni = None
     rdi = None
 
-    my_dport = readReceiver.readReceiverBase.FindDevice()
-    if readSerialNumInstance:
-        rsni = readSerialNumInstance
+    my_dport = readReceiver.readReceiverBase.FindDevice()   # a port descriptor string
+    if receiverInstance:
+        rsni = receiverInstance
         devType = rsni.GetDeviceType()
     else:
         devType = None
@@ -1109,7 +1098,7 @@ def getReadDataInstance():
             elif devType == 'g6':
                 rdi = readReceiver.readReceiverG6(my_dport, rsni.port, dbg = args.debug)
             else:
-                print('getReadDataInstance() : Unrecognized firmware version', devType)
+                print('getReceiverInstance() : Unrecognized firmware version', devType)
         else:
             rdi = readReceiver.readReceiver(my_dport, dbg = args.debug)
 
@@ -1118,21 +1107,21 @@ def getReadDataInstance():
 #---------------------------------------------------------
 def PeriodicReadData():
     global rthread
-    global readDataInstance
+    global receiverInstance
     global lastRealGluc
     global lastTrend
 
-    if readDataInstance is None:
-        readDataInstance = getReadDataInstance()
+    if receiverInstance is None:
+        receiverInstance = getReceiverInstance()
 
-    if readDataInstance is None:
+    if receiverInstance is None:
         if rthread is not None:
             rthread.stop()
             rthread.join()
         return
 
     if appendable_db is False:
-        curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+        curGluc, curFullTrend, read_status = receiverInstance.GetCurrentGlucoseAndTrend()
         if curGluc and curFullTrend and (read_status == 0):
             lastRealGluc = curGluc
             lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
@@ -1140,7 +1129,7 @@ def PeriodicReadData():
     if rthread is not None:
         rthread.stop()
         rthread.join()
-    rthread = deviceReadThread(1, "Periodic read thread", readDataInstance.DownloadToDb)
+    rthread = deviceReadThread(1, "Periodic read thread", receiverInstance.DownloadToDb)
     # If the user closes the window, we want this thread to also terminate
     rthread.daemon = True
     rthread.start()
@@ -1632,6 +1621,7 @@ def onpick(event):
 def onclose(event):
     global rthread
     global sthread
+    global receiverInstance
     global closeInProgress
 
     closeInProgress = True
@@ -1656,6 +1646,11 @@ def onclose(event):
             print('Waiting on sthread.join()')
         sthread.join()
         sthread = None
+
+    if receiverInstance:
+        receiverInstance.Disconnect()
+    del receiverInstance
+    receiverInstance = None
 
     plt.close('all')
     sys.exit(0)
@@ -2483,7 +2478,7 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
     global legPosY
     global cfgGluUnits
     global altGluUnits
-    global readDataInstance
+    global receiverInstance
     global tgtDecDigits
     global calibFirst
     global calibLast
@@ -2542,16 +2537,16 @@ def readDataFromSql(sqlMinTime, sqlMaxTime):
                     lastRealGluc = row[0]
                     lastTrend = row[1] & constants.EGV_TREND_ARROW_MASK
             else:
-                if not readDataInstance:
-                    readDataInstance = getReadDataInstance()
-                if readDataInstance:
-                    curGluc, curFullTrend, read_status = readDataInstance.GetCurrentGlucoseAndTrend()
+                if not receiverInstance:
+                    receiverInstance = getReceiverInstance()
+                if receiverInstance:
+                    curGluc, curFullTrend, read_status = receiverInstance.GetCurrentGlucoseAndTrend()
                     if curGluc and curFullTrend and (read_status == 0):
                         lastRealGluc = curGluc
                         lastTrend = curFullTrend & constants.EGV_TREND_ARROW_MASK
                     #print('readDataFromSql() lastRealGluc =', lastRealGluc)
                 #else:
-                    #print('readDataFromSql() readDataInstance = NULL')
+                    #print('readDataFromSql() receiverInstance = NULL')
 
             trendChar = trendToChar(lastTrend)
 
@@ -3499,7 +3494,7 @@ def plotGraph():
             cfgDisplayLow = displayLow
             cfgDisplayHigh = displayHigh
             desirableRange.remove()
-            desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
+            desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
 
             # Re-plot percentages high, middle, and low
             highPercentText.remove()
@@ -3517,7 +3512,7 @@ def plotGraph():
             displayLow = cfgDisplayLow
         if cfgDisplayHigh is not None:
             displayHigh = cfgDisplayHigh
-        desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0)
+        desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
 
     #if args.debug:
         #print('plotGraph() :  After desirableRange() count =', len(muppy.get_objects()))
@@ -3526,37 +3521,27 @@ def plotGraph():
 
     calcStats()
 
-    if sys.platform == "win32":
-        # fig.canvas.manager.set_window_title() hangs forever under Windows, so don't try to use it
-        pass
-        # The code below writes the string near the top of the window, but not in the window
-        # title bar.
-        #if dispGluUnits == 'mmol/L':
-            #plt.suptitle('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
-        #else:
-            #plt.suptitle('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
-    else:
-        # Under some window managers, e.g. MATE, a minimized application
-        # will still display the window title, or at least the beginning
-        # portion of the window title. We want to include critical
-        # information at the beginning of that title, so the user can see
-        # the current glucose level and trend.
-        # For example, if the current glucose level is 93 and falling, the
-        # window title will begin with '93 \'.
-        try:
-            # During shutdown, set_window_title() can fail with
-            # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-            if lastRealGluc == 0:
-                fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
-            elif dispGluUnits == 'mmol/L':
-                fig.canvas.manager.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
-            else:
-                fig.canvas.manager.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
-        except AttributeError as e:
-            #if args.debug:
-                #print('fig.canvas.manager.set_window_title: Exception =', e)
-            if sys.version_info.major < 3:
-                sys.exc_clear()
+    # Under some window managers, e.g. MATE, a minimized application
+    # will still display the window title, or at least the beginning
+    # portion of the window title. We want to include critical
+    # information at the beginning of that title, so the user can see
+    # the current glucose level and trend.
+    # For example, if the current glucose level is 93 and falling, the
+    # window title will begin with '93 \'.
+    try:
+        # During shutdown, set_window_title() can fail with
+        # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+        if lastRealGluc == 0:
+            fig.canvas.manager.set_window_title('DexcTrack: %s' % (serialNum))
+        elif dispGluUnits == 'mmol/L':
+            fig.canvas.manager.set_window_title('%5.2f %c DexcTrack: %s' % (gluMult * lastRealGluc, trendChar, serialNum))
+        else:
+            fig.canvas.manager.set_window_title('%u %c DexcTrack: %s' % (lastRealGluc, trendChar, serialNum))
+    except AttributeError as e:
+        #if args.debug:
+            #print('fig.canvas.manager.set_window_title: Exception =', e)
+        if sys.version_info.major < 3:
+            sys.exc_clear()
 
     if egvList:
         data = np.array(egvList)
@@ -3644,21 +3629,20 @@ def plotGraph():
                                                         size='xx-large', weight='bold',
                                                         horizontalalignment='center')
 
-                if sys.platform != "win32":
-                    # Under some window managers, e.g. MATE, a minimized application
-                    # will still display the window title, or at least the beginning
-                    # portion of the window title. We want to include critical
-                    # information at the beginning of that title, so the user can see
-                    # the remaining sensor warm-up time.
-                    try:
-                        # During shutdown, set_window_title() can fail with
-                        # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
-                        fig.canvas.manager.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
-                    except AttributeError as e:
-                        #if args.debug:
-                            #print('fig.canvas.manager.set_window_title: Exception =', e)
-                        if sys.version_info.major < 3:
-                            sys.exc_clear()
+                # Under some window managers, e.g. MATE, a minimized application
+                # will still display the window title, or at least the beginning
+                # portion of the window title. We want to include critical
+                # information at the beginning of that title, so the user can see
+                # the remaining sensor warm-up time.
+                try:
+                    # During shutdown, set_window_title() can fail with
+                    # "AttributeError: 'NoneType' object has no attribute 'wm_title'"
+                    fig.canvas.manager.set_window_title('%u mins left DexcTrack: %s' % (timeLeftSeconds // 60, serialNum))
+                except AttributeError as e:
+                    #if args.debug:
+                        #print('fig.canvas.manager.set_window_title: Exception =', e)
+                    if sys.version_info.major < 3:
+                        sys.exc_clear()
 
                 # Say we only have 80 seconds left. We don't want to wait 5 minutes
                 # before telling the user that we're ready for calibration, so we'll
@@ -3712,7 +3696,7 @@ def plotGraph():
                 #print('Highlighting out of calibration range', specRange[0], 'to', specRange[1])
             red_patch = ax.axvspan(startRangeNum, endRangeNum,
                                    alpha=0.2, color='red',
-                                   label='Uncalibrated', zorder=2)
+                                   label='Uncalibrated', zorder=4)
 
             # Store a reference to the plottted red patch in a dictionary indexed by the endpoints of the range
             redRangeDict[(startRangeNum, endRangeNum)] = red_patch
@@ -3912,7 +3896,7 @@ def plotGraph():
         # Plot a running mean as a dashed line
         if meanPlot:
             meanPlot.pop(0).remove()
-        meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=3, alpha=0.6)
+        meanPlot = ax.plot(xnorm, runningMean, color='firebrick', linewidth=1.0, linestyle='dashed', zorder=6, alpha=0.6)
 
         #if args.debug:
             #print('plotGraph() : After running mean           count =', len(muppy.get_objects()))
@@ -3990,7 +3974,7 @@ def plotGraph():
                 # calculate future data points (1 hour forward)
                 x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
                 y_new = predictFunc(x_new) * gluMult
-                futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2)
+                futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2, zorder=3)
                 if args.debug:
                     print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
                     #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])
@@ -4014,7 +3998,7 @@ def plotGraph():
                 future_patch = ax.axvspan(startFutureRangeNum,
                                           endFutureRangeNum,
                                           0.0, 1.0, color='lightgrey',
-                                          alpha=1.0, zorder=1)
+                                          alpha=1.0, zorder=2)
             #+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         #if args.debug:
@@ -4172,6 +4156,7 @@ def plotGraph():
         ax.ignore_existing_data_limits = False
 
     newRange = False
+
     displayCurrentRange()
 
     # Enable the following to print out the lower left X & Y position
