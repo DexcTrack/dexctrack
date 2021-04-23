@@ -52,7 +52,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.5
+dexctrackVersion = 3.6
 
 if sys.version_info.major > 2:
     import faulthandler
@@ -1946,18 +1946,27 @@ def plotInit():
     # To remove an existing offset ...
     #       python3 dexctrack.py -t 0
     if args.timeoffset:
-        # hours, minutes, seconds format = (+/-)H:M:S, +/- is optional
+        # format = {+/-}H{:M{:S}}   +/-, :M, :S are optional
+        # Need to check the first character to handle offsets starting with '-0:'
+        if args.timeoffset.startswith('-'):
+            offsetMult = -1
+        else:
+            offsetMult = 1
         try:
             hstr, mstr, sstr = args.timeoffset.split(':')
             offsetSeconds = datetime.timedelta(hours=int(hstr), \
                                                minutes=int(mstr), \
                                                seconds=int(sstr)).total_seconds()
+            if int(hstr) == 0:
+                offsetSeconds *= offsetMult
         except ValueError:
             # hours, minutes format = (+/-)H:M
             try:
                 hstr, mstr = args.timeoffset.split(':')
                 offsetSeconds = datetime.timedelta(hours=int(hstr), \
                                                    minutes=int(mstr)).total_seconds()
+                if int(hstr) == 0:
+                    offsetSeconds *= offsetMult
             except ValueError:
                 # hours format = (+/-)H
                 try:
@@ -1965,6 +1974,7 @@ def plotInit():
                     offsetSeconds = datetime.timedelta(hours=int(hstr)).total_seconds()
                 except ValueError:
                     offsetSeconds = cfgOffsetSeconds
+        #print('time offset seconds =', offsetSeconds)
     else:
         # User did not specify offset on command line so use database value
         offsetSeconds = cfgOffsetSeconds
