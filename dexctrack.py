@@ -3488,7 +3488,6 @@ def plotGraph():
                              color='gold', hovercolor='lightsalmon')
         submit_tgtLow_id = tgtLowBox.on_submit(submitTgtLow)
         submit_tgtHigh_id = tgtHighBox.on_submit(submitTgtHigh)
-        plt.gca().set_ylim([gluMult * minDisplayLow, gluMult * maxDisplayHigh])
         #=========================================================================================
 
         for calTextRef in calibDict:
@@ -3504,7 +3503,7 @@ def plotGraph():
             cfgDisplayLow = displayLow
             cfgDisplayHigh = displayHigh
             desirableRange.remove()
-            desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
+            desirableRange = ax.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
 
             # Re-plot percentages high, middle, and low
             highPercentText.remove()
@@ -3522,7 +3521,7 @@ def plotGraph():
             displayLow = cfgDisplayLow
         if cfgDisplayHigh is not None:
             displayHigh = cfgDisplayHigh
-        desirableRange = plt.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
+        desirableRange = ax.axhspan(gluMult * displayLow, gluMult * displayHigh, facecolor='khaki', alpha=1.0, zorder=1)
 
     #if args.debug:
         #print('plotGraph() :  After desirableRange() count =', len(muppy.get_objects()))
