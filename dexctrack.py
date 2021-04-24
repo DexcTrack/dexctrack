@@ -256,6 +256,20 @@ def draggable_anot_picker(self, artist, mouse_evt):
 # For annotations, replace the default artist_picker method with a better one
 mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
 
+
+#-----------------------------------------------------------------------------------
+# A finalize method for Legend dragging which will save the new location.
+#-----------------------------------------------------------------------------------
+def legend_finalize(self):
+    if self._update == "loc":
+        self._update_loc(self.get_loc_in_canvas())
+    elif self._update == "bbox":
+        self._bbox_to_anchor(self.get_loc_in_canvas())
+    #print ('legend_finalize() : Legend location =', leg._loc)
+    saveConfigToDb()
+
+mpl.legend.DraggableLegend.finalize_offset = legend_finalize
+
 #==========================================================================================
 
 
@@ -488,7 +502,6 @@ futureSecs = 60 * 60    # predict values one hour into the future
 future_patch = None
 cfgOffsetSeconds = 0  # database configured time shift
 offsetSeconds = 0     # current time shift
-pick_artist = None
 closeInProgress = False
 tgtLowX = 0
 tgtLowY = 0
@@ -1508,18 +1521,6 @@ def writeNote(xoff=0.0, yoff=0.0):
         fig.canvas.draw()
 
 #-----------------------------------------------------------------------------------
-# If user releases a mouseclick on something
-#-----------------------------------------------------------------------------------
-def onrelease(event):
-    global pick_artist
-
-    if leg and type(pick_artist).__name__ == 'Legend':
-        #print ('Legend location =', leg._loc)
-        saveConfigToDb()
-        pick_artist = None
-
-
-#-----------------------------------------------------------------------------------
 # If user clicks on a plot point
 #   If text is present in the Note box, write that note at the click point
 #   Else, draw an arrow from the empty Note box to the click point
@@ -1532,11 +1533,9 @@ def onpick(event):
     global oldNoteXoff
     global oldNoteYoff
     global submit_note_id
-    global pick_artist
 
     mouseevent = event.mouseevent
     if mouseevent:
-        pick_artist = event.artist
         if mouseevent.xdata and mouseevent.ydata:
             #print('onpick(event) : button =',mouseevent.button,', xdata =',tod,', ydata =',gluc)
             # Check for a right button click. Some mouse devices only have 2 buttons, and some
@@ -3743,7 +3742,6 @@ def plotGraph():
                 #print('inRangeSet[] adding ',startOfZone,'to',lastx)
                 inRangeSet.add((startOfZone, lastx))
 
-
         #--------------------------------------------------------------------------------------------------
         # Highlight in-range regions >= 24 hours
         descopedRangeSet = inRangePlottedSet - inRangeSet
@@ -4195,7 +4193,6 @@ def plotGraph():
 fig.canvas.mpl_connect('pick_event', onpick)
 fig.canvas.mpl_connect('close_event', onclose)
 fig.canvas.mpl_connect('axes_leave_event', leave_axes)
-fig.canvas.mpl_connect('button_release_event', onrelease)
 
 
 sqlite_file = getSqlFileName(None)
