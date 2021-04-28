@@ -82,179 +82,229 @@ if args.units:
 else:
     dispGluUnits = cfgGluUnits
 
-#==========================================================================================
-#
-# The matplotlib library has a bug which causes problems when trying to drag objects.
-# If you drag one object, and then try to drag a different object, often the first
-# selected object will get accidentally included in the second drag operation.
-# This makes it difficult to reposition User Event strings and User Note strings.
-#
-# A fix for this bug was submitted 2017-01-20 by fukatani, but his|her
-# code has not yet been pulled into an official matplotlib release.
-#
-#   https://github.com/matplotlib/matplotlib/pull/7894
-#
-# The 3 methods defined below are replacements for the original matplotlib methods.
-#
-# Thanks to fukatani for this awesome fix!
-#
-#==========================================================================================
 
-def off_drag_new_init(self, ref_artist, use_blit=False):
-    #print('running off_drag_new_init()')
-    self.ref_artist = ref_artist
-    self.got_artist = False
-    self.got_other_artist = False
+##########################################################################################
+# https://stackoverflow.com/questions/11887762/how-do-i-compare-version-numbers-in-python
+# Code contributed by Phaxmohdem, 2/17/2015.
+##########################################################################################
+def versiontuple(v):
+    filled = []
+    for point in v.split("."):
+        filled.append(point.zfill(8))
+    return tuple(filled)
 
-    self.canvas = self.ref_artist.figure.canvas
-    self._use_blit = use_blit and self.canvas.supports_blit
 
-    c2 = self.canvas.mpl_connect('pick_event', self.on_pick)
-    c3 = self.canvas.mpl_connect('button_release_event', self.on_release)
+mpl_vt = versiontuple(mpl.__version__)
+if mpl_vt < versiontuple('3.2.0'):
+    #==========================================================================================
+    #
+    # The matplotlib library has a bug which causes problems when trying to drag objects.
+    # If you drag one object, and then try to drag a different object, often the first
+    # selected object will get accidentally included in the second drag operation.
+    # This makes it difficult to reposition User Event strings and User Note strings.
+    #
+    # A fix for this bug was suggested by fukatani on 2017-01-20, but his|her code
+    # has not been pulled into an official matplotlib release. The issue was fixed
+    # in a different way in matplotlib 3.2.0.
+    #
+    #   https://github.com/matplotlib/matplotlib/pull/7894
+    #
+    # The 3 methods defined below are replacements for the original matplotlib methods.
+    #
+    # Thanks to fukatani for this awesome fix!
+    #
+    #==========================================================================================
 
-    ref_artist.set_picker(self.artist_picker)
-    self.cids = [c2, c3]
-
-def off_drag_on_pick(self, evt):
-    #print('running off_drag_on_pick()')
-    if self.got_other_artist:
-        return
-    if self.got_artist or evt.artist == self.ref_artist:
-
-        self.mouse_x = evt.mouseevent.x
-        self.mouse_y = evt.mouseevent.y
-        self.got_artist = True
-
-        if self._use_blit:
-            self.ref_artist.set_animated(True)
-            self.canvas.draw()
-            self.background = self.canvas.copy_from_bbox(
-                self.ref_artist.figure.bbox)
-            self.ref_artist.draw(self.ref_artist.figure._cachedRenderer)
-            self.canvas.blit(self.ref_artist.figure.bbox)
-            self._c1 = self.canvas.mpl_connect('motion_notify_event',
-                                               self.on_motion_blit)
-        else:
-            self._c1 = self.canvas.mpl_connect('motion_notify_event',
-                                               self.on_motion)
-        self.save_offset()
-    else:
-        self.got_other_artist = True
-
-def off_drag_on_release(self, event):
-    #print('running off_drag_on_release()')
-    self.got_other_artist = False
-    if self.got_artist:
-        self.finalize_offset()
+    def off_drag_new_init(self, ref_artist, use_blit=False):
+        #print('running off_drag_new_init()')
+        self.ref_artist = ref_artist
         self.got_artist = False
-        self.canvas.mpl_disconnect(self._c1)
+        self.got_other_artist = False
 
-        if self._use_blit:
-            self.ref_artist.set_animated(False)
+        self.canvas = self.ref_artist.figure.canvas
+        self._use_blit = use_blit and self.canvas.supports_blit
 
-# Replace the broken original methods with fukatani's fixed versions
-mpl.offsetbox.DraggableBase.__init__ = off_drag_new_init
-mpl.offsetbox.DraggableBase.on_pick = off_drag_on_pick
-mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
+        c2 = self.canvas.mpl_connect('pick_event', self.on_pick)
+        c3 = self.canvas.mpl_connect('button_release_event', self.on_release)
 
-#========================================================================================
-#  The default implementation of artist_picker() has 2 issues which need to be overcome.
-#========================================================================================
-def draggable_anot_picker(self, artist, mouse_evt):
-    ann = self.annotation
-    if ann:
-        # --------------------------------------------------------------------------------
-        #   When looking for matching annotations, the default picker routine uses Display
-        # coordinates. Unfortunately, the transformation from Data coordinates to Display
-        # coordinates places EVERY annotation within the current display. So, even
-        # annotations which are not currently visible on the screen can get accidentally
-        # selected and dragged when the user is trying to drag an annotation which is
-        # visible.
-        #
-        #   To fix this bug, we'll use the view limits of the current display to
-        # filter out any annotation whose Data coordinates are outside those limits.
-        # --------------------------------------------------------------------------------
-        # Test whether the annotation is on the currently displayed axes view
-        if (ann.axes.viewLim.x0 <= ann.xy[0] <= ann.axes.viewLim.x1) and \
-           (ann.axes.viewLim.y0 <= ann.xy[1] <= ann.axes.viewLim.y1):
+        ref_artist.set_picker(self.artist_picker)
+        self.cids = [c2, c3]
+
+    def off_drag_on_pick(self, evt):
+        #print('running off_drag_on_pick()')
+        if self.got_other_artist:
+            return
+        if self.got_artist or evt.artist == self.ref_artist:
+
+            self.mouse_x = evt.mouseevent.x
+            self.mouse_y = evt.mouseevent.y
+            self.got_artist = True
+
+            if self._use_blit:
+                self.ref_artist.set_animated(True)
+                self.canvas.draw()
+                self.background = self.canvas.copy_from_bbox(
+                    self.ref_artist.figure.bbox)
+                self.ref_artist.draw(self.ref_artist.figure._cachedRenderer)
+                self.canvas.blit(self.ref_artist.figure.bbox)
+                self._c1 = self.canvas.mpl_connect('motion_notify_event',
+                                                   self.on_motion_blit)
+            else:
+                self._c1 = self.canvas.mpl_connect('motion_notify_event',
+                                                   self.on_motion)
+            self.save_offset()
+        else:
+            self.got_other_artist = True
+
+    def off_drag_on_release(self, event):
+        #print('running off_drag_on_release()')
+        self.got_other_artist = False
+        if self.got_artist:
+            self.finalize_offset()
+            self.got_artist = False
+            self.canvas.mpl_disconnect(self._c1)
+
+            if self._use_blit:
+                self.ref_artist.set_animated(False)
+
+    # Replace the broken original methods with fukatani's fixed versions
+    mpl.offsetbox.DraggableBase.__init__ = off_drag_new_init
+    mpl.offsetbox.DraggableBase.on_pick = off_drag_on_pick
+    mpl.offsetbox.DraggableBase.on_release = off_drag_on_release
+
+    #========================================================================================
+    #  The default implementation of artist_picker() has 2 issues which need to be overcome.
+    #========================================================================================
+    def draggable_anot_picker(self, artist, mouse_evt):
+        ann = self.annotation
+        if ann:
+            # --------------------------------------------------------------------------------
+            #   When looking for matching annotations, the default picker routine uses Display
+            # coordinates. Unfortunately, the transformation from Data coordinates to Display
+            # coordinates places EVERY annotation within the current display. So, even
+            # annotations which are not currently visible on the screen can get accidentally
+            # selected and dragged when the user is trying to drag an annotation which is
+            # visible.
+            #
+            #   To fix this bug, we'll use the view limits of the current display to
+            # filter out any annotation whose Data coordinates are outside those limits.
+            # --------------------------------------------------------------------------------
+            # Test whether the annotation is on the currently displayed axes view
+            if (ann.axes.viewLim.x0 <= ann.xy[0] <= ann.axes.viewLim.x1) and \
+               (ann.axes.viewLim.y0 <= ann.xy[1] <= ann.axes.viewLim.y1):
+                pass
+            else:
+                return False, {}
+
+
+            # --------------------------------------------------------------------------------
+            #   If there are two or more annotations located near each other, the default
+            # selection area for one annotation can completely eclipse another annotation.
+            # For example:
+            #
+            #           'Annotation A Long String'
+            #           /                        .
+            #          /    'Annotation B'       .
+            #          |   /             .       .
+            #          |   |             . bbox  .
+            #          |   V . . . . . . .       . bbox
+            #          V . . . . . . . . . . . . .
+            #
+            #   The default selection area is the (bbox) rectangle including the entire arrow
+            # and the text string. If the user is trying to drag 'Annotation B' and clicks the
+            # mouse on top of that string, both 'Annotation A Long String' and 'Annotation B'
+            # are within the selection group. If we're using fukatani's fix, then only the
+            # randomly ordered, "first" of these elements in the group will be dragged. If
+            # 'Annotation A Long String' is that first one, then the user will be unable to
+            # drag 'Annotation B'. When they try to drag it, 'Annotation A Long String'
+            # will move instead.
+            #
+            #   To fix this issue, we'll switch the selection area to a rectangle including
+            # just the text string. The _get_xy_display() method provides the position of
+            # the lower left corner of the string. The _get_rendered_text_width() method
+            # provides the width, and get_size() provides the height.
+            #
+            #          ............................
+            #          .'Annotation A Long String'.
+            #          ./..........................
+            #          /
+            #          |   ................
+            #          |   .'Annotation B'.
+            #          |   /...............
+            #          |   |
+            #          |   V
+            #          V
+            #
+            #   If the user clicks on 'Annotation B', the mouse will be within that
+            # text string, but outside of 'Annotation A Long String'. This greatly
+            # reduces the area of possible collision.
+            # --------------------------------------------------------------------------------
+
+            # Find the location of the Text part of the annotation in Display coordinates
+            #                +-----------------+ textX1,textY1
+            #                | Annotation Text |
+            #  textX0,textY0 +-----------------+
+            textX0, textY0 = ann._get_xy_display()
+            try:
+                textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
+            except (TypeError, AttributeError):
+                textX1 = textX0
+                if sys.version_info.major < 3:
+                    sys.exc_clear()
+
+            if textX1 == textX0:
+                # Annotation Text is empty, so don't require the mouse position
+                # to be within the text area.
+                pass
+            else:
+                textY1 = textY0 + ann.get_size()
+                # Test whether the mouse is within the Annotation Text area
+                if (textX0 <= mouse_evt.x <= textX1) and \
+                   (textY0 <= mouse_evt.y <= textY1):
+                    pass
+                else:
+                    return False, {}
+            return self.ref_artist.contains(mouse_evt)
+        else:
+            return False, {}
+
+    # For annotations, replace the default artist_picker method with a better one
+    mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
+
+else:   # matplotlib 3.2.0 or newer
+    def new_anot_contains(self, event):
+        # A quick check on whether the annotation is anchored at a point which is
+        # currently visible on the screen, will allow us to speed up the handling
+        # for cases where it isn't. This is roughly 30 times faster than calling
+        # contains() on the Text and the Arrow.
+        if (self.axes.viewLim.x0 <= self.xy[0] <= self.axes.viewLim.x1) and \
+           (self.axes.viewLim.y0 <= self.xy[1] <= self.axes.viewLim.y1):
             pass
         else:
             return False, {}
 
+        # All _default_contains() does is possibly call a deprecated artist
+        # custom checker and check that mouseevent.canvas == figure.canvas,
+        # which is always true for us. So, let's not waste time on it.
+        #inside, info = self._default_contains(event)
+        #if inside is not None:
+            #return inside, info
 
-        # --------------------------------------------------------------------------------
-        #   If there are two or more annotations located near each other, the default
-        # selection area for one annotation can completely eclipse another annotation.
-        # For example:
-        #
-        #           'Annotation A Long String'
-        #           /                        .
-        #          /    'Annotation B'       .
-        #          |   /             .       .
-        #          |   |             . bbox  .
-        #          |   V . . . . . . .       . bbox
-        #          V . . . . . . . . . . . . .
-        #
-        #   The default selection area is the (bbox) rectangle including the entire arrow
-        # and the text string. If the user is trying to drag 'Annotation B' and clicks the
-        # mouse on top of that string, both 'Annotation A Long String' and 'Annotation B'
-        # are within the selection group. If we're using fukatani's fix, then only the
-        # randomly ordered, "first" of these elements in the group will be dragged. If
-        # 'Annotation A Long String' is that first one, then the user will be unable to
-        # drag 'Annotation B'. When they try to drag it, 'Annotation A Long String'
-        # will move instead.
-        #
-        #   To fix this issue, we'll switch the selection area to a rectangle including
-        # just the text string. The _get_xy_display() method provides the position of
-        # the lower left corner of the string. The _get_rendered_text_width() method
-        # provides the width, and get_size() provides the height.
-        #
-        #          ............................
-        #          .'Annotation A Long String'.
-        #          ./..........................
-        #          /
-        #          |   ................
-        #          |   .'Annotation B'.
-        #          |   /...............
-        #          |   |
-        #          |   V
-        #          V
-        #
-        #   If the user clicks on 'Annotation B', the mouse will be within that
-        # text string, but outside of 'Annotation A Long String'. This greatly
-        # reduces the area of possible collision.
-        # --------------------------------------------------------------------------------
-
-        # Find the location of the Text part of the annotation in Display coordinates
-        #                +-----------------+ textX1,textY1
-        #                | Annotation Text |
-        #  textX0,textY0 +-----------------+
-        textX0, textY0 = ann._get_xy_display()
-        try:
-            textX1 = textX0 + ann._get_rendered_text_width(ann.get_text())
-        except (TypeError, AttributeError):
-            textX1 = textX0
-            if sys.version_info.major < 3:
-                sys.exc_clear()
-
-        if textX1 == textX0:
-            # Annotation Text is empty, so don't require the mouse position
-            # to be within the text area.
+        contains, tinfo = mpl.text.Text.contains(self, event)
+        # Original code always checked both Text and Arrow areas.
+        # If the Text check passes, there's no reason to waste
+        # time testing the Arrow.
+        if contains:
+            #print ('new_anot_contains() :', self, 'in text')
             pass
-        else:
-            textY1 = textY0 + ann.get_size()
-            # Test whether the mouse is within the Annotation Text area
-            if (textX0 <= mouse_evt.x <= textX1) and \
-               (textY0 <= mouse_evt.y <= textY1):
-                pass
-            else:
-                return False, {}
-        return self.ref_artist.contains(mouse_evt)
-    else:
-        return False, {}
+        elif self.arrow_patch is not None:
+            contains, _ = self.arrow_patch.contains(event)
+            #if contains:
+                #print ('new_anot_contains() :', self, 'in arrow')
+        return contains, tinfo
 
-# For annotations, replace the default artist_picker method with a better one
-mpl.offsetbox.DraggableAnnotation.artist_picker = draggable_anot_picker
+    # For annotations, replace the default contains method with a faster one
+    mpl.text.Annotation.contains = new_anot_contains
 
 
 #-----------------------------------------------------------------------------------
@@ -270,9 +320,10 @@ def legend_finalize(self):
 
 mpl.legend.DraggableLegend.finalize_offset = legend_finalize
 
-#==========================================================================================
 
-
+#-----------------------------------------------------------------------------------
+# A finalize method for Annotation dragging which will save the new location.
+#-----------------------------------------------------------------------------------
 def new_da_finalize_offset(self):
     ann = self.annotation
     self.fx, self.fy = ann.get_transform().transform(ann.xyann)
@@ -285,8 +336,6 @@ def new_da_finalize_offset(self):
         #print(ann, 'Annotation unmoved')
 
 mpl.offsetbox.DraggableAnnotation.finalize_offset = new_da_finalize_offset
-
-#==========================================================================================
 
 
 if args.version:
