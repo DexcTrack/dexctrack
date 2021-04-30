@@ -7,12 +7,12 @@ All data read from your Receiver device is stored locally in a database file on 
 
 </br>
 
-![image](https://user-images.githubusercontent.com/39347592/82265687-35001f80-992d-11ea-97d4-85625f1935d5.png)
+![image](https://user-images.githubusercontent.com/39347592/116585291-dc2b5c00-a8dd-11eb-8429-72f26af2b536.png)
 
 ---
 This application supports use of both mg/dL and mmol/L units. It displays using to the units configured on your receiver.
 
-![image](https://user-images.githubusercontent.com/39347592/82266049-3716ae00-992e-11ea-8469-7dfddb3b7ac3.png)
+![image](https://user-images.githubusercontent.com/39347592/116585317-e3526a00-a8dd-11eb-9869-20a8d8b3a72e.png)
 
 ---
 
@@ -205,13 +205,14 @@ This program comes with ABSOLUTELY NO WARRANTY.
 get_screen_size width = 1920 , get_screen_size height = 1080 , dispRatio = 1.8 
 sys.platform = linux2
 backend = TkAgg
+matplotlib version = 3.1.1
 sqlite_file = /home/steve/dexc_PL75130020.sqlite
 rcParams[timezone] = America/Chicago
 Latest glucose at 2020-06-02 10:43:36-05:00 = 90
-2 hour prediction : at 2020-06-02 12:43:12-05:00 glucose = 154.0
 ```
 </br>
-A user reported that all of their time values were off by 8 hours. This may be due to a questionable change in newer firmware releases of the Receiver, or possibly different hardware based on target region. To work around this issue, the '-t' option can be used to set a time offset. The general format is +/-hours:min:sec, but the sign, the minutes and the seconds parts are optional.
+
+A user reported that all of their time values were off by 8 hours. This may be due to a change in newer firmware releases of the Receiver, or possibly different hardware based on target region. To work around this issue, the '-t' option can be used to set a **time offset**. The general format is +/-hours:min:sec, but the sign, the minutes and the seconds parts are optional.
 </br>
 
 ```
@@ -242,7 +243,7 @@ python dexctrack.py -t0
 will return to the default of no offset.
 </br>
 
-Setting this time offset only needs to be done once. The offset value will be stored into your database. The next time you launch, without a '-t' option, the previously specified offset will be used.
+Setting this **time offset** only needs to be done once. The offset value will be stored into your database. The next time you launch, without a '-t' option, the previously specified offset will be used.
 </br>
 
 Once the application is running, a graphical window will be opened. In the lower left corner, the status of the connection to the Receiver device will be displayed.
@@ -303,11 +304,27 @@ If you see such a condition, try disconnecting and reconnecting the USB cable. T
 
 ---
 
+On the far right side of the graph, there is a grey patch which projects from the current time to one hour in the future. The program uses recent data points to calculate polynomials which estimate the trend of future glucose values.
+
+![image](https://user-images.githubusercontent.com/39347592/116629430-da31bf00-a916-11eb-8be8-46aed4501a14.jpg)
+
+The red dashed line is a one-degree polynomial, also known as a linear equation. The green dashed line is a two-degree polynomial, also known as a quadratic equation. The two-degree polynomial is better at detecting the top or bottom of a parabola in values being mapped, but can swing wildly from one graph draw to the next. The one-degree polynomial is more stable, but is slower to respond to direction changes.
+
+---
+
 Sometimes the Receiver is off in its glucose estimates and you need to enter User Calibration values to nudge it into alignment. Calibrations show up as black diamonds in the graph. When the calibration value does not match the current estimated glucose, a pink arrow pointing to the User Calibration value shows the difference between the estimated glucose value and the entered calibration value. Below is an example of a scenario where the Receiver was estimating a glucose value of 88. A blood glucose test showed the actual value to be 107. A little while later, the Receiver estimated a value of 164. A blood glucose test revealed the actual value to be 138.
 
 ![image](https://user-images.githubusercontent.com/39347592/54171281-d34e4680-4447-11e9-96e9-e408319c1e87.png)
 
-If you have many large differences between the estimated and actual blood glucose values, you may be having problems with your current sensor.
+If you have many large differences between the estimated and actual blood glucose values, you may be having problems with your current Sensor.
+
+You can also use User Calibrations to add data points to your graph. During a 2 hour Sensor warm-up period, the Receiver does not store any automatically detected glucose values, but it will store calibration values. If you use draw a drop of blood from your finger and measure your glucose using a test strip, you can enter that value as a User Calibration on your Receiver device. This value will be displayed as a data point in your Dexctrack graph.
+
+![image](https://user-images.githubusercontent.com/39347592/116631897-82498700-a91b-11eb-8609-57802f4ad399.jpg)
+
+If don't have a new Sensor available yet, you can use your test strips and User Calibrations to track your data over many hours or days.
+
+![image](https://user-images.githubusercontent.com/39347592/116631905-85dd0e00-a91b-11eb-92f4-dc5401c4a0f6.jpg)
 
 ---
 
