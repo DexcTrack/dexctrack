@@ -318,7 +318,9 @@ Sometimes the Receiver is off in its glucose estimates and you need to enter Use
 
 If you have many large differences between the estimated and actual blood glucose values, you may be having problems with your current Sensor.
 
-You can also use User Calibrations to add data points to your graph. During a 2 hour Sensor warm-up period, the Receiver does not store any automatically detected glucose values, but it will store calibration values. If you use draw a drop of blood from your finger and measure your glucose using a test strip, you can enter that value as a User Calibration on your Receiver device. This value will be displayed as a data point in your Dexctrack graph.
+---
+
+You can also use User Calibrations to add data points to your graph. During a 2 hour Sensor warm-up period, the Receiver does not store any automatically detected glucose values, but it will store calibration values. If you  draw a drop of blood from your finger and measure your glucose using a test strip, you can enter that value as a User Calibration on your Receiver device. This value will be displayed as a data point in your Dexctrack graph.
 
 ![image](https://user-images.githubusercontent.com/39347592/116631897-82498700-a91b-11eb-8609-57802f4ad399.jpg)
 
@@ -401,6 +403,18 @@ When you disconnect your Receiver device from the computer, say to go exercise, 
 When you reconnect, this time will be switched from black to grey for a short while, before disappearing.
 
 ![image](https://user-images.githubusercontent.com/39347592/82259248-de8ce400-9920-11ea-9751-988d980d23d4.jpg)
+
+---
+
+For some graph resolutions, the Legend is not placed in an ideal location. It is draggable, so you can move it to a better position. Click on the Legend
+
+![image](https://user-images.githubusercontent.com/39347592/116638461-01df5200-a92c-11eb-8190-10b273312602.jpg)
+
+and drag it to a new spot before releasing the mouse button.
+
+![image](https://user-images.githubusercontent.com/39347592/116638469-04da4280-a92c-11eb-8b82-0f45d3bfca1e.jpg)
+
+The new location will be saved to your database, and will be restored the next time you launch the program.
 
 ---
 
