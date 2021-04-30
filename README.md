@@ -221,32 +221,27 @@ Latest glucose at 2020-06-02 10:43:36-05:00 = 90
 
 A user reported that all of their time values were off by 8 hours. This may be due to a change in newer firmware releases of the Receiver, or possibly different hardware based on target region. To work around this issue, the '-t' option can be used to set a **time offset**. The general format is +/-hours:min:sec, but the sign, the minutes and the seconds parts are optional.
 </br>
-
 ```
 python dexctrack.py -t+8
 ```
-</br>
 will add eight hours to all of the data read from the Receiver.
 </br>
 
 ```
 python dexctrack.py -t-8
 ```
-</br>
 will subtract eight hours from all of the data read from the Receiver.
 </br>
 
 ```
 python dexctrack.py -t-0:30
 ```
-</br>
 will subtract 30 minutes from all of the data read from the Receiver.
 </br>
 
 ```
 python dexctrack.py -t0
 ```
-</br>
 will return to the default of no offset.
 </br>
 
