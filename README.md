@@ -176,6 +176,13 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>>***pip3 install matplotlib pyserial tzlocal pytz numpy pympler***
 
+## Updating
+
+After your initial git clone operation, you can update to the latest release, at any time, by running the following command from within your dexctrack directory.
+
+>***git pull origin master***
+
+
 ## Running
 
 To launch the program, move into the dexctrack/ directory and invoke
