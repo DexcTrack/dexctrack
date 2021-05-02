@@ -2145,7 +2145,7 @@ def plotInit():
         tgtHighW = 0.030
         tgtHighH = 0.04
 
-        trendX = 0.965
+        trendX = 0.955
         trendY = 0.945
         battX = 0.946
         battY = 0.10
@@ -2174,7 +2174,7 @@ def plotInit():
             largeFontSize = 'large'
             mediumFontSize = 'medium'
             smallFontSize = 'small'
-            avgTextX = 0.760
+            avgTextX = 0.720
             avgTextY = 0.880
             legDefaultPosX = 0.093
             legDefaultPosY = 0.878
@@ -2222,7 +2222,6 @@ def plotInit():
     sScale.on_changed(updateScale)
 
     # year-month-day without prepended 0's. E.g. 2018-3-31
-    # Locale appropriate date representation. E.g. 03/31/18
     if sys.platform == "win32":
         majorFormatter = mpl.dates.DateFormatter('%Y-%#m-%#d\n%A')
         minorFormatter = mpl.dates.DateFormatter('%#H')
@@ -4017,7 +4016,10 @@ def plotGraph():
 
             # A range of (1, 3) will display 1 and 2 degree polynomials
             # Set range to (1, 5) to add 3 and, 4 degree polynomials
-            for coefCount in range(1, 3):
+            dash_offset = 0
+            fut_range_start = 1
+            fut_range_end = 3
+            for coefCount in range(fut_range_start, fut_range_end):
                 if futurePlot[coefCount-1]:
                     futurePlot[coefCount-1].pop(0).remove()
                     futurePlot[coefCount-1] = None
@@ -4030,7 +4032,10 @@ def plotGraph():
                 # calculate future data points (1 hour forward)
                 x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
                 y_new = predictFunc(x_new) * gluMult
-                futurePlot[coefCount-1] = ax.plot(x_new, y_new, '--', color=futureColor[coefCount-1], linewidth=2, zorder=3)
+                futurePlot[coefCount-1] = ax.plot(x_new, y_new, \
+                                                  linestyle=(dash_offset, (2, fut_range_end-fut_range_start)), \
+                                                  color=futureColor[coefCount-1], linewidth=2, zorder=3)
+                dash_offset += 2
                 if args.debug:
                     print('1 hour prediction : at', mdates.num2date(x_new[-1], tz=mytz), 'glucose = %g' % round((y_new[-1]), tgtDecDigits))
                     #xPlusTwo = np.array([recentDays[0], recentDays[-1] + float(2/24)])
