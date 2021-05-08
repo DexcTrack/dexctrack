@@ -4033,7 +4033,7 @@ def plotGraph():
                 x_new = np.linspace(recentDays[0], recentDays[-1] + 1.0/24, 20)
                 y_new = predictFunc(x_new) * gluMult
                 futurePlot[coefCount-1] = ax.plot(x_new, y_new, \
-                                                  linestyle=(dash_offset, (2, fut_range_end-fut_range_start)), \
+                                                  linestyle=(dash_offset, (2, fut_range_end-fut_range_start+1)), \
                                                   color=futureColor[coefCount-1], linewidth=2, zorder=3)
                 dash_offset += 2
                 if args.debug:
