@@ -4099,10 +4099,12 @@ def plotGraph():
         if desirableRange and red_patch and calibScatter and egvScatter and meanPlot:
             leg = fig.legend((egvScatter, calibScatter, red_patch, desirableRange, meanPlot[0]),
                              ("Glucose values", "User Calibrations", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
+                             edgecolor='black',
                              scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
         elif desirableRange and red_patch and egvScatter and meanPlot:
             leg = fig.legend((egvScatter, red_patch, desirableRange, meanPlot[0]),
                              ("Glucose values", "Sensor Uncalibrated", "Target Range", "Mean Glucose"),
+                             edgecolor='black',
                              scatterpoints=1, loc=(legPosX, legPosY), fontsize=smallFontSize)
         if leg:
             # set the legend as a draggable entity
