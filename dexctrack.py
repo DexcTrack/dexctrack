@@ -1554,7 +1554,7 @@ def writeNote(xoff=0.0, yoff=0.0):
             notePlotList.append(noteAnn)
             timeIndex = getNearPos(xnorm, mdates.num2date(noteAnn.xy[0], tz=mytz))
             noteTimeSet.add(xnorm[timeIndex])
-            #print('writeNote note : X =',noteAnn.xy[0],'Y =',noteAnn.xy[1],'datetime =',xnorm[timeIndex])
+            #print('writeNote Note @ %s \'%s\' X offset %f Y offset %f' % (xnorm[timeIndex].astimezone(mytz), noteText, xoffset, yoffset))
             saveAnnToDb(noteAnn)
             noteText = ''
             oldNoteText = ''
@@ -1590,12 +1590,14 @@ def onpick(event):
             # Check for a right button click. Some mouse devices only have 2 buttons, and some
             # have 3, so treat either one as a "right button".
             if (mouseevent.button == 2) or (mouseevent.button == 3):
-                #print('onpick(event) : tod =',tod,', xdata =',mouseevent.xdata,', gluc =',gluc)
-                noteLoc = (mouseevent.xdata, mouseevent.ydata)
+                # We need to truncate the microseconds of the mouseevent
+                # so that the code handling noteTimeSet will work properly.
+                xdata_trunc = mdates.date2num(mdates.num2date(mouseevent.xdata, tz=mytz).replace(microsecond=0))
+                noteLoc = (xdata_trunc, mouseevent.ydata)
                 matchNote = None
                 for note in noteAnnSet:
-                    #print('onpick(event) : X.dist =',mouseevent.xdata - note.xy[0],'Y.dist =',mouseevent.ydata - note.xy[1])
-                    xdist = abs(mouseevent.xdata - note.xy[0])
+                    #print('onpick(event) : X.dist =',xdata_trunc - note.xy[0],'Y.dist =',mouseevent.ydata - note.xy[1])
+                    xdist = abs(xdata_trunc - note.xy[0])
                     # test if we're within 2.5 minutes of this note
                     if xdist < 0.001735906:
                         #print('onpick(event) : xdist =',xdist, 'match =',note.xy[0],',',note.xy[1],'=',ReceiverTimeToUtcTime(note.xy[0]),'<--- Match')
@@ -3182,6 +3184,7 @@ def ShowOrHideEventsNotes():
     inScopePlotList = []
     outScopePlotList = []
     for note_Ann in notePlotList:
+        #print('Note @ %s \'%s\'' % (mdates.num2date(note_Ann.xy[0], mytz), note_Ann.get_text()))
         if mdates.num2date(note_Ann.xy[0], tz=mytz) >= minTod and mdates.num2date(note_Ann.xy[0], tz=mytz) <= maxTod:
             # note in scope
             inScopeNoteTimeSet.add(mdates.num2date(note_Ann.xy[0]))
@@ -3206,7 +3209,6 @@ def ShowOrHideEventsNotes():
     # add new notes which have fallen into scope
     notegen = (nt for nt in noteList if nt[0] not in noteTimeSet)
     for (estime, message, nxoffset, nyoffset) in notegen:
-        #tod, gluc = (mdates.num2date(mouseevent.xdata,tz=mytz), mouseevent.ydata)
         timeIndex = getNearPos(xnorm, estime)
 
         repositioned = False
