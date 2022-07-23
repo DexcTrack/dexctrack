@@ -139,7 +139,7 @@ def get_screen_size():
         width = screen_resolution.width()
         height = screen_resolution.height()
 
-    elif 'Qt5' in backend:
+    elif ('Qt5' in backend) or ('QtAgg' in backend):
         # Implementation by Harsh Kumar Narula at
         # https://stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python
         from PyQt5 import QtWidgets

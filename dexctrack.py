@@ -52,7 +52,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.6
+dexctrackVersion = 3.7
 
 if sys.version_info.major > 2:
     import faulthandler
@@ -600,7 +600,7 @@ sqlprefix = os.path.join(home_folder, 'dexc_')
 displayStartDate = datetime.datetime.now(mytz)
 
 # We want to display dates in the local timezone
-plt.rcParams['timezone'] = mytz
+plt.rcParams['timezone'] = str(mytz)
 
 
 plt.rcParams['axes.axisbelow'] = False
@@ -610,18 +610,17 @@ if args.xsize and args.ysize:
     xinches = float(args.xsize) / dotsPerInch
     yinches = float(args.ysize) / dotsPerInch
 else:
-    xinches = 14.5
-    yinches = 8.5
+    xinches = float(width) / dotsPerInch
+    yinches = float(height) / dotsPerInch
+
+# Start with a figure size corresponding to given screen dimensions
+# specified on the command line '-x <width> -y <height>' or using
+# the screen dimensions provided by the call to get_screen_size().
+fig = plt.figure("DexcTrack", figsize=(xinches, yinches))
+figManager = plt.get_current_fig_manager()
 
 #print('interactive backends =',mpl.rcsetup.interactive_bk)
 #print('non_interactive backends =',mpl.rcsetup.non_interactive_bk)
-
-# Start with a figure size corresponding to any given screen dimensions,
-# or the default for a 15 inch laptop.
-# Note that this will be overridden below, for most backends, by
-# instructions to maximize the window size on a monitor.
-fig = plt.figure("DexcTrack", figsize=(xinches, yinches))
-figManager = plt.get_current_fig_manager()
 
 backend = plt.get_backend()
 if args.debug:
@@ -635,15 +634,6 @@ else:
         if sys.platform == "win32":
             # On Windows, we can get max size, without the taskbar, by zooming
             figManager.window.state('zoomed')
-        else:
-            figManager.resize(*figManager.window.maxsize())
-    elif ('Qt' in backend) or ('QT' in backend):
-        figManager.window.showMaximized()
-    elif 'WX' in backend:
-        figManager.frame.Maximize(True)
-    elif 'GTK' in backend:
-        dotsperinch = fig.get_dpi()
-        fig.set_size_inches(width/float(dotsperinch), height/float(dotsperinch))
 
 #---------------------------------------------------------
 # The function below is a duplicate of the dexcom_reader util.py
@@ -1590,8 +1580,9 @@ def onpick(event):
             # Check for a right button click. Some mouse devices only have 2 buttons, and some
             # have 3, so treat either one as a "right button".
             if (mouseevent.button == 2) or (mouseevent.button == 3):
-                # We need to truncate the microseconds of the mouseevent
-                # so that the code handling noteTimeSet will work properly.
+                # We need to truncate the microseconds of the mouseevent because we store
+                # time in seconds granularity in the database, and we need the Note time to
+                # be precise for the code handling of noteTimeSet to work properly.
                 xdata_trunc = mdates.date2num(mdates.num2date(mouseevent.xdata, tz=mytz).replace(microsecond=0))
                 noteLoc = (xdata_trunc, mouseevent.ydata)
                 matchNote = None
@@ -2121,6 +2112,7 @@ def plotInit():
         mediumFontSize = 'medium'
         smallFontSize = 'small'
         avgTextX = 0.73
+        avgTextY = 0.89
         legDefaultPosX = 0.095
         avgFontSz = 'large'
         verX = 0.007
@@ -3084,10 +3076,10 @@ def ShowOrHideEventsNotes():
         if (exoffset == 0.0) and (eyoffset == 0.0):
             if multX > 0:
                 # Push the position to the left using an estimate of the string width
-                exoffset = multX * -50.0 - len(evtStr) * 11.8
+                exoffset = multX * -40.0 - len(evtStr) * 11.8
             else:
-                exoffset = multX * -50.0
-            eyoffset = multY * (50.0+longTextBump)
+                exoffset = multX * -40.0
+            eyoffset = multY * (40.0+longTextBump)
 
         #################################################################################
         #   There's a bug in handling draggable annotations in matplotlib which causes
@@ -3837,6 +3829,7 @@ def plotGraph():
                                         annotation_clip=False)
 
             xcenter = startRangeNum + (endRangeNum - startRangeNum)/2
+
             inRangeDelta = specRange[1] - specRange[0]
             inRangeHours = inRangeDelta.days * 24 + inRangeDelta.seconds // 3600
             inRangeArrow3 = ax.annotate('%u hours in Target Range!' % inRangeHours,

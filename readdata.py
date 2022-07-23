@@ -280,7 +280,8 @@ class Dexcom(object):
         except serial.SerialException as e:
             if sys.version_info < (3, 0):
                 sys.exc_clear()
-            print ('Connect() : Exception =', e)
+            if self._debug_mode:
+                print ('Connect() : Exception =', e)
             if sys.platform == "linux" or sys.platform == "linux2" or sys.platform == "darwin":
                 stat_info = os.stat(self._port_name)
                 port_gid = stat_info.st_gid
