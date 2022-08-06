@@ -113,8 +113,10 @@ def get_screen_size():
         # https://stackoverflow.com/questions/1281397/how-to-get-the-desktop-resolution-in-mac-via-python
         import AppKit
         curScreen = AppKit.NSScreen.mainScreen().frame()
-        width = curScreen.size.width
-        height = curScreen.size.height
+        visFrame = AppKit.NSScreen.mainScreen().visibleFrame()
+        width = visFrame.size.width
+        # Reduce height for the Menu and the app title bar
+        height = visFrame.size.height - (curScreen.size.height - visFrame.size.height)
 
     elif 'WX' in backend:
         if sys.platform == "win32":

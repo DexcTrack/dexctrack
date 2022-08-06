@@ -1943,8 +1943,14 @@ def plotInit():
     axcolor = 'lightsteelblue'
 
     #                [Left, Bottom, Width, Height]
-    axPos = plt.axes([0.20, 0.05, 0.69, 0.03], facecolor=axcolor)
-    sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
+    axPos = plt.axes([0.20, 0.05, 0.69, 0.045], facecolor=axcolor)
+    if mpl_vt >= versiontuple('3.5.0'):
+        # In matplotlib version 3.5.0, handles were added to Slider,
+        # by default. Setting the size to 0 will prevent them from being drawn.
+        sliderHandleStyle = dict([('facecolor','white'), ('edgecolor','.75'), ('size',0)])
+        sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue', handle_style=sliderHandleStyle)
+    else:
+        sPos = Slider(axPos, 'Start Date', 0.0, position, 100.0, color='deepskyblue')
     # We don't want to display the numerical value, since we're going to
     # draw a text value of the percentage in the middle of the slider.
     sPos.valtext.set_visible(False)
@@ -2023,8 +2029,12 @@ def plotInit():
     if offsetSeconds != cfgOffsetSeconds:
         saveConfigToDb()
 
-    axScale = plt.axes([0.20, 0.01, 0.69, 0.03], facecolor=axcolor)
-    sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen')
+    axScale = plt.axes([0.20, 0.01, 0.69, 0.045], facecolor=axcolor)
+    if mpl_vt >= versiontuple('3.5.0'):
+        # In matplotlib version 3.5.0, handles were added to Slider
+        sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen', handle_style=sliderHandleStyle)
+    else:
+        sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen')
     # We don't want to display the numerical value, since we're going to
     # describe the period of time with a string in the middle of the slider.
     sScale.valtext.set_visible(False)
@@ -3385,9 +3395,9 @@ def plotGraph():
         displayRange = int(displayRangeMin + (cfgScale / 100.0) * (displayRangeMax - displayRangeMin))
 
         dispDate = displayStartDate.strftime("%Y-%m-%d")
-        posText = axPos.text(0.50, 0.10, dispDate, horizontalalignment='center',
+        posText = axPos.text(0.50, 0.25, dispDate, horizontalalignment='center',
                              verticalalignment='bottom', weight='bold', transform=axPos.transAxes)
-        scaleText = axScale.text(0.50, 0.10, SecondsToGeneralTimeString(displayRange),
+        scaleText = axScale.text(0.50, 0.25, SecondsToGeneralTimeString(displayRange),
                                  horizontalalignment='center', verticalalignment='bottom',
                                  weight='bold', transform=axScale.transAxes)
 
