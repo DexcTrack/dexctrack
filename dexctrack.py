@@ -2319,94 +2319,106 @@ def calcStats():
         displayEndSecs = lastTestSysSecs + futureSecs
 
     if sqlite_file:
-        conn = sqlite3.connect(sqlite_file)
-        curs = conn.cursor()
+        try:
+            conn = sqlite3.connect(sqlite_file)
+            curs = conn.cursor()
 
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Find HbA1c. This is based on the average of glucose values over a 3 month period
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
-        ninetyDaysBack = int(displayEndSecs - 60*60*24*30*3)
-        #print('ninetyDaysBack =',ninetyDaysBack)
-        curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
-        sqlData = curs.fetchone()
-        if sqlData[0] is None:
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Find HbA1c. This is based on the average of glucose values over a 3 month period
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            selectSql = 'SELECT AVG(glucose) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+            ninetyDaysBack = int(displayEndSecs - 60*60*24*30*3)
+            #print('ninetyDaysBack =',ninetyDaysBack)
+            curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                avgGlu = 0.0
+                hba1c = 0.0
+            else:
+                avgGlu = sqlData[0]
+                hba1c = (sqlData[0] + 46.7) / 28.7
+                #if args.debug:
+                    #print('Average glucose =', avgGlu,', HbA1c =',hba1c)
+
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Find percentages of readings in High, Middle, and Low ranges over a 3 month period
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > 12 AND glucose < ? AND sysSeconds >= ? AND sysSeconds <= ?'
+            curs.execute(selectSql, (displayLow, ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                lowCount = 0
+            else:
+                lowCount = sqlData[0]
+
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose >= ? AND glucose <= ? AND sysSeconds >= ? AND sysSeconds <= ?'
+            curs.execute(selectSql, (displayLow, displayHigh, ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                midCount = 0
+            else:
+                midCount = sqlData[0]
+
+            selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > ? AND sysSeconds >= ? AND sysSeconds <= ?'
+            curs.execute(selectSql, (displayHigh, ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchone()
+            if sqlData[0] is None:
+                highCount = 0
+            else:
+                highCount = sqlData[0]
+
+            lmhTotal = lowCount + midCount + highCount
+            if lmhTotal > 0:
+                highPercent = 100.0 * highCount / lmhTotal
+                midPercent = 100.0 * midCount / lmhTotal
+                lowPercent = 100.0 * lowCount / lmhTotal
+            else:
+                highPercent = 0.0
+                midPercent = 0.0
+                lowPercent = 0.0
+            #if args.debug:
+                #print('highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent)
+
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # Calculate the SampleVariance over a 3 month period
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+            curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
+            sqlData = curs.fetchall()
+            egvCount = len(sqlData)
+
+            if egvCount > 1:
+                selectSql = 'SELECT TOTAL((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
+                curs.execute(selectSql, (avgGlu, avgGlu, ninetyDaysBack, displayEndSecs))
+                sqlData = curs.fetchone()
+                if sqlData[0] is None:
+                    egvSampleVariance = 0.0
+                else:
+                    # For a Sample Variance, divide by N - 1
+                    egvSampleVariance = sqlData[0] / (egvCount - 1)
+            else:
+                egvSampleVariance = 0.0
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            # The Standard Deviation is the square root of the SampleVariance
+            #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            egvStdDev = math.sqrt(egvSampleVariance)
+            #if args.debug:
+                #print('egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev)
+
+            del sqlData
+            curs.close()
+            conn.close()
+
+        except sqlite3.Error as e:
+            print('calcStats() : sql exception =', e)
+            curs.close()
+            conn.close()
             avgGlu = 0.0
             hba1c = 0.0
-        else:
-            avgGlu = sqlData[0]
-            hba1c = (sqlData[0] + 46.7) / 28.7
-            #if args.debug:
-                #print('Average glucose =', avgGlu,', HbA1c =',hba1c)
-
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Find percentages of readings in High, Middle, and Low ranges over a 3 month period
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > 12 AND glucose < ? AND sysSeconds >= ? AND sysSeconds <= ?'
-        curs.execute(selectSql, (displayLow, ninetyDaysBack, displayEndSecs))
-        sqlData = curs.fetchone()
-        if sqlData[0] is None:
-            lowCount = 0
-        else:
-            lowCount = sqlData[0]
-
-        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose >= ? AND glucose <= ? AND sysSeconds >= ? AND sysSeconds <= ?'
-        curs.execute(selectSql, (displayLow, displayHigh, ninetyDaysBack, displayEndSecs))
-        sqlData = curs.fetchone()
-        if sqlData[0] is None:
-            midCount = 0
-        else:
-            midCount = sqlData[0]
-
-        selectSql = 'SELECT COUNT (*) FROM EgvRecord WHERE glucose > ? AND sysSeconds >= ? AND sysSeconds <= ?'
-        curs.execute(selectSql, (displayHigh, ninetyDaysBack, displayEndSecs))
-        sqlData = curs.fetchone()
-        if sqlData[0] is None:
-            highCount = 0
-        else:
-            highCount = sqlData[0]
-
-        lmhTotal = lowCount + midCount + highCount
-        if lmhTotal > 0:
-            highPercent = 100.0 * highCount / lmhTotal
-            midPercent = 100.0 * midCount / lmhTotal
-            lowPercent = 100.0 * lowCount / lmhTotal
-        else:
+            egvStdDev = 0.0
             highPercent = 0.0
             midPercent = 0.0
             lowPercent = 0.0
-        #if args.debug:
-            #print('highPercent =', highPercent, ', midPercent =', midPercent, ', lowPercent =', lowPercent)
-
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # Calculate the SampleVariance over a 3 month period
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        selectSql = 'SELECT glucose FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
-        curs.execute(selectSql, (ninetyDaysBack, displayEndSecs))
-        sqlData = curs.fetchall()
-        egvCount = len(sqlData)
-
-        if egvCount > 1:
-            selectSql = 'SELECT TOTAL((glucose - ?) * (glucose - ?)) FROM EgvRecord WHERE glucose > 12 AND sysSeconds >= ? AND sysSeconds <= ?'
-            curs.execute(selectSql, (avgGlu, avgGlu, ninetyDaysBack, displayEndSecs))
-            sqlData = curs.fetchone()
-            if sqlData[0] is None:
-                egvSampleVariance = 0.0
-            else:
-                # For a Sample Variance, divide by N - 1
-                egvSampleVariance = sqlData[0] / (egvCount - 1)
-        else:
-            egvSampleVariance = 0.0
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        # The Standard Deviation is the square root of the SampleVariance
-        #++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        egvStdDev = math.sqrt(egvSampleVariance)
-        #if args.debug:
-            #print('egvCount =',egvCount,', egvSampleVariance =',egvSampleVariance,', egvStdDev =',egvStdDev)
-
-        del sqlData
-        curs.close()
-        conn.close()
 
         if avgText:
             if dispGluUnits == 'mmol/L':
