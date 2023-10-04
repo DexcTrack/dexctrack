@@ -52,7 +52,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.7
+dexctrackVersion = 3.8
 
 if sys.version_info.major > 2:
     import faulthandler
@@ -2798,6 +2798,7 @@ def saveAnnToDb(ann):
     conn = sqlite3.connect(sqlite_file)
     try:
         curs = conn.cursor()
+        curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
         if ann.get_color() == 'black':
             # We may have modified offsets, or modified message, or a completely new UserNote
             #print('SELECT sysSeconds,message,xoffset,yoffset FROM UserNote WHERE sysSeconds=%u AND message=\'%s\';' % (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, ann.get_text()))
@@ -2811,7 +2812,6 @@ def saveAnnToDb(ann):
                 sqlData = curs.fetchone()
                 if sqlData is None:
                     # A completely new UserNote
-                    curs.execute('CREATE TABLE IF NOT EXISTS UserNote( sysSeconds INT PRIMARY KEY, message TEXT, xoffset REAL, yoffset REAL);')
                     insert_note_sql = '''INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (?, ?, ?, ?);'''
                     #print('INSERT OR IGNORE INTO UserNote( sysSeconds, message, xoffset, yoffset) VALUES (%u,%s,%f,%f);' %(UtcTimeToReceiverTime(mdates.num2date(ann.xy[0],tz=mytz)) - offsetSeconds,'%s'%ann.get_text(),ann.xyann[0],ann.xyann[1]))
                     curs.execute(insert_note_sql, (UtcTimeToReceiverTime(mdates.num2date(ann.xy[0], tz=mytz)) - offsetSeconds, '%s'%ann.get_text(), ann.xyann[0], ann.xyann[1]))
