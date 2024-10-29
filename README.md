@@ -1,6 +1,5 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This runs using P
-ython, on Linux, MacOS, or Windows. It has been tested with G5 and G6 receivers on Linux, MacOS High Sierra, and Windows 10.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This runs using Python on Linux, MacOS, or Windows. It has been tested with G5 and G6 receivers on Linux, MacOS High Sierra, and Windows 10.
 
 </br>
 
@@ -28,7 +27,7 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 - Linux
 
->1. Install 'python' and 'pip'
+>1. Install 'python3' and 'pip3'
 
 >>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
@@ -53,28 +52,28 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'. There are two options.
+>4. Install required python libraries, using 'pip3'. There are two options.
 
 >>>a) Use a Virtual Environment
 
->>>>***pip install virtualenv***
+>>>>***sudo apt install python3-venv***
 
 </br>
 
 ```
 $ cd dexctrack/
-$ python -m venv env
+$ python3 -m venv env
 $ source env/bin/activate
-(env) $ pip install --upgrade setuptools
-(env) $ pip install matplotlib pyserial pytz tzlocal numpy pympler
+(env) $ pip3 install --upgrade setuptools
+(env) $ pip3 install matplotlib pyserial pytz tzlocal numpy pympler
 ```
 If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
 
 
 >>>b) Install required libraries globally
->>>>***sudo pip install --upgrade setuptools***
+>>>>***sudo pip3 install --upgrade setuptools***
 
->>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler***
+>>>>***sudo pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
 
 >5. Set up permissions to provide the user serial port access to a connected USB device. Implement one of the following options to accomplish this.
 
@@ -100,13 +99,13 @@ If you use this option, you'll need to remember to activate the virtual environm
 
 - MacOs
 
->1. Install 'python' and 'pip'
+>1. Install 'python3' and 'pip3'
 
->Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Install the latest 2.7.* or 3.* release under
+>Mac OSX High Sierra includes python version 2.7.10 as a standard part of the OS, but that version is quite old, and is missing the ***fivethirtyeight*** style which will provide the best looking graphs. Install the latest 3.* release under
 
 >>>https://www.python.org/downloads/mac-osx/
 
-The ***macOS 64-bit installer*** will update your PATH to include the newly installed versions of 'python' and 'pip', by adding a few lines to your ~/.bash_profile file.
+The ***macOS 64-bit installer*** will update your PATH to include the newly installed versions of 'python3' and 'pip3', by adding a few lines to your ~/.bash_profile file.
 
 >2. Install 'git'
 
@@ -118,28 +117,28 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'. There are two options.
+>4. Install required python libraries, using 'pip3'. There are two options.
 
 >>>a) Use a Virtual Environment
 
->>>>***pip install virtualenv***
+>>>>***pip3 install virtualenv***
 
 </br>
 
 ```
 $ cd dexctrack/
-$ python -m venv env
+$ python3 -m venv env
 $ source env/bin/activate
-(env) $ pip install --upgrade setuptools
-(env) $ pip install matplotlib pyserial tzlocal pytz numpy pympler pyobjc
+(env) $ pip3 install --upgrade setuptools
+(env) $ pip3 install matplotlib pyserial tzlocal pytz numpy pympler pyobjc
 ```
 If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
 
 >>>b) Install required libraries globally
 
->>>>***pip install --upgrade setuptools***
+>>>>***pip3 install --upgrade setuptools***
 
->>>>***pip install matplotlib pyserial tzlocal pytz numpy pympler pyobjc***
+>>>>***pip3 install matplotlib pyserial tzlocal pytz numpy pympler pyobjc***
 
 </br>
 </br>
@@ -204,16 +203,16 @@ After your initial git clone operation, you can update to the latest release, at
 
 To launch the program, move into the dexctrack/ directory and invoke
 
->>>***python dexctrack.py***
+>>>***python3 dexctrack.py***
 
 You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out to the terminal, which can help track down issues. For example ...
 
->>>***python dexctrack.py -d***
+>>>***python3 dexctrack.py -d***
 
 </br>
 
 ```
-> python dexctrack.py -d
+> python3 dexctrack.py -d
 
 DexcTrack  Copyright (C) 2018  Steve Erlenborn
 This program comes with ABSOLUTELY NO WARRANTY.
@@ -231,25 +230,25 @@ Latest glucose at 2020-06-02 10:43:36-05:00 = 90
 A user reported that all of their time values were off by 8 hours. This may be due to a change in newer firmware releases of the Receiver, or possibly different hardware based on target region. To work around this issue, the '-t' option can be used to set a **time offset**. The general format is +/-hours:min:sec, but the sign, the minutes and the seconds parts are optional.
 </br>
 ```
-python dexctrack.py -t+8
+python3 dexctrack.py -t+8
 ```
 will add eight hours to all of the data read from the Receiver.
 </br>
 
 ```
-python dexctrack.py -t-8
+python3 dexctrack.py -t-8
 ```
 will subtract eight hours from all of the data read from the Receiver.
 </br>
 
 ```
-python dexctrack.py -t-0:30
+python3 dexctrack.py -t-0:30
 ```
 will subtract 30 minutes from all of the data read from the Receiver.
 </br>
 
 ```
-python dexctrack.py -t0
+python3 dexctrack.py -t0
 ```
 will return to the default of no offset.
 </br>
