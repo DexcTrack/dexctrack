@@ -65,7 +65,7 @@ def get_screen_size():
         curmon = screen.get_monitor_at_window(screen.get_active_window())
         dx, dy, width, height = screen.get_monitor_geometry(curmon)  # get geometry of current monitor
 
-    elif 'Tk' in backend:
+    elif 'Tk' in backend or 'tk' in backend:
         # We can find the fullscreen size using just Tkinter, but there is an ugly
         # side-effect. To get the size of a full screen, we need to draw a window,
         # expand it to fullscreen, retrieve the size of that window, and then remove
@@ -158,4 +158,4 @@ def get_screen_size():
 
 if __name__ == "__main__":
     w, h = get_screen_size()
-    print ('Screen size =', (w, h))
+    print ('Backend = %s, Screen size = (%d, %d)' % (plt.get_backend(), w, h))

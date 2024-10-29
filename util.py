@@ -60,7 +60,7 @@ def thisIsWine():
             registry = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
             if registry is not None:
                 try:
-                    winekey = OpenKey(registry, 'Software\Wine')
+                    winekey = OpenKey(registry, 'Software\\Wine')
                     if winekey is not None:
                         return True
                     else:
