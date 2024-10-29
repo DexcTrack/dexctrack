@@ -71,7 +71,7 @@ $ source env/bin/activate
 If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
 
 
->>>b) Install required libraries Globally
+>>>b) Install required libraries globally
 >>>>***sudo pip install --upgrade setuptools***
 
 >>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler***
@@ -135,7 +135,7 @@ $ source env/bin/activate
 ```
 If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
 
->>>b) Install required libraries Globally
+>>>b) Install required libraries globally
 
 >>>>***pip install --upgrade setuptools***
 
@@ -169,11 +169,29 @@ If you use this option, you'll need to remember to activate the virtual environm
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'
+>4. Install required python libraries, using 'pip'. There are two options.
 
->>>***pip install --upgrade setuptools***
+>>>a) Use a Virtual Environment
 
->>>***pip install matplotlib pyserial tzlocal pytz numpy pympler***
+>>>>***pip install virtualenv***
+
+</br>
+
+```
+$ cd dexctrack
+$ python -m venv env
+$ env\bin\activate.bat
+(env) $ pip install --upgrade setuptools
+(env) $ pip install matplotlib pyserial tzlocal pytz numpy pympler
+```
+If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
+
+
+>>>b) Install required libraries globally
+
+>>>>***pip install --upgrade setuptools***
+
+>>>>***pip install matplotlib pyserial tzlocal pytz numpy pympler***
 
 ## Updating
 
