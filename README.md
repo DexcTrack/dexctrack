@@ -1,5 +1,6 @@
 # dexctrack
-A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This runs using python version 2.7.\* or 3.*, on Linux, OSX, or Windows. It has been tested with G5 and G6 receivers on Linux, Mac OSX High Sierra, and Windows 10.
+A program to graphically display information from Dexcom Continuous Glucose Monitor receivers. This runs using P
+ython, on Linux, MacOS, or Windows. It has been tested with G5 and G6 receivers on Linux, MacOS High Sierra, and Windows 10.
 
 </br>
 
@@ -18,9 +19,9 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 ## Installing
 
->Install the latest 2.7.* or 3.* version of 'python' for whatever operating system you are running on your computer. For MacOS or Windows, www.python.org/downloads has installation packages with built executables. For Linux, they only provide source code, so you are generally better off using your Linux package manager to install the latest built version.
+>Install the latest version of 'python' for whatever operating system you are running on your computer. For MacOS or Windows, www.python.org/downloads has installation packages with built executables. For Linux, they only provide source code, so you are generally better off using your Linux package manager to install the latest built version.
 
->Also install 'pip' (for python 2.7.*) or 'pip3' (for python 3.*), a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you use a Linux package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python' or 'python3', you may need to specify an additional package to get 'pip' or 'pip3' installed.
+>Also install 'pip', a tool for installing and managing Python packages. This is included in the installation packages from www.python.org, but if you use a Linux package manager such as 'apt', 'synaptic', 'rpm', or 'dnf' to install 'python', you may need to specify an additional package to get 'pip' installed.
 
 </br>
 </br>
@@ -31,24 +32,12 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>On apt-based Linux systems (e.g. Mint, Ubuntu, or Debian):
 
->>>> For python2.7.*
-
->>>>>***sudo apt-get install python python-pip python-tk libpython2.7-dev***
-
->>>>For python3.*
-
->>>>>***sudo apt-get install python3 python3-pip python3-tk***
+>>>>***sudo apt-get install python3 python3-pip python3-tk***
 
 
 >>>On rpm-based Linux systems (e.g. Fedora or Red Hat):
 
->>>> For python2.7.*
-
->>>>>***sudo dnf install python2 python2-devel python-tkinter***
-
->>>>For python3.*
-
->>>>>***sudo dnf install python3 python3-pip python3-tkinter***
+>>>>***sudo dnf install python3 python3-pip python3-tkinter***
 
 >2. Install 'git'
 
@@ -64,19 +53,28 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'
+>4. Install required python libraries, using 'pip'. There are two options.
 
->>> For python2.7.*
+>>>a) Use a Virtual Environment
 
+>>>>***pip install virtualenv***
+
+</br>
+
+```
+$ cd dexctrack/
+$ python -m venv env
+$ source env/bin/activate
+(env) $ pip install --upgrade setuptools
+(env) $ pip install matplotlib pyserial pytz tzlocal numpy pympler
+```
+If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
+
+
+>>>b) Install required libraries Globally
 >>>>***sudo pip install --upgrade setuptools***
 
 >>>>***sudo pip install matplotlib pyserial pytz tzlocal numpy pympler***
-
->>> For python3.*
-
->>>>***sudo pip3 install --upgrade setuptools***
-
->>>>***sudo pip3 install matplotlib pyserial pytz tzlocal numpy pympler***
 
 >5. Set up permissions to provide the user serial port access to a connected USB device. Implement one of the following options to accomplish this.
 
@@ -108,7 +106,7 @@ This application supports use of both mg/dL and mmol/L units. It displays using 
 
 >>>https://www.python.org/downloads/mac-osx/
 
-The ***macOS 64-bit installer*** will update your PATH to include the newly installed versions of 'python' and 'pip', or 'python3' and 'pip3', by adding a few lines to your ~/.bash_profile file.
+The ***macOS 64-bit installer*** will update your PATH to include the newly installed versions of 'python' and 'pip', by adding a few lines to your ~/.bash_profile file.
 
 >2. Install 'git'
 
@@ -120,19 +118,28 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>***git clone https://github.com/DexcTrack/dexctrack.git***
 
->4. Install required python libraries, using 'pip'
+>4. Install required python libraries, using 'pip'. There are two options.
 
->>> For python2.7.*
+>>>a) Use a Virtual Environment
+
+>>>>***pip install virtualenv***
+
+</br>
+
+```
+$ cd dexctrack/
+$ python -m venv env
+$ source env/bin/activate
+(env) $ pip install --upgrade setuptools
+(env) $ pip install matplotlib pyserial tzlocal pytz numpy pympler pyobjc
+```
+If you use this option, you'll need to remember to activate the virtual environment prior to launching dexctrack.py.
+
+>>>b) Install required libraries Globally
 
 >>>>***pip install --upgrade setuptools***
 
 >>>>***pip install matplotlib pyserial tzlocal pytz numpy pympler pyobjc***
-
->>> For python3.*
-
->>>>***pip3 install --upgrade setuptools***
-
->>>>***pip3 install matplotlib pyserial tzlocal pytz numpy pympler pyobjc***
 
 </br>
 </br>
@@ -143,10 +150,10 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >>>https://www.python.org/downloads/windows/
 
->>Update your ***Path*** environmental variable to include paths to the 'python' and 'pip' executables. Menu->Settings and then search for "Edit environment variables for your account". This will open an "Environment Variables" window. Click on the "Path" variable, and then the Edit button. For example, if you've installed into the directory C:\Python27, then add
+>>Update your ***Path*** environmental variable to include paths to the 'python' and 'pip' executables. Menu->Settings and then search for "Edit environment variables for your account". This will open an "Environment Variables" window. Click on the "Path" variable, and then the Edit button. For example, if you've installed into the directory C:\Python, then add
 
->>>>C:\Python27
->>>>C:\Python27\Scripts
+>>>>C:\Python
+>>>>C:\Python\Scripts
 
 >>to the ***Path*** variable.
 
@@ -164,17 +171,9 @@ The ***macOS 64-bit installer*** will update your PATH to include the newly inst
 
 >4. Install required python libraries, using 'pip'
 
->>> For python2.7.*
+>>>***pip install --upgrade setuptools***
 
->>>>***pip install --upgrade setuptools***
-
->>>>***pip install matplotlib pyserial tzlocal pytz numpy pympler***
-
->>> For python3.*
-
->>>>***pip3 install --upgrade setuptools***
-
->>>>***pip3 install matplotlib pyserial tzlocal pytz numpy pympler***
+>>>***pip install matplotlib pyserial tzlocal pytz numpy pympler***
 
 ## Updating
 
@@ -189,22 +188,14 @@ To launch the program, move into the dexctrack/ directory and invoke
 
 >>>***python dexctrack.py***
 
-or
-
->>>***python3 dexctrack.py***
-
 You can add a '-d' option on the end to run in Debug mode. This causes messages to be printed out to the terminal, which can help track down issues. For example ...
 
 >>>***python dexctrack.py -d***
 
-or
-
->>>***python3 dexctrack.py -d***
-
 </br>
 
 ```
-> python3 dexctrack.py -d
+> python dexctrack.py -d
 
 DexcTrack  Copyright (C) 2018  Steve Erlenborn
 This program comes with ABSOLUTELY NO WARRANTY.
