@@ -52,7 +52,7 @@ import constants
 import screensize
 
 
-dexctrackVersion = 3.8
+dexctrackVersion = 3.9
 
 if sys.version_info.major > 2:
     import faulthandler
@@ -1054,7 +1054,7 @@ class deviceSeekThread(threading.Thread):
 
             if disconTimerEnabled is True:
                 if disconUtcTime != datetime.datetime.min:
-                    disconDelta = datetime.datetime.utcnow() - disconUtcTime
+                    disconDelta = datetime.datetime.now(datetime.timezone.utc) - disconUtcTime
                     disconMinutes = disconDelta.total_seconds() // 60
                     if disconMinutes > 0:
                         # Show how long the Receiver has been disconnected
@@ -1076,7 +1076,7 @@ class deviceSeekThread(threading.Thread):
                 #if args.debug:
                     #print('Connected state :', prior_connected_state,' -> ',self.connected_state)
                 if not sNum:
-                    disconUtcTime = datetime.datetime.utcnow()
+                    disconUtcTime = datetime.datetime.now(datetime.timezone.utc)
                     if rthread is not None:
                         # stop trying to read the missing device
                         rthread.stop()
@@ -1680,6 +1680,9 @@ def onclose(event):
         rthread.join()
         rthread = None
 
+    if args.debug:
+        print('PeriodicReadData thread finished')
+
     # Shutdown PerodicDeviceSeek thread
     if sthread is not None:
         sthread.stop()
@@ -1687,6 +1690,9 @@ def onclose(event):
             print('Waiting on sthread.join()')
         sthread.join()
         sthread = None
+
+    if args.debug:
+        print('PerodicDeviceSeek thread finished')
 
     if receiverInstance:
         receiverInstance.Disconnect()
@@ -1944,7 +1950,11 @@ def plotInit():
 
     #                [Left, Bottom, Width, Height]
     axPos = plt.axes([0.20, 0.05, 0.69, 0.045], facecolor=axcolor)
-    if mpl_vt >= versiontuple('3.5.0'):
+    if mpl_vt >= versiontuple('3.7.0'):
+        # In matplotlib version 3.7.0, one required argument was removed.
+        sliderHandleStyle = dict([('facecolor','white'), ('edgecolor','.75'), ('size',0)])
+        sPos = Slider(axPos, 'Start Date', 0.0, 100.0, valinit=position, color='deepskyblue', handle_style=sliderHandleStyle)
+    elif mpl_vt >= versiontuple('3.5.0'):
         # In matplotlib version 3.5.0, handles were added to Slider,
         # by default. Setting the size to 0 will prevent them from being drawn.
         sliderHandleStyle = dict([('facecolor','white'), ('edgecolor','.75'), ('size',0)])
@@ -2030,7 +2040,10 @@ def plotInit():
         saveConfigToDb()
 
     axScale = plt.axes([0.20, 0.01, 0.69, 0.045], facecolor=axcolor)
-    if mpl_vt >= versiontuple('3.5.0'):
+    if mpl_vt >= versiontuple('3.7.0'):
+        # In matplotlib version 3.7.0, one required argument was removed.
+        sScale = Slider(axScale, 'Scale', 0.0, 100.0, valinit=cfgScale, color='limegreen', handle_style=sliderHandleStyle)
+    elif mpl_vt >= versiontuple('3.5.0'):
         # In matplotlib version 3.5.0, handles were added to Slider
         sScale = Slider(axScale, 'Scale', 0.0, 100.0, cfgScale, color='limegreen', handle_style=sliderHandleStyle)
     else:
@@ -4066,11 +4079,17 @@ def plotGraph():
             endFutureRangeNum = mdates.date2num(ReceiverTimeToUtcTime(lastTestSysSecs + futureSecs).astimezone(mytz))
             if future_patch:
                 # Update the existing patch
-                future_patch.set_xy([[startFutureRangeNum, 0.0], \
-                                     [startFutureRangeNum, 1.0], \
-                                     [endFutureRangeNum,   1.0], \
-                                     [endFutureRangeNum,   0.0], \
-                                     [startFutureRangeNum, 0.0]])
+                if mpl_vt >= versiontuple('3.9.0'):
+                    # In matplotlib version 3.9.0, axvspan returns a rectangle
+                    future_patch.set_xy((startFutureRangeNum, 0.0))
+                    future_patch.set_width(endFutureRangeNum - startFutureRangeNum)
+                else:
+                    # In older matplotlib releases, axvspan returns a polygon
+                    future_patch.set_xy([[startFutureRangeNum, 0.0], \
+                                         [startFutureRangeNum, 1.0], \
+                                         [endFutureRangeNum,   1.0], \
+                                         [endFutureRangeNum,   0.0], \
+                                         [startFutureRangeNum, 0.0]])
             else:
                 # Create a patch
                 future_patch = ax.axvspan(startFutureRangeNum,
